@@ -1,0 +1,27 @@
+# Secrets locaux
+.env
+
+# Maven
+backend/target/
+!backend/.mvn/wrapper/maven-wrapper.jar
+
+# Angular / Node (phase 2)
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Fichiers uploadés (phase 3)
+uploads/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
