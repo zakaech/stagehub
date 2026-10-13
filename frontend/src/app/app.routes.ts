@@ -77,6 +77,23 @@ export const routes: Routes = [
           },
         ],
       },
+      {
+        path: 'admin',
+        canActivate: [roleGuard],
+        data: { roles: ['ADMIN'] },
+        children: [
+          {
+            path: 'entreprises',
+            title: 'Entreprises — StageHub',
+            loadComponent: () => import('./features/admin/entreprises-page').then((m) => m.EntreprisesPage),
+          },
+          {
+            path: 'statistiques',
+            title: 'Statistiques — StageHub',
+            loadComponent: () => import('./features/admin/statistiques-page').then((m) => m.StatistiquesPage),
+          },
+        ],
+      },
       { path: '**', title: 'Page introuvable — StageHub', component: PageIntrouvable },
     ],
   },

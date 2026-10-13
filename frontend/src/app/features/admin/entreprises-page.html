@@ -1,0 +1,79 @@
+<header class="entete-page">
+  <h1>Entreprises</h1>
+  <mat-button-toggle-group
+    [value]="filtre()"
+    (change)="changerFiltre($event)"
+    aria-label="Filtrer par statut de validation"
+    hideSingleSelectionIndicator
+  >
+    <mat-button-toggle value="EN_ATTENTE">En attente</mat-button-toggle>
+    <mat-button-toggle value="VALIDEE">Validées</mat-button-toggle>
+    <mat-button-toggle value="REFUSEE">Refusées</mat-button-toggle>
+    <mat-button-toggle [value]="null">Toutes</mat-button-toggle>
+  </mat-button-toggle-group>
+</header>
+
+@if (entreprises.isLoading()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (entreprises.hasValue()) {
+  @let page = entreprises.value();
+  @if (page.totalElements === 0) {
+    <section class="etat-vide">
+      <mat-icon>task_alt</mat-icon>
+      <p>{{ filtre() === 'EN_ATTENTE' ? 'Aucun compte en attente de validation.' : 'Aucune entreprise.' }}</p>
+    </section>
+  } @else {
+    <div class="tableau-conteneur">
+      <table mat-table [dataSource]="page.content">
+        <ng-container matColumnDef="nom">
+          <th mat-header-cell *matHeaderCellDef>Entreprise</th>
+          <td mat-cell *matCellDef="let e">
+            <strong>{{ e.nom }}</strong>
+            @if (e.description) {
+              <br /><small>{{ e.description }}</small>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="contact">
+          <th mat-header-cell *matHeaderCellDef>Contact</th>
+          <td mat-cell *matCellDef="let e"><a [href]="'mailto:' + e.email">{{ e.email }}</a></td>
+        </ng-container>
+
+        <ng-container matColumnDef="secteur">
+          <th mat-header-cell *matHeaderCellDef>Secteur · Ville</th>
+          <td mat-cell *matCellDef="let e">{{ e.secteur }} · {{ e.ville }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="statut">
+          <th mat-header-cell *matHeaderCellDef>Statut</th>
+          <td mat-cell *matCellDef="let e"><app-statut-chip [statut]="e.statutValidation" /></td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef><span class="cdk-visually-hidden">Actions</span></th>
+          <td mat-cell *matCellDef="let e">
+            @if (e.statutValidation === 'EN_ATTENTE') {
+              <button mat-flat-button (click)="statuer(e, 'VALIDEE')"><mat-icon>check</mat-icon> Valider</button>
+              <button mat-button (click)="statuer(e, 'REFUSEE')">Refuser</button>
+            }
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="colonnes"></tr>
+        <tr mat-row *matRowDef="let row; columns: colonnes"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="page.totalElements"
+        [pageIndex]="page.page"
+        [pageSize]="page.size"
+        [pageSizeOptions]="[10, 25, 50]"
+        (page)="changerPage($event)"
+        aria-label="Pagination des entreprises"
+      />
+    </div>
+  }
+}

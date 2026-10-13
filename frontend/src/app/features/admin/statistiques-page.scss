@@ -1,0 +1,90 @@
+.tuiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tuile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+}
+
+.tuile-libelle {
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.tuile-valeur {
+  font: var(--mat-sys-display-small);
+  color: var(--mat-sys-on-surface);
+}
+
+.tuile-detail {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.graphiques {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+// Barres horizontales : une seule série par graphique, donc une seule couleur (primaire du thème)
+.barres {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  li {
+    display: grid;
+    grid-template-columns: minmax(90px, 30%) 1fr 3ch;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 4px; // zone de survol plus haute que la barre elle-même
+    border-radius: 6px;
+  }
+
+  li:hover {
+    background: var(--mat-sys-surface-container);
+  }
+}
+
+.barre-libelle {
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barre-piste {
+  height: 12px;
+  background: var(--mat-sys-surface-container-high);
+  border-radius: 0 4px 4px 0;
+}
+
+.barre-remplissage {
+  display: block;
+  height: 100%;
+  min-width: 2px; // une valeur nulle reste visible comme un trait sur la ligne de base
+  background: var(--mat-sys-primary);
+  border-radius: 0 4px 4px 0;
+}
+
+.barre-valeur {
+  font: var(--mat-sys-label-large);
+  color: var(--mat-sys-on-surface);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.vide {
+  color: var(--mat-sys-on-surface-variant);
+}
