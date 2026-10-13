@@ -9,6 +9,10 @@ export function messageErreurChamp(control: AbstractControl | null): string {
   if (erreurs['serveur']) {
     return erreurs['serveur'] as string;
   }
+  // Avant "required" : une date mal saisie laisse la valeur à null, ce qui déclenche aussi "required"
+  if (erreurs['matDatepickerParse']) {
+    return 'Date invalide (format attendu : jj/mm/aaaa)';
+  }
   if (erreurs['required']) {
     return 'Champ obligatoire';
   }
@@ -26,9 +30,6 @@ export function messageErreurChamp(control: AbstractControl | null): string {
   }
   if (erreurs['max']) {
     return `Valeur maximale : ${erreurs['max'].max}`;
-  }
-  if (erreurs['matDatepickerParse']) {
-    return 'Date invalide';
   }
   if (erreurs['matDatepickerMin']) {
     return 'La date ne peut pas être dans le passé';
