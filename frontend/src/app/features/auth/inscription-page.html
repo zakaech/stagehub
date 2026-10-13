@@ -1,0 +1,103 @@
+<mat-card class="auth-card" appearance="outlined">
+  @if (enCours()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+  <mat-card-header>
+    <mat-card-title>Créer un compte</mat-card-title>
+  </mat-card-header>
+
+  <mat-card-content>
+    <mat-tab-group mat-stretch-tabs>
+      <mat-tab label="Étudiant">
+        <form [formGroup]="formEtudiant" (ngSubmit)="inscrireEtudiant()" class="auth-form">
+          <div class="grille">
+            <mat-form-field>
+              <mat-label>Prénom</mat-label>
+              <input matInput formControlName="prenom" autocomplete="given-name" />
+              <mat-error>{{ erreur(formEtudiant.controls.prenom) }}</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Nom</mat-label>
+              <input matInput formControlName="nom" autocomplete="family-name" />
+              <mat-error>{{ erreur(formEtudiant.controls.nom) }}</mat-error>
+            </mat-form-field>
+          </div>
+          <mat-form-field>
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email" autocomplete="email" />
+            <mat-error>{{ erreur(formEtudiant.controls.email) }}</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Mot de passe</mat-label>
+            <input matInput type="password" formControlName="motDePasse" autocomplete="new-password" />
+            <mat-hint>8 caractères minimum</mat-hint>
+            <mat-error>{{ erreur(formEtudiant.controls.motDePasse) }}</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>École</mat-label>
+            <input matInput formControlName="ecole" />
+            <mat-error>{{ erreur(formEtudiant.controls.ecole) }}</mat-error>
+          </mat-form-field>
+          <div class="grille">
+            <mat-form-field>
+              <mat-label>Filière</mat-label>
+              <input matInput formControlName="filiere" />
+              <mat-error>{{ erreur(formEtudiant.controls.filiere) }}</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Ville</mat-label>
+              <input matInput formControlName="ville" autocomplete="address-level2" />
+              <mat-error>{{ erreur(formEtudiant.controls.ville) }}</mat-error>
+            </mat-form-field>
+          </div>
+          <button mat-flat-button type="submit" [disabled]="enCours()">Créer mon compte étudiant</button>
+        </form>
+      </mat-tab>
+
+      <mat-tab label="Entreprise">
+        <form [formGroup]="formEntreprise" (ngSubmit)="inscrireEntreprise()" class="auth-form">
+          <p class="info">Votre compte devra être validé par un administrateur avant de publier des offres.</p>
+          <mat-form-field>
+            <mat-label>Nom de l'entreprise</mat-label>
+            <input matInput formControlName="nom" autocomplete="organization" />
+            <mat-error>{{ erreur(formEntreprise.controls.nom) }}</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Email professionnel</mat-label>
+            <input matInput type="email" formControlName="email" autocomplete="email" />
+            <mat-error>{{ erreur(formEntreprise.controls.email) }}</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Mot de passe</mat-label>
+            <input matInput type="password" formControlName="motDePasse" autocomplete="new-password" />
+            <mat-hint>8 caractères minimum</mat-hint>
+            <mat-error>{{ erreur(formEntreprise.controls.motDePasse) }}</mat-error>
+          </mat-form-field>
+          <div class="grille">
+            <mat-form-field>
+              <mat-label>Secteur</mat-label>
+              <input matInput formControlName="secteur" />
+              <mat-error>{{ erreur(formEntreprise.controls.secteur) }}</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Ville</mat-label>
+              <input matInput formControlName="ville" />
+              <mat-error>{{ erreur(formEntreprise.controls.ville) }}</mat-error>
+            </mat-form-field>
+          </div>
+          <mat-form-field>
+            <mat-label>Description (facultative)</mat-label>
+            <textarea matInput formControlName="description" rows="3"></textarea>
+            <mat-error>{{ erreur(formEntreprise.controls.description) }}</mat-error>
+          </mat-form-field>
+          <button mat-flat-button type="submit" [disabled]="enCours()">Créer mon compte entreprise</button>
+        </form>
+      </mat-tab>
+    </mat-tab-group>
+  </mat-card-content>
+
+  <mat-card-actions>
+    <span>Déjà inscrit ?</span>
+    <a mat-button routerLink="/login">Se connecter</a>
+  </mat-card-actions>
+</mat-card>

@@ -1,0 +1,46 @@
+.barre {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 8px;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 12px;
+  color: var(--mat-sys-primary);
+  font: var(--mat-sys-title-large);
+  text-decoration: none;
+}
+
+.liens {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.actif {
+  background: var(--mat-sys-secondary-container);
+}
+
+.espace {
+  flex: 1;
+}
+
+.contenu {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+// Sur petit écran, on garde les icônes et on masque les libellés
+@media (max-width: 720px) {
+  .libelle,
+  .logo span {
+    display: none;
+  }
+}

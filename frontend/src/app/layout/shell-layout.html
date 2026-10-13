@@ -1,0 +1,37 @@
+<mat-toolbar class="barre">
+  <a class="logo" routerLink="/offres">
+    <mat-icon>school</mat-icon>
+    <span>StageHub</span>
+  </a>
+
+  <nav class="liens">
+    @for (lien of liens(); track lien.lien) {
+      <a mat-button [routerLink]="lien.lien" routerLinkActive="actif">
+        <mat-icon>{{ lien.icone }}</mat-icon>
+        <span class="libelle">{{ lien.libelle }}</span>
+      </a>
+    }
+  </nav>
+
+  <span class="espace"></span>
+
+  @if (auth.session(); as session) {
+    <button mat-button [matMenuTriggerFor]="menuCompte" aria-label="Mon compte">
+      <mat-icon>account_circle</mat-icon>
+      <span class="libelle">{{ session.email }}</span>
+    </button>
+    <mat-menu #menuCompte="matMenu">
+      <button mat-menu-item (click)="auth.deconnecter()">
+        <mat-icon>logout</mat-icon>
+        <span>Se déconnecter</span>
+      </button>
+    </mat-menu>
+  } @else {
+    <a mat-button routerLink="/login">Connexion</a>
+    <a mat-flat-button routerLink="/inscription">Inscription</a>
+  }
+</mat-toolbar>
+
+<main class="contenu">
+  <router-outlet />
+</main>

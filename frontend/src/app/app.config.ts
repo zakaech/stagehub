@@ -1,5 +1,5 @@
 import { registerLocaleData } from '@angular/common';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import localeFr from '@angular/common/locales/fr';
 import {
   ApplicationConfig,
@@ -13,6 +13,8 @@ import { MatIconRegistry } from '@angular/material/icon';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 
 import { routes } from './app.routes';
+import { authInterceptor } from './core/auth/auth.interceptor';
+import { errorInterceptor } from './core/http/error.interceptor';
 
 registerLocaleData(localeFr);
 
@@ -21,7 +23,8 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     // withComponentInputBinding : les paramètres de route (:id) arrivent directement dans les input() des composants
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(),
+    // Ordre important : authInterceptor ajoute le jeton, errorInterceptor traite la réponse en erreur
+    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
     // Dates, nombres et datepicker au format français
     { provide: LOCALE_ID, useValue: 'fr' },
     { provide: MAT_DATE_LOCALE, useValue: 'fr' },
