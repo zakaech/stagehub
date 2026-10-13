@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 
-import { guestGuard } from './core/auth/guards';
+import { guestGuard, roleGuard } from './core/auth/guards';
 import { ShellLayout } from './layout/shell-layout';
 import { PageIntrouvable } from './shared/page-introuvable';
 
@@ -35,6 +35,14 @@ export const routes: Routes = [
         title: 'Inscription — StageHub',
         canActivate: [guestGuard],
         loadComponent: () => import('./features/auth/inscription-page').then((m) => m.InscriptionPage),
+      },
+      {
+        path: 'etudiant/candidatures',
+        title: 'Mes candidatures — StageHub',
+        canActivate: [roleGuard],
+        data: { roles: ['ETUDIANT'] },
+        loadComponent: () =>
+          import('./features/etudiant/mes-candidatures-page').then((m) => m.MesCandidaturesPage),
       },
       { path: '**', title: 'Page introuvable — StageHub', component: PageIntrouvable },
     ],
