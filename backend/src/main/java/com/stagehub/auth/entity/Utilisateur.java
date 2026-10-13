@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.Locale;
 
 @Entity
 @Table(name = "utilisateur")
@@ -42,5 +43,10 @@ public class Utilisateur {
         if (dateCreation == null) {
             dateCreation = Instant.now();
         }
+    }
+
+    /** Les emails sont stockés et recherchés en minuscules, sans espaces autour. */
+    public static String normaliserEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }
