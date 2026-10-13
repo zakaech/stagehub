@@ -15,4 +15,6 @@ public interface EntrepriseRepository extends JpaRepository<Entreprise, Long> {
 
     @EntityGraph(attributePaths = "utilisateur")
     Page<Entreprise> findByStatutValidation(StatutValidation statutValidation, Pageable pageable);
+
+    long countByStatutValidation(StatutValidation statutValidation);
 }

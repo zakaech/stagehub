@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
@@ -51,6 +52,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         ProblemDetail body = probleme(HttpStatus.BAD_REQUEST, "La requête contient des champs invalides", "ValidationEchouee");
         body.setProperty("erreurs", erreurs);
+        return handleExceptionInternal(ex, body, headers, status, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpHeaders headers,
+                                                                  HttpStatusCode status, WebRequest request) {
+        ProblemDetail body = probleme(HttpStatus.BAD_REQUEST,
+                "Corps de requête illisible : JSON mal formé ou valeur incompatible (ex. statut inconnu)", "CorpsIllisible");
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 
