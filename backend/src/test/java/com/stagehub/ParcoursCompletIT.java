@@ -2,18 +2,10 @@ package com.stagehub;
 
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -31,22 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * inscription → validation admin → offre → candidature → changements de statut.
  * Exécuté par Failsafe ({@code mvn verify}) grâce au suffixe IT.
  */
-@SpringBootTest(properties = {
-        "stagehub.jwt.secret=secret-de-test-pour-le-parcours-complet-0123456789",
-        "stagehub.admin.email=admin@test.local",
-        "stagehub.admin.password=admin-test-1234"
-})
-@AutoConfigureMockMvc
-@Testcontainers
-class ParcoursCompletIT {
-
-    // @ServiceConnection : Spring Boot lit l'URL, l'utilisateur et le mot de passe du conteneur
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17-alpine");
-
-    @Autowired
-    private MockMvc mockMvc;
+class ParcoursCompletIT extends IntegrationTestBase {
 
     @Test
     void inscriptionValidationOffreCandidatureEtChangementsDeStatut() throws Exception {
