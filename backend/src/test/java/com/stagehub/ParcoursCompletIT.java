@@ -134,6 +134,16 @@ class ParcoursCompletIT {
         // 8. Contrôle d'accès : rôle insuffisant → 403, pas de jeton → 401
         appeler(get("/api/v1/admin/stats"), tokenEtudiant, null).andExpect(status().isForbidden());
         appeler(get("/api/v1/auth/me"), null, null).andExpect(status().isUnauthorized());
+
+        // 9. L'entreprise ferme l'offre (elle disparaît du public), puis la rouvre : sa date limite est future
+        changerStatutOffre(offreId, tokenEntreprise, "FERMEE")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statut").value("FERMEE"));
+        appeler(get("/api/v1/offres"), null, null)
+                .andExpect(jsonPath("$.totalElements").value(0));
+        changerStatutOffre(offreId, tokenEntreprise, "OUVERTE")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.statut").value("OUVERTE"));
     }
 
     // --- Utilitaires ---
@@ -150,6 +160,11 @@ class ParcoursCompletIT {
 
     private ResultActions changerStatut(Long candidatureId, String token, String statut) throws Exception {
         return appeler(patch("/api/v1/entreprise/candidatures/{id}/statut", candidatureId), token,
+                "{\"statut\": \"%s\"}".formatted(statut));
+    }
+
+    private ResultActions changerStatutOffre(Long offreId, String token, String statut) throws Exception {
+        return appeler(patch("/api/v1/entreprise/offres/{id}/statut", offreId), token,
                 "{\"statut\": \"%s\"}".formatted(statut));
     }
 

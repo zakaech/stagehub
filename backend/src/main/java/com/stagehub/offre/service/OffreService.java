@@ -18,6 +18,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
+
 /**
  * Lecture seule par défaut (classe) ; les méthodes d'écriture redéclarent @Transactional.
  * Le mapping entité → DTO se fait ici, dans la transaction : avec open-in-view=false,
@@ -30,12 +33,14 @@ public class OffreService {
     private final OffreRepository offreRepository;
     private final EntrepriseRepository entrepriseRepository;
     private final OffreMapper offreMapper;
+    private final Clock clock;
 
     public OffreService(OffreRepository offreRepository, EntrepriseRepository entrepriseRepository,
-                        OffreMapper offreMapper) {
+                        OffreMapper offreMapper, Clock clock) {
         this.offreRepository = offreRepository;
         this.entrepriseRepository = entrepriseRepository;
         this.offreMapper = offreMapper;
+        this.clock = clock;
     }
 
     public PageResponse<OffreResponse> listerOffresOuvertes(Pageable pageable) {
@@ -76,17 +81,21 @@ public class OffreService {
         return offreMapper.toResponse(offre);
     }
 
-    /** Seule la fermeture est permise ; une offre fermée ne peut pas être rouverte. Idempotent. */
+    /**
+     * Fermer est toujours permis ; rouvrir seulement si la date limite n'est pas dépassée (sinon 409),
+     * pour qu'une offre rouverte puisse effectivement recevoir des candidatures. Idempotent.
+     */
     @Transactional
     public OffreResponse changerStatut(Long entrepriseId, Long offreId, StatutOffre nouveauStatut) {
         Offre offre = chargerOffreDeLEntreprise(entrepriseId, offreId);
 
-        if (offre.getStatut() != nouveauStatut) {
-            if (nouveauStatut != StatutOffre.FERMEE) {
-                throw new TransitionStatutInvalideException("Une offre fermée ne peut pas être rouverte");
-            }
-            offre.setStatut(StatutOffre.FERMEE);
+        if (nouveauStatut == StatutOffre.OUVERTE && offre.getStatut() == StatutOffre.FERMEE
+                && offre.dateLimiteDepassee(LocalDate.now(clock))) {
+            throw new TransitionStatutInvalideException(
+                    "Impossible de rouvrir l'offre : sa date limite (%s) est dépassée ; modifiez-la d'abord"
+                            .formatted(offre.getDateLimite()));
         }
+        offre.setStatut(nouveauStatut);
         return offreMapper.toResponse(offre);
     }
 

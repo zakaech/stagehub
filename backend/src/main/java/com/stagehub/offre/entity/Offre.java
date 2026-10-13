@@ -64,7 +64,12 @@ public class Offre {
 
     /** Une offre accepte des candidatures si elle est ouverte et que sa date limite n'est pas dépassée. */
     public boolean accepteCandidatures(LocalDate aujourdhui) {
-        return statut == StatutOffre.OUVERTE && !dateLimite.isBefore(aujourdhui);
+        return statut == StatutOffre.OUVERTE && !dateLimiteDepassee(aujourdhui);
+    }
+
+    /** La date limite elle-même est encore valable : elle n'est dépassée qu'à partir du lendemain. */
+    public boolean dateLimiteDepassee(LocalDate aujourdhui) {
+        return dateLimite.isBefore(aujourdhui);
     }
 
     public boolean appartientA(Long entrepriseId) {

@@ -70,7 +70,7 @@ public class EntrepriseOffreController {
     }
 
     @PatchMapping("/{id}/statut")
-    @Operation(summary = "Fermer une de mes offres")
+    @Operation(summary = "Fermer une de mes offres, ou la rouvrir si sa date limite n'est pas dépassée")
     public OffreResponse changerStatut(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
                                        @Valid @RequestBody ChangementStatutOffreRequest request) {
         return offreService.changerStatut(JwtClaims.utilisateurId(jwt), id, request.statut());
