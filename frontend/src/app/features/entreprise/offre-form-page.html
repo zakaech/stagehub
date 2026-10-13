@@ -1,0 +1,82 @@
+<a mat-button routerLink="/entreprise/offres"><mat-icon>arrow_back</mat-icon> Mes offres</a>
+
+<mat-card appearance="outlined" class="carte-formulaire">
+  @if (enCours() || offreExistante.isLoading()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+  <mat-card-header>
+    <mat-card-title>{{ modeEdition() ? "Modifier l'offre" : 'Publier une offre' }}</mat-card-title>
+  </mat-card-header>
+
+  <mat-card-content>
+    <form [formGroup]="form" (ngSubmit)="enregistrer()" class="formulaire">
+      <mat-form-field>
+        <mat-label>Titre</mat-label>
+        <input matInput formControlName="titre" />
+        <mat-error>{{ erreur(form.controls.titre) }}</mat-error>
+      </mat-form-field>
+
+      <div class="grille">
+        <mat-form-field>
+          <mat-label>Ville</mat-label>
+          <input matInput formControlName="ville" />
+          <mat-error>{{ erreur(form.controls.ville) }}</mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Domaine</mat-label>
+          <input matInput formControlName="domaine" placeholder="ex. Développement web" />
+          <mat-error>{{ erreur(form.controls.domaine) }}</mat-error>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field>
+        <mat-label>Technologies</mat-label>
+        <mat-chip-grid #grilleTechnos formControlName="technologies" aria-label="Technologies demandées">
+          @for (techno of form.controls.technologies.value; track techno) {
+            <mat-chip-row (removed)="retirerTechnologie(techno)">
+              {{ techno }}
+              <button matChipRemove [attr.aria-label]="'Retirer ' + techno">
+                <mat-icon>cancel</mat-icon>
+              </button>
+            </mat-chip-row>
+          }
+          <input
+            placeholder="Ajouter puis Entrée"
+            [matChipInputFor]="grilleTechnos"
+            (matChipInputTokenEnd)="ajouterTechnologie($event)"
+          />
+        </mat-chip-grid>
+        <mat-error>{{ messageTechnologies() }}</mat-error>
+      </mat-form-field>
+
+      <div class="grille">
+        <mat-form-field>
+          <mat-label>Durée (mois)</mat-label>
+          <input matInput type="number" min="1" max="12" formControlName="dureeMois" />
+          <mat-error>{{ erreur(form.controls.dureeMois) }}</mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Date limite de candidature</mat-label>
+          <input matInput [matDatepicker]="picker" [min]="aujourdhui" formControlName="dateLimite" />
+          <mat-datepicker-toggle matIconSuffix [for]="picker" />
+          <mat-datepicker #picker />
+          <mat-error>{{ erreur(form.controls.dateLimite) }}</mat-error>
+        </mat-form-field>
+      </div>
+
+      <mat-form-field>
+        <mat-label>Description</mat-label>
+        <textarea matInput formControlName="description" rows="8"></textarea>
+        <mat-hint align="end">{{ form.controls.description.value.length }} / 5000</mat-hint>
+        <mat-error>{{ erreur(form.controls.description) }}</mat-error>
+      </mat-form-field>
+
+      <div class="actions">
+        <a mat-button routerLink="/entreprise/offres">Annuler</a>
+        <button mat-flat-button type="submit" [disabled]="enCours()">
+          {{ modeEdition() ? 'Enregistrer' : 'Publier' }}
+        </button>
+      </div>
+    </form>
+  </mat-card-content>
+</mat-card>

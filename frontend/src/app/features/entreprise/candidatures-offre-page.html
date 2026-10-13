@@ -1,0 +1,94 @@
+<a mat-button routerLink="/entreprise/offres"><mat-icon>arrow_back</mat-icon> Mes offres</a>
+
+<header class="entete-page">
+  <h1>
+    Candidatures
+    @if (offre.hasValue()) {
+      — {{ offre.value().titre }}
+    }
+  </h1>
+  @if (offre.hasValue()) {
+    <app-statut-chip [statut]="offre.value().statut" />
+  }
+</header>
+
+@if (candidatures.isLoading()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (candidatures.hasValue()) {
+  @let page = candidatures.value();
+  @if (page.totalElements === 0) {
+    <section class="etat-vide">
+      <mat-icon>inbox</mat-icon>
+      <p>Aucune candidature reçue pour cette offre.</p>
+    </section>
+  } @else {
+    <div class="tableau-conteneur">
+      <table mat-table [dataSource]="page.content">
+        <ng-container matColumnDef="candidat">
+          <th mat-header-cell *matHeaderCellDef>Candidat</th>
+          <td mat-cell *matCellDef="let c">
+            <strong>{{ c.etudiantPrenom }} {{ c.etudiantNom }}</strong><br />
+            <a [href]="'mailto:' + c.etudiantEmail">{{ c.etudiantEmail }}</a>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="formation">
+          <th mat-header-cell *matHeaderCellDef>Formation</th>
+          <td mat-cell *matCellDef="let c">{{ c.etudiantEcole }}<br /><small>{{ c.etudiantFiliere }}</small></td>
+        </ng-container>
+
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Reçue le</th>
+          <td mat-cell *matCellDef="let c">{{ c.dateCandidature | date: 'd MMM y' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="lettre">
+          <th mat-header-cell *matHeaderCellDef>Lettre</th>
+          <td mat-cell *matCellDef="let c">
+            @if (c.lettreMotivation) {
+              <button mat-button (click)="voirLettre(c)"><mat-icon>description</mat-icon> Lire</button>
+            } @else {
+              <small>—</small>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="statut">
+          <th mat-header-cell *matHeaderCellDef>Statut</th>
+          <td mat-cell *matCellDef="let c"><app-statut-chip [statut]="c.statut" /></td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef><span class="cdk-visually-hidden">Actions</span></th>
+          <td mat-cell *matCellDef="let c">
+            <!-- Seules les transitions autorisées par la machine à états sont proposées -->
+            @if (transitionsDe(c).length > 0) {
+              <button mat-stroked-button [matMenuTriggerFor]="menu">Décider</button>
+              <mat-menu #menu="matMenu">
+                @for (cible of transitionsDe(c); track cible) {
+                  <button mat-menu-item (click)="changerStatut(c, cible)">
+                    <mat-icon>{{ action(cible).icone }}</mat-icon> {{ action(cible).libelle }}
+                  </button>
+                }
+              </mat-menu>
+            }
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="colonnes"></tr>
+        <tr mat-row *matRowDef="let row; columns: colonnes"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="page.totalElements"
+        [pageIndex]="page.page"
+        [pageSize]="page.size"
+        [pageSizeOptions]="[10, 25, 50]"
+        (page)="changerPage($event)"
+        aria-label="Pagination des candidatures"
+      />
+    </div>
+  }
+}

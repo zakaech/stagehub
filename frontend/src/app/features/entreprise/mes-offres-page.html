@@ -1,0 +1,91 @@
+<header class="entete-page">
+  <h1>Mes offres</h1>
+  @if (statutValidation() === 'VALIDEE') {
+    <a mat-flat-button routerLink="/entreprise/offres/nouvelle"><mat-icon>add</mat-icon> Publier une offre</a>
+  }
+</header>
+
+@if (statutValidation(); as statut) {
+  <app-statut-entreprise-banner [statut]="statut" />
+}
+
+@if (offres.isLoading()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (offres.hasValue()) {
+  @let page = offres.value();
+  @if (page.totalElements === 0) {
+    <section class="etat-vide">
+      <mat-icon>work_outline</mat-icon>
+      <p>Vous n'avez encore publié aucune offre.</p>
+    </section>
+  } @else {
+    <div class="tableau-conteneur">
+      <table mat-table [dataSource]="page.content">
+        <ng-container matColumnDef="titre">
+          <th mat-header-cell *matHeaderCellDef>Offre</th>
+          <td mat-cell *matCellDef="let o">
+            <strong>{{ o.titre }}</strong><br />
+            <small>{{ o.ville }} · {{ o.domaine }}</small>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="dateLimite">
+          <th mat-header-cell *matHeaderCellDef>Date limite</th>
+          <td mat-cell *matCellDef="let o">{{ o.dateLimite | date: 'd MMM y' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="statut">
+          <th mat-header-cell *matHeaderCellDef>Statut</th>
+          <td mat-cell *matCellDef="let o"><app-statut-chip [statut]="o.statut" /></td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef><span class="cdk-visually-hidden">Actions</span></th>
+          <td mat-cell *matCellDef="let o">
+            <a mat-button [routerLink]="['/entreprise/offres', o.id, 'candidatures']">
+              <mat-icon>group</mat-icon> Candidatures
+            </a>
+            <button mat-icon-button [matMenuTriggerFor]="menu" aria-label="Autres actions">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #menu="matMenu">
+              <a mat-menu-item [routerLink]="['/entreprise/offres', o.id, 'modifier']">
+                <mat-icon>edit</mat-icon> Modifier
+              </a>
+              @if (o.statut === 'OUVERTE') {
+                <button mat-menu-item (click)="changerStatut(o, 'FERMEE')">
+                  <mat-icon>lock</mat-icon> Fermer
+                </button>
+              } @else {
+                <!-- Même règle que le backend : rouvrir seulement si la date limite n'est pas dépassée -->
+                @if (dateDepassee(o.dateLimite)) {
+                  <button mat-menu-item disabled>
+                    <mat-icon>lock_open</mat-icon> Rouvrir (date limite dépassée : modifiez-la d'abord)
+                  </button>
+                } @else {
+                  <button mat-menu-item (click)="changerStatut(o, 'OUVERTE')">
+                    <mat-icon>lock_open</mat-icon> Rouvrir
+                  </button>
+                }
+              }
+            </mat-menu>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="colonnes"></tr>
+        <tr mat-row *matRowDef="let row; columns: colonnes"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="page.totalElements"
+        [pageIndex]="page.page"
+        [pageSize]="page.size"
+        [pageSizeOptions]="[10, 25, 50]"
+        (page)="changerPage($event)"
+        aria-label="Pagination de mes offres"
+      />
+    </div>
+  }
+}

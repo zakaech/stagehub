@@ -37,12 +37,45 @@ export const routes: Routes = [
         loadComponent: () => import('./features/auth/inscription-page').then((m) => m.InscriptionPage),
       },
       {
-        path: 'etudiant/candidatures',
-        title: 'Mes candidatures — StageHub',
+        path: 'etudiant',
         canActivate: [roleGuard],
         data: { roles: ['ETUDIANT'] },
-        loadComponent: () =>
-          import('./features/etudiant/mes-candidatures-page').then((m) => m.MesCandidaturesPage),
+        children: [
+          {
+            path: 'candidatures',
+            title: 'Mes candidatures — StageHub',
+            loadComponent: () =>
+              import('./features/etudiant/mes-candidatures-page').then((m) => m.MesCandidaturesPage),
+          },
+        ],
+      },
+      {
+        path: 'entreprise',
+        canActivate: [roleGuard],
+        data: { roles: ['ENTREPRISE'] },
+        children: [
+          {
+            path: 'offres',
+            title: 'Mes offres — StageHub',
+            loadComponent: () => import('./features/entreprise/mes-offres-page').then((m) => m.MesOffresPage),
+          },
+          {
+            path: 'offres/nouvelle',
+            title: 'Publier une offre — StageHub',
+            loadComponent: () => import('./features/entreprise/offre-form-page').then((m) => m.OffreFormPage),
+          },
+          {
+            path: 'offres/:id/modifier',
+            title: 'Modifier une offre — StageHub',
+            loadComponent: () => import('./features/entreprise/offre-form-page').then((m) => m.OffreFormPage),
+          },
+          {
+            path: 'offres/:id/candidatures',
+            title: 'Candidatures reçues — StageHub',
+            loadComponent: () =>
+              import('./features/entreprise/candidatures-offre-page').then((m) => m.CandidaturesOffrePage),
+          },
+        ],
       },
       { path: '**', title: 'Page introuvable — StageHub', component: PageIntrouvable },
     ],
