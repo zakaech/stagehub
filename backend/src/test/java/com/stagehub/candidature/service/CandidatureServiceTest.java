@@ -17,6 +17,7 @@ import com.stagehub.common.exception.TransitionStatutInvalideException;
 import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.repository.EtudiantRepository;
+import com.stagehub.offre.dto.OffreResumeResponse;
 import com.stagehub.offre.entity.Offre;
 import com.stagehub.offre.entity.StatutOffre;
 import com.stagehub.offre.repository.OffreRepository;
@@ -97,8 +98,8 @@ class CandidatureServiceTest {
             assertThat(enregistree.getOffre()).isSameAs(offre);
             assertThat(enregistree.getStatut()).isEqualTo(StatutCandidature.EN_ATTENTE);
 
-            assertThat(reponse.offreId()).isEqualTo(OFFRE_ID);
-            assertThat(reponse.entrepriseNom()).isEqualTo("Acme");
+            assertThat(reponse.offre()).isEqualTo(
+                    new OffreResumeResponse(OFFRE_ID, "Stage PFE Java", "Acme", "Casablanca", StatutOffre.OUVERTE));
             assertThat(reponse.lettreMotivation()).isEqualTo("Très motivée");
             assertThat(reponse.statut()).isEqualTo(StatutCandidature.EN_ATTENTE);
         }
@@ -250,6 +251,7 @@ class CandidatureServiceTest {
         Offre offre = new Offre();
         offre.setId(OFFRE_ID);
         offre.setTitre("Stage PFE Java");
+        offre.setVille("Casablanca");
         offre.setEntreprise(entreprise);
         offre.setStatut(statut);
         offre.setDateLimite(dateLimite);

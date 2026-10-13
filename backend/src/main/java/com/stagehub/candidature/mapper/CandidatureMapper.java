@@ -4,16 +4,19 @@ import com.stagehub.candidature.dto.CandidatureEntrepriseResponse;
 import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
 import com.stagehub.candidature.entity.Candidature;
 import com.stagehub.common.config.MapStructConfig;
+import com.stagehub.offre.dto.OffreResumeResponse;
+import com.stagehub.offre.entity.Offre;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 @Mapper(config = MapStructConfig.class)
 public interface CandidatureMapper {
 
-    @Mapping(target = "offreId", source = "offre.id")
-    @Mapping(target = "offreTitre", source = "offre.titre")
-    @Mapping(target = "entrepriseNom", source = "offre.entreprise.nom")
+    /** Le champ offre est converti par {@link #toOffreResume}, que MapStruct utilise automatiquement. */
     CandidatureEtudiantResponse toEtudiantResponse(Candidature candidature);
+
+    @Mapping(target = "entrepriseNom", source = "entreprise.nom")
+    OffreResumeResponse toOffreResume(Offre offre);
 
     @Mapping(target = "offreId", source = "offre.id")
     @Mapping(target = "offreTitre", source = "offre.titre")

@@ -124,7 +124,11 @@ class ParcoursCompletIT {
         // 7. L'étudiant voit le nouveau statut ; l'admin le retrouve dans les statistiques
         appeler(get("/api/v1/etudiant/candidatures"), tokenEtudiant, null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].statut").value("ACCEPTEE"));
+                .andExpect(jsonPath("$.content[0].statut").value("ACCEPTEE"))
+                .andExpect(jsonPath("$.content[0].offre.titre").value("Stage PFE Java"))
+                .andExpect(jsonPath("$.content[0].offre.entrepriseNom").value("Acme"))
+                .andExpect(jsonPath("$.content[0].offre.ville").value("Casablanca"))
+                .andExpect(jsonPath("$.content[0].offre.statut").value("OUVERTE"));
         appeler(get("/api/v1/admin/stats"), tokenAdmin, null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombreOffres").value(1))
@@ -141,6 +145,10 @@ class ParcoursCompletIT {
                 .andExpect(jsonPath("$.statut").value("FERMEE"));
         appeler(get("/api/v1/offres"), null, null)
                 .andExpect(jsonPath("$.totalElements").value(0));
+        // L'étudiant garde sa candidature, avec le résumé de l'offre fermée
+        appeler(get("/api/v1/etudiant/candidatures"), tokenEtudiant, null)
+                .andExpect(jsonPath("$.content[0].id").value(candidatureId.intValue()))
+                .andExpect(jsonPath("$.content[0].offre.statut").value("FERMEE"));
         changerStatutOffre(offreId, tokenEntreprise, "OUVERTE")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("OUVERTE"));
