@@ -13,7 +13,17 @@ export const routes: Routes = [
     path: '',
     component: ShellLayout,
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'login' },
+      { path: '', pathMatch: 'full', redirectTo: 'offres' },
+      {
+        path: 'offres',
+        title: 'Offres de stage — StageHub',
+        loadComponent: () => import('./features/offres/offre-list-page').then((m) => m.OffreListPage),
+      },
+      {
+        path: 'offres/:id',
+        title: 'Offre de stage — StageHub',
+        loadComponent: () => import('./features/offres/offre-detail-page').then((m) => m.OffreDetailPage),
+      },
       {
         path: 'login',
         title: 'Connexion — StageHub',

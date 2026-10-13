@@ -1,0 +1,63 @@
+<header class="entete-page">
+  <h1>Offres de stage</h1>
+  @if (offres.hasValue()) {
+    <span>{{ offres.value().totalElements }} offre(s) ouverte(s)</span>
+  }
+</header>
+
+@if (offres.isLoading()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (offres.error()) {
+  <section class="etat-vide">
+    <mat-icon>cloud_off</mat-icon>
+    <p>Impossible de charger les offres pour le moment.</p>
+    <button mat-stroked-button (click)="offres.reload()">Réessayer</button>
+  </section>
+} @else if (offres.hasValue()) {
+  @let page = offres.value();
+  @if (page.content.length === 0) {
+    <section class="etat-vide">
+      <mat-icon>work_off</mat-icon>
+      <p>Aucune offre ouverte pour le moment.</p>
+    </section>
+  } @else {
+    <div class="grille-offres">
+      @for (offre of page.content; track offre.id) {
+        <mat-card appearance="outlined" class="carte-offre">
+          <mat-card-header>
+            <mat-card-title>
+              <a [routerLink]="['/offres', offre.id]">{{ offre.titre }}</a>
+            </mat-card-title>
+            <mat-card-subtitle>{{ offre.entrepriseNom }} · {{ offre.ville }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p class="meta">
+              <span><mat-icon inline>category</mat-icon> {{ offre.domaine }}</span>
+              <span><mat-icon inline>schedule</mat-icon> {{ offre.dureeMois }} mois</span>
+              <span><mat-icon inline>event</mat-icon> jusqu'au {{ offre.dateLimite | date: 'd MMM y' }}</span>
+            </p>
+            <mat-chip-set aria-label="Technologies">
+              @for (techno of offre.technologies; track techno) {
+                <mat-chip>{{ techno }}</mat-chip>
+              }
+            </mat-chip-set>
+          </mat-card-content>
+          <mat-card-actions align="end">
+            <a mat-button [routerLink]="['/offres', offre.id]">Voir l'offre</a>
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+
+    <mat-paginator
+      [length]="page.totalElements"
+      [pageIndex]="page.page"
+      [pageSize]="page.size"
+      [pageSizeOptions]="[9, 18, 36]"
+      (page)="changerPage($event)"
+      aria-label="Pagination des offres"
+    />
+  }
+}

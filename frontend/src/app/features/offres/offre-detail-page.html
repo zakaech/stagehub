@@ -1,0 +1,59 @@
+<a mat-button routerLink="/offres" class="retour"><mat-icon>arrow_back</mat-icon> Toutes les offres</a>
+
+@if (offre.isLoading()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (offre.error()) {
+  <section class="etat-vide">
+    <mat-icon>search_off</mat-icon>
+    <h1>Offre introuvable</h1>
+    <p>Cette offre n'existe pas ou n'est plus ouverte aux candidatures.</p>
+  </section>
+} @else if (offre.hasValue()) {
+  @let o = offre.value();
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>{{ o.titre }}</mat-card-title>
+      <mat-card-subtitle>{{ o.entrepriseNom }} · {{ o.ville }}</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <dl class="infos">
+        <div><dt>Domaine</dt><dd>{{ o.domaine }}</dd></div>
+        <div><dt>Durée</dt><dd>{{ o.dureeMois }} mois</dd></div>
+        <div><dt>Date limite</dt><dd>{{ o.dateLimite | date: 'longDate' }}</dd></div>
+      </dl>
+
+      <mat-chip-set aria-label="Technologies">
+        @for (techno of o.technologies; track techno) {
+          <mat-chip>{{ techno }}</mat-chip>
+        }
+      </mat-chip-set>
+
+      <h2>Description</h2>
+      <p class="description">{{ o.description }}</p>
+    </mat-card-content>
+
+    <mat-card-actions align="end">
+      @switch (auth.role()) {
+        @case ('ETUDIANT') {
+          @if (candidatureEnvoyee()) {
+            <a mat-stroked-button routerLink="/etudiant/candidatures">
+              <mat-icon>check</mat-icon> Candidature envoyée — voir mes candidatures
+            </a>
+          } @else {
+            <button mat-flat-button (click)="postuler(o.titre)" [disabled]="envoiEnCours()">
+              <mat-icon>send</mat-icon> Postuler
+            </button>
+          }
+        }
+        @case (null) {
+          <a mat-flat-button routerLink="/login" [queryParams]="{ returnUrl: '/offres/' + o.id }">
+            Se connecter pour postuler
+          </a>
+        }
+      }
+    </mat-card-actions>
+  </mat-card>
+}

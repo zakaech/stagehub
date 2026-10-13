@@ -1,0 +1,29 @@
+.retour {
+  margin-bottom: 12px;
+}
+
+.infos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  margin: 16px 0;
+
+  dt {
+    font: var(--mat-sys-label-medium);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+h2 {
+  margin-top: 24px;
+  font: var(--mat-sys-title-medium);
+}
+
+// Conserve les retours à la ligne saisis par l'entreprise
+.description {
+  white-space: pre-line;
+}
