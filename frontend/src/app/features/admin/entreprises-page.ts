@@ -13,6 +13,7 @@ import { AdminApi } from '../../core/api/admin.api';
 import { EntrepriseProfil, StatutValidation } from '../../core/models/auth.models';
 import { NotificationService } from '../../core/notification.service';
 import { confirmer } from '../../shared/confirm-dialog';
+import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 
 /** Validation des comptes entreprise (spec §2, admin). Par défaut : les comptes en attente. */
@@ -27,6 +28,7 @@ import { StatutChip } from '../../shared/statut-chip';
     MatTableModule,
     StatutChip,
   ],
+  providers: [PAGINATOR_FR],
   templateUrl: './entreprises-page.html',
 })
 export class EntreprisesPage {

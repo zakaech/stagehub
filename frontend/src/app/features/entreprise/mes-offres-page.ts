@@ -18,6 +18,7 @@ import { PageRequest } from '../../core/models/page.models';
 import { NotificationService } from '../../core/notification.service';
 import { confirmer } from '../../shared/confirm-dialog';
 import { dateDepassee } from '../../shared/dates';
+import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 import { StatutEntrepriseBanner } from './statut-entreprise-banner';
 
@@ -35,6 +36,7 @@ import { StatutEntrepriseBanner } from './statut-entreprise-banner';
     StatutChip,
     StatutEntrepriseBanner,
   ],
+  providers: [PAGINATOR_FR],
   templateUrl: './mes-offres-page.html',
 })
 export class MesOffresPage {

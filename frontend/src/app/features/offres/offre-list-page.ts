@@ -11,6 +11,7 @@ import { RouterLink } from '@angular/router';
 
 import { OffreApi } from '../../core/api/offre.api';
 import { PageRequest } from '../../core/models/page.models';
+import { PAGINATOR_FR } from '../../shared/paginator-fr';
 
 /** Liste publique des offres ouvertes, paginée côté serveur (filtres en phase 3). */
 @Component({
@@ -25,6 +26,7 @@ import { PageRequest } from '../../core/models/page.models';
     MatPaginatorModule,
     MatProgressBarModule,
   ],
+  providers: [PAGINATOR_FR],
   templateUrl: './offre-list-page.html',
   styleUrl: './offre-list-page.scss',
 })

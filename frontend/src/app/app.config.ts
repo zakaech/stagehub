@@ -15,14 +15,12 @@ import {
   MAT_NATIVE_DATE_FORMATS,
 } from '@angular/material/core';
 import { MatIconRegistry } from '@angular/material/icon';
-import { MatPaginatorIntl } from '@angular/material/paginator';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
 import { FrDateAdapter } from './shared/fr-date-adapter';
-import { PaginatorFr } from './shared/paginator-fr';
 
 registerLocaleData(localeFr);
 
@@ -38,7 +36,6 @@ export const appConfig: ApplicationConfig = {
     { provide: MAT_DATE_LOCALE, useValue: 'fr' },
     { provide: DateAdapter, useClass: FrDateAdapter },
     { provide: MAT_DATE_FORMATS, useValue: MAT_NATIVE_DATE_FORMATS },
-    { provide: MatPaginatorIntl, useClass: PaginatorFr },
     // <mat-icon> utilise la police "Material Symbols Outlined" chargée dans index.html
     provideAppInitializer(() => {
       inject(MatIconRegistry).setDefaultFontSetClass('material-symbols-outlined');

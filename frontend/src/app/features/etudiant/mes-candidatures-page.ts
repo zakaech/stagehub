@@ -10,6 +10,7 @@ import { RouterLink } from '@angular/router';
 
 import { CandidatureApi } from '../../core/api/candidature.api';
 import { PageRequest } from '../../core/models/page.models';
+import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 
 @Component({
@@ -24,6 +25,7 @@ import { StatutChip } from '../../shared/statut-chip';
     MatTableModule,
     StatutChip,
   ],
+  providers: [PAGINATOR_FR],
   templateUrl: './mes-candidatures-page.html',
   styles: `
     .ferme {

@@ -19,3 +19,9 @@ export class PaginatorFr extends MatPaginatorIntl {
     return `${debut + 1} – ${fin} sur ${total}`;
   };
 }
+
+/**
+ * À déclarer dans les providers des pages paginées (toutes chargées à la demande) plutôt que dans app.config :
+ * importer MatPaginatorIntl à la racine ferait entrer tout le module paginateur dans le bundle initial.
+ */
+export const PAGINATOR_FR = { provide: MatPaginatorIntl, useClass: PaginatorFr };

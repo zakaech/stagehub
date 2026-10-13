@@ -21,6 +21,7 @@ import {
 import { PageRequest } from '../../core/models/page.models';
 import { NotificationService } from '../../core/notification.service';
 import { confirmer } from '../../shared/confirm-dialog';
+import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 import { LettreDialog, LettreDialogData } from './lettre-dialog';
 
@@ -44,6 +45,7 @@ const ACTIONS: Record<StatutCandidature, { libelle: string; icone: string }> = {
     MatTableModule,
     StatutChip,
   ],
+  providers: [PAGINATOR_FR],
   templateUrl: './candidatures-offre-page.html',
 })
 export class CandidaturesOffrePage {
