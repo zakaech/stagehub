@@ -1,3 +1,6 @@
+server:
+  port: ${SERVER_PORT:8080}
+
 spring:
   application:
     name: stagehub-backend
@@ -5,13 +8,21 @@ spring:
     # En local, lit le fichier .env à la racine du dépôt s'il existe (ignoré sinon).
     import: optional:file:../.env[.properties]
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:stagehub}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:stagehub}
     username: ${DB_USERNAME:stagehub}
     password: ${DB_PASSWORD:}
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        # Charge les collections paresseuses par lots (IN (...)) au lieu d'une requête par élément (N+1)
+        default_batch_fetch_size: 32
+  data:
+    web:
+      pageable:
+        max-page-size: 50
   flyway:
     enabled: true
     locations: classpath:db/migration
