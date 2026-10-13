@@ -38,7 +38,9 @@
           @for (b of barresStatuts(); track b.libelle) {
             <li [matTooltip]="b.infobulle">
               <span class="barre-libelle">{{ b.libelle }}</span>
-              <span class="barre-piste"><span class="barre-remplissage" [style.width.%]="b.largeur"></span></span>
+              <span class="barre-piste"
+                ><span class="barre-remplissage" [style.width.%]="b.largeur"></span
+              ></span>
               <span class="barre-valeur">{{ b.valeur }}</span>
             </li>
           }
@@ -47,7 +49,9 @@
     </mat-card>
 
     <mat-card appearance="outlined">
-      <mat-card-header><mat-card-title>Technologies les plus demandées</mat-card-title></mat-card-header>
+      <mat-card-header
+        ><mat-card-title>Technologies les plus demandées</mat-card-title></mat-card-header
+      >
       <mat-card-content>
         @if (barresTechnologies().length === 0) {
           <p class="vide">Aucune offre publiée pour le moment.</p>
@@ -56,7 +60,9 @@
             @for (b of barresTechnologies(); track b.libelle) {
               <li [matTooltip]="b.infobulle">
                 <span class="barre-libelle">{{ b.libelle }}</span>
-                <span class="barre-piste"><span class="barre-remplissage" [style.width.%]="b.largeur"></span></span>
+                <span class="barre-piste"
+                  ><span class="barre-remplissage" [style.width.%]="b.largeur"></span
+                ></span>
                 <span class="barre-valeur">{{ b.valeur }}</span>
               </li>
             }

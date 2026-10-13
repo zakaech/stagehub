@@ -14,7 +14,13 @@ export interface PostulerDialogData {
 /** Saisie de la lettre de motivation (facultative). Renvoie la lettre (ou null), undefined si annulé. */
 @Component({
   selector: 'app-postuler-dialog',
-  imports: [ReactiveFormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule],
+  imports: [
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+  ],
   template: `
     <h2 mat-dialog-title>Postuler : {{ data.titreOffre }}</h2>
     <mat-dialog-content>
@@ -27,7 +33,9 @@ export interface PostulerDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Annuler</button>
-      <button mat-flat-button (click)="envoyer()" [disabled]="lettre.invalid">Envoyer ma candidature</button>
+      <button mat-flat-button (click)="envoyer()" [disabled]="lettre.invalid">
+        Envoyer ma candidature
+      </button>
     </mat-dialog-actions>
   `,
   styles: `
@@ -40,7 +48,10 @@ export class PostulerDialog {
   protected readonly data = inject<PostulerDialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject<MatDialogRef<PostulerDialog, string | null>>(MatDialogRef);
 
-  protected readonly lettre = new FormControl('', { nonNullable: true, validators: Validators.maxLength(5000) });
+  protected readonly lettre = new FormControl('', {
+    nonNullable: true,
+    validators: Validators.maxLength(5000),
+  });
   protected readonly erreur = messageErreurChamp;
 
   protected envoyer(): void {

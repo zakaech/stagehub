@@ -13,18 +13,26 @@ export class AdminApi {
   private readonly http = inject(HttpClient);
 
   /** statut null = toutes les entreprises. */
-  entreprises(statut: StatutValidation | null, page: PageRequest): Observable<PageResponse<EntrepriseProfil>> {
+  entreprises(
+    statut: StatutValidation | null,
+    page: PageRequest,
+  ): Observable<PageResponse<EntrepriseProfil>> {
     let params: HttpParams = paramsDePage(page);
     if (statut) {
       params = params.set('statut', statut);
     }
-    return this.http.get<PageResponse<EntrepriseProfil>>(`${API_URL}/admin/entreprises`, { params });
+    return this.http.get<PageResponse<EntrepriseProfil>>(`${API_URL}/admin/entreprises`, {
+      params,
+    });
   }
 
   statuer(entrepriseId: number, decision: StatutValidation): Observable<EntrepriseProfil> {
-    return this.http.patch<EntrepriseProfil>(`${API_URL}/admin/entreprises/${entrepriseId}/validation`, {
-      decision,
-    });
+    return this.http.patch<EntrepriseProfil>(
+      `${API_URL}/admin/entreprises/${entrepriseId}/validation`,
+      {
+        decision,
+      },
+    );
   }
 
   statistiques(): Observable<StatistiquesResponse> {

@@ -29,14 +29,17 @@
         <ng-container matColumnDef="candidat">
           <th mat-header-cell *matHeaderCellDef>Candidat</th>
           <td mat-cell *matCellDef="let c">
-            <strong>{{ c.etudiantPrenom }} {{ c.etudiantNom }}</strong><br />
+            <strong>{{ c.etudiantPrenom }} {{ c.etudiantNom }}</strong
+            ><br />
             <a [href]="'mailto:' + c.etudiantEmail">{{ c.etudiantEmail }}</a>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="formation">
           <th mat-header-cell *matHeaderCellDef>Formation</th>
-          <td mat-cell *matCellDef="let c">{{ c.etudiantEcole }}<br /><small>{{ c.etudiantFiliere }}</small></td>
+          <td mat-cell *matCellDef="let c">
+            {{ c.etudiantEcole }}<br /><small>{{ c.etudiantFiliere }}</small>
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="date">
@@ -48,7 +51,9 @@
           <th mat-header-cell *matHeaderCellDef>Lettre</th>
           <td mat-cell *matCellDef="let c">
             @if (c.lettreMotivation) {
-              <button mat-button (click)="voirLettre(c)"><mat-icon>description</mat-icon> Lire</button>
+              <button mat-button (click)="voirLettre(c)">
+                <mat-icon>description</mat-icon> Lire
+              </button>
             } @else {
               <small>—</small>
             }
@@ -61,7 +66,9 @@
         </ng-container>
 
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef><span class="cdk-visually-hidden">Actions</span></th>
+          <th mat-header-cell *matHeaderCellDef>
+            <span class="cdk-visually-hidden">Actions</span>
+          </th>
           <td mat-cell *matCellDef="let c">
             <!-- Seules les transitions autorisées par la machine à états sont proposées -->
             @if (transitionsDe(c).length > 0) {

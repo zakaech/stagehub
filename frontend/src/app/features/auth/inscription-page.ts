@@ -62,7 +62,9 @@ export class InscriptionPage {
   protected readonly erreur = messageErreurChamp;
 
   protected inscrireEtudiant(): void {
-    this.inscrire(this.formEtudiant, () => this.auth.inscrireEtudiant(this.formEtudiant.getRawValue()));
+    this.inscrire(this.formEtudiant, () =>
+      this.auth.inscrireEtudiant(this.formEtudiant.getRawValue()),
+    );
   }
 
   protected inscrireEntreprise(): void {

@@ -27,7 +27,9 @@ describe('FrDateAdapter', () => {
   let adapter: FrDateAdapter;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [FrDateAdapter, { provide: MAT_DATE_LOCALE, useValue: 'fr' }] });
+    TestBed.configureTestingModule({
+      providers: [FrDateAdapter, { provide: MAT_DATE_LOCALE, useValue: 'fr' }],
+    });
     adapter = TestBed.inject(FrDateAdapter);
   });
 

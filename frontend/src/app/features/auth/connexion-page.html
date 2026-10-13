@@ -10,7 +10,8 @@
   <mat-card-content>
     @if (identifiantsIncorrects()) {
       <p class="message-erreur" role="alert">
-        <mat-icon>error</mat-icon> Identifiants incorrects : vérifiez votre email et votre mot de passe.
+        <mat-icon>error</mat-icon> Identifiants incorrects : vérifiez votre email et votre mot de
+        passe.
       </p>
     }
 
@@ -34,7 +35,9 @@
           matSuffix
           type="button"
           (click)="motDePasseVisible.set(!motDePasseVisible())"
-          [attr.aria-label]="motDePasseVisible() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+          [attr.aria-label]="
+            motDePasseVisible() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'
+          "
         >
           <mat-icon>{{ motDePasseVisible() ? 'visibility_off' : 'visibility' }}</mat-icon>
         </button>

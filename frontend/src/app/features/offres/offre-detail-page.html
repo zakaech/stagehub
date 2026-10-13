@@ -1,4 +1,6 @@
-<a mat-button routerLink="/offres" class="retour"><mat-icon>arrow_back</mat-icon> Toutes les offres</a>
+<a mat-button routerLink="/offres" class="retour"
+  ><mat-icon>arrow_back</mat-icon> Toutes les offres</a
+>
 
 @if (offre.isLoading()) {
   <mat-progress-bar mode="indeterminate" />
@@ -20,9 +22,18 @@
 
     <mat-card-content>
       <dl class="infos">
-        <div><dt>Domaine</dt><dd>{{ o.domaine }}</dd></div>
-        <div><dt>Durée</dt><dd>{{ o.dureeMois }} mois</dd></div>
-        <div><dt>Date limite</dt><dd>{{ o.dateLimite | date: 'longDate' }}</dd></div>
+        <div>
+          <dt>Domaine</dt>
+          <dd>{{ o.domaine }}</dd>
+        </div>
+        <div>
+          <dt>Durée</dt>
+          <dd>{{ o.dureeMois }} mois</dd>
+        </div>
+        <div>
+          <dt>Date limite</dt>
+          <dd>{{ o.dateLimite | date: 'longDate' }}</dd>
+        </div>
       </dl>
 
       <mat-chip-set aria-label="Technologies">

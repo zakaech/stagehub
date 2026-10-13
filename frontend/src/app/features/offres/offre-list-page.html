@@ -36,7 +36,10 @@
             <p class="meta">
               <span><mat-icon inline>category</mat-icon> {{ offre.domaine }}</span>
               <span><mat-icon inline>schedule</mat-icon> {{ offre.dureeMois }} mois</span>
-              <span><mat-icon inline>event</mat-icon> jusqu'au {{ offre.dateLimite | date: 'd MMM y' }}</span>
+              <span
+                ><mat-icon inline>event</mat-icon> jusqu'au
+                {{ offre.dateLimite | date: 'd MMM y' }}</span
+              >
             </p>
             <mat-chip-set aria-label="Technologies">
               @for (techno of offre.technologies; track techno) {

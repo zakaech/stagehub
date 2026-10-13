@@ -47,12 +47,16 @@ describe('guards', () => {
 
     it('renvoie un visiteur vers /login en mémorisant la page demandée', () => {
       connecterEn(null);
-      expect(url(executerRoleGuard(['ENTREPRISE']))).toBe('/login?returnUrl=%2Fentreprise%2Foffres');
+      expect(url(executerRoleGuard(['ENTREPRISE']))).toBe(
+        '/login?returnUrl=%2Fentreprise%2Foffres',
+      );
     });
 
     it('renvoie un utilisateur du mauvais rôle vers son propre espace', () => {
       connecterEn('ETUDIANT');
-      expect(url(executerRoleGuard(['ADMIN'], '/admin/statistiques'))).toBe('/etudiant/candidatures');
+      expect(url(executerRoleGuard(['ADMIN'], '/admin/statistiques'))).toBe(
+        '/etudiant/candidatures',
+      );
     });
   });
 

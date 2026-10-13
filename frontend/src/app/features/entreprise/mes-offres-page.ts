@@ -67,7 +67,7 @@ export class MesOffresPage {
   protected changerStatut(offre: OffreResponse, statut: StatutOffre): void {
     const fermer = statut === 'FERMEE';
     confirmer(this.dialog, {
-      titre: fermer ? 'Fermer l\'offre ?' : 'Rouvrir l\'offre ?',
+      titre: fermer ? "Fermer l'offre ?" : "Rouvrir l'offre ?",
       message: fermer
         ? `« ${offre.titre} » ne sera plus visible et n'acceptera plus de candidatures.`
         : `« ${offre.titre} » sera de nouveau visible et ouverte aux candidatures.`,

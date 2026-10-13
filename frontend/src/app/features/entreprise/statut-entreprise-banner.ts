@@ -12,14 +12,15 @@ import { StatutValidation } from '../../core/models/auth.models';
       @case ('EN_ATTENTE') {
         <p class="info" role="status">
           <mat-icon inline>hourglass_top</mat-icon>
-          Votre compte est en attente de validation par un administrateur. Vous pourrez publier des offres
-          dès qu'il sera validé.
+          Votre compte est en attente de validation par un administrateur. Vous pourrez publier des
+          offres dès qu'il sera validé.
         </p>
       }
       @case ('REFUSEE') {
         <p class="message-erreur" role="status">
           <mat-icon>block</mat-icon>
-          Votre compte entreprise a été refusé par l'administrateur : la publication d'offres n'est pas possible.
+          Votre compte entreprise a été refusé par l'administrateur : la publication d'offres n'est
+          pas possible.
         </p>
       }
     }

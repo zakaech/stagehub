@@ -17,7 +17,10 @@ export class CandidatureApi {
 
   // --- Espace étudiant ---
 
-  postuler(offreId: number, lettreMotivation: string | null): Observable<CandidatureEtudiantResponse> {
+  postuler(
+    offreId: number,
+    lettreMotivation: string | null,
+  ): Observable<CandidatureEtudiantResponse> {
     return this.http.post<CandidatureEtudiantResponse>(
       `${API_URL}/etudiant/offres/${offreId}/candidatures`,
       { lettreMotivation },
@@ -25,14 +28,20 @@ export class CandidatureApi {
   }
 
   mesCandidatures(page: PageRequest): Observable<PageResponse<CandidatureEtudiantResponse>> {
-    return this.http.get<PageResponse<CandidatureEtudiantResponse>>(`${API_URL}/etudiant/candidatures`, {
-      params: paramsDePage(page),
-    });
+    return this.http.get<PageResponse<CandidatureEtudiantResponse>>(
+      `${API_URL}/etudiant/candidatures`,
+      {
+        params: paramsDePage(page),
+      },
+    );
   }
 
   // --- Espace entreprise ---
 
-  candidaturesDeLOffre(offreId: number, page: PageRequest): Observable<PageResponse<CandidatureEntrepriseResponse>> {
+  candidaturesDeLOffre(
+    offreId: number,
+    page: PageRequest,
+  ): Observable<PageResponse<CandidatureEntrepriseResponse>> {
     return this.http.get<PageResponse<CandidatureEntrepriseResponse>>(
       `${API_URL}/entreprise/offres/${offreId}/candidatures`,
       { params: paramsDePage(page) },
@@ -40,8 +49,11 @@ export class CandidatureApi {
   }
 
   changerStatut(id: number, statut: StatutCandidature): Observable<CandidatureEntrepriseResponse> {
-    return this.http.patch<CandidatureEntrepriseResponse>(`${API_URL}/entreprise/candidatures/${id}/statut`, {
-      statut,
-    });
+    return this.http.patch<CandidatureEntrepriseResponse>(
+      `${API_URL}/entreprise/candidatures/${id}/statut`,
+      {
+        statut,
+      },
+    );
   }
 }

@@ -17,12 +17,14 @@ export const routes: Routes = [
       {
         path: 'offres',
         title: 'Offres de stage — StageHub',
-        loadComponent: () => import('./features/offres/offre-list-page').then((m) => m.OffreListPage),
+        loadComponent: () =>
+          import('./features/offres/offre-list-page').then((m) => m.OffreListPage),
       },
       {
         path: 'offres/:id',
         title: 'Offre de stage — StageHub',
-        loadComponent: () => import('./features/offres/offre-detail-page').then((m) => m.OffreDetailPage),
+        loadComponent: () =>
+          import('./features/offres/offre-detail-page').then((m) => m.OffreDetailPage),
       },
       {
         path: 'login',
@@ -34,7 +36,8 @@ export const routes: Routes = [
         path: 'inscription',
         title: 'Inscription — StageHub',
         canActivate: [guestGuard],
-        loadComponent: () => import('./features/auth/inscription-page').then((m) => m.InscriptionPage),
+        loadComponent: () =>
+          import('./features/auth/inscription-page').then((m) => m.InscriptionPage),
       },
       {
         path: 'etudiant',
@@ -45,7 +48,9 @@ export const routes: Routes = [
             path: 'candidatures',
             title: 'Mes candidatures — StageHub',
             loadComponent: () =>
-              import('./features/etudiant/mes-candidatures-page').then((m) => m.MesCandidaturesPage),
+              import('./features/etudiant/mes-candidatures-page').then(
+                (m) => m.MesCandidaturesPage,
+              ),
           },
         ],
       },
@@ -57,23 +62,28 @@ export const routes: Routes = [
           {
             path: 'offres',
             title: 'Mes offres — StageHub',
-            loadComponent: () => import('./features/entreprise/mes-offres-page').then((m) => m.MesOffresPage),
+            loadComponent: () =>
+              import('./features/entreprise/mes-offres-page').then((m) => m.MesOffresPage),
           },
           {
             path: 'offres/nouvelle',
             title: 'Publier une offre — StageHub',
-            loadComponent: () => import('./features/entreprise/offre-form-page').then((m) => m.OffreFormPage),
+            loadComponent: () =>
+              import('./features/entreprise/offre-form-page').then((m) => m.OffreFormPage),
           },
           {
             path: 'offres/:id/modifier',
             title: 'Modifier une offre — StageHub',
-            loadComponent: () => import('./features/entreprise/offre-form-page').then((m) => m.OffreFormPage),
+            loadComponent: () =>
+              import('./features/entreprise/offre-form-page').then((m) => m.OffreFormPage),
           },
           {
             path: 'offres/:id/candidatures',
             title: 'Candidatures reçues — StageHub',
             loadComponent: () =>
-              import('./features/entreprise/candidatures-offre-page').then((m) => m.CandidaturesOffrePage),
+              import('./features/entreprise/candidatures-offre-page').then(
+                (m) => m.CandidaturesOffrePage,
+              ),
           },
         ],
       },
@@ -85,12 +95,14 @@ export const routes: Routes = [
           {
             path: 'entreprises',
             title: 'Entreprises — StageHub',
-            loadComponent: () => import('./features/admin/entreprises-page').then((m) => m.EntreprisesPage),
+            loadComponent: () =>
+              import('./features/admin/entreprises-page').then((m) => m.EntreprisesPage),
           },
           {
             path: 'statistiques',
             title: 'Statistiques — StageHub',
-            loadComponent: () => import('./features/admin/statistiques-page').then((m) => m.StatistiquesPage),
+            loadComponent: () =>
+              import('./features/admin/statistiques-page').then((m) => m.StatistiquesPage),
           },
         ],
       },

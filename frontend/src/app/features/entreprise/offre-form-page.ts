@@ -88,7 +88,11 @@ export class OffreFormPage {
   protected ajouterTechnologie(event: MatChipInputEvent): void {
     const techno = event.value.trim();
     const actuelles = this.form.controls.technologies.value;
-    if (techno && techno.length <= 50 && !actuelles.some((t) => t.toLowerCase() === techno.toLowerCase())) {
+    if (
+      techno &&
+      techno.length <= 50 &&
+      !actuelles.some((t) => t.toLowerCase() === techno.toLowerCase())
+    ) {
       this.form.controls.technologies.setValue([...actuelles, techno]);
     }
     event.chipInput.clear();
@@ -121,7 +125,8 @@ export class OffreFormPage {
     const id = this.id();
 
     this.enCours.set(true);
-    const requete = id === undefined ? this.offreApi.creer(offre) : this.offreApi.modifier(id, offre);
+    const requete =
+      id === undefined ? this.offreApi.creer(offre) : this.offreApi.modifier(id, offre);
     requete.subscribe({
       next: () => {
         this.notifications.succes(id === undefined ? 'Offre publiée' : 'Offre mise à jour');

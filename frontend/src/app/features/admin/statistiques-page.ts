@@ -64,7 +64,9 @@ export class StatistiquesPage {
   protected readonly barresTechnologies = computed<Barre[]>(() =>
     this.stats.hasValue()
       ? versBarres(
-          this.stats.value().topTechnologies.map((t) => ({ libelle: t.technologie, valeur: t.nombreOffres })),
+          this.stats
+            .value()
+            .topTechnologies.map((t) => ({ libelle: t.technologie, valeur: t.nombreOffres })),
           'offre(s)',
         )
       : [],

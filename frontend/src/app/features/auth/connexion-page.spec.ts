@@ -16,7 +16,9 @@ describe('ConnexionPage', () => {
       imports: [ConnexionPage],
       providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
     }).compileComponents();
-    navigateByUrl = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true) as never;
+    navigateByUrl = vi
+      .spyOn(TestBed.inject(Router), 'navigateByUrl')
+      .mockResolvedValue(true) as never;
 
     const fixture = TestBed.createComponent(ConnexionPage);
     if (returnUrl) {
@@ -56,7 +58,10 @@ describe('ConnexionPage', () => {
 
     await remplirEtSoumettre(fixture);
 
-    expect(auth.connecter).toHaveBeenCalledWith({ email: 'sara@etu.ma', motDePasse: 'motdepasse1' });
+    expect(auth.connecter).toHaveBeenCalledWith({
+      email: 'sara@etu.ma',
+      motDePasse: 'motdepasse1',
+    });
     expect(navigateByUrl).toHaveBeenCalledWith('/entreprise/offres');
   });
 

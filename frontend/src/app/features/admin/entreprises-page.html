@@ -22,7 +22,13 @@
   @if (page.totalElements === 0) {
     <section class="etat-vide">
       <mat-icon>task_alt</mat-icon>
-      <p>{{ filtre() === 'EN_ATTENTE' ? 'Aucun compte en attente de validation.' : 'Aucune entreprise.' }}</p>
+      <p>
+        {{
+          filtre() === 'EN_ATTENTE'
+            ? 'Aucun compte en attente de validation.'
+            : 'Aucune entreprise.'
+        }}
+      </p>
     </section>
   } @else {
     <div class="tableau-conteneur">
@@ -39,7 +45,9 @@
 
         <ng-container matColumnDef="contact">
           <th mat-header-cell *matHeaderCellDef>Contact</th>
-          <td mat-cell *matCellDef="let e"><a [href]="'mailto:' + e.email">{{ e.email }}</a></td>
+          <td mat-cell *matCellDef="let e">
+            <a [href]="'mailto:' + e.email">{{ e.email }}</a>
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="secteur">
@@ -53,10 +61,14 @@
         </ng-container>
 
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef><span class="cdk-visually-hidden">Actions</span></th>
+          <th mat-header-cell *matHeaderCellDef>
+            <span class="cdk-visually-hidden">Actions</span>
+          </th>
           <td mat-cell *matCellDef="let e">
             @if (e.statutValidation === 'EN_ATTENTE') {
-              <button mat-flat-button (click)="statuer(e, 'VALIDEE')"><mat-icon>check</mat-icon> Valider</button>
+              <button mat-flat-button (click)="statuer(e, 'VALIDEE')">
+                <mat-icon>check</mat-icon> Valider
+              </button>
               <button mat-button (click)="statuer(e, 'REFUSEE')">Refuser</button>
             }
           </td>

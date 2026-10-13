@@ -41,7 +41,9 @@ describe('errorInterceptor', () => {
   };
 
   it('401 sur /auth/login : ni déconnexion, ni redirection, ni snackbar (le formulaire affiche « identifiants incorrects »)', () => {
-    const statut = echouer('/api/v1/auth/login', 401, { detail: 'Email ou mot de passe incorrect' });
+    const statut = echouer('/api/v1/auth/login', 401, {
+      detail: 'Email ou mot de passe incorrect',
+    });
 
     expect(statut).toBe(401);
     expect(auth.deconnecter).not.toHaveBeenCalled();
@@ -53,8 +55,13 @@ describe('errorInterceptor', () => {
     echouer('/api/v1/etudiant/candidatures', 401);
 
     expect(auth.deconnecter).toHaveBeenCalledWith(false);
-    expect(notifications.erreur).toHaveBeenCalledWith('Votre session a expiré, veuillez vous reconnecter');
-    expect(navigate).toHaveBeenCalledWith(['/login'], expect.objectContaining({ queryParams: expect.anything() }));
+    expect(notifications.erreur).toHaveBeenCalledWith(
+      'Votre session a expiré, veuillez vous reconnecter',
+    );
+    expect(navigate).toHaveBeenCalledWith(
+      ['/login'],
+      expect.objectContaining({ queryParams: expect.anything() }),
+    );
   });
 
   it('erreur métier : affiche le detail du ProblemDetail et relance l’erreur', () => {
@@ -73,7 +80,9 @@ describe('errorInterceptor', () => {
     echouer('/api/v1/auth/register/etudiant', 400, {
       status: 400,
       detail: 'La requête contient des champs invalides',
-      erreurs: [{ champ: 'email', message: 'doit être une adresse électronique syntaxiquement correcte' }],
+      erreurs: [
+        { champ: 'email', message: 'doit être une adresse électronique syntaxiquement correcte' },
+      ],
     });
 
     expect(notifications.erreur).not.toHaveBeenCalled();

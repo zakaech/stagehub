@@ -68,7 +68,9 @@ export class EntreprisesPage {
         switchMap(() => this.adminApi.statuer(entreprise.id, decision)),
       )
       .subscribe(() => {
-        this.notifications.succes(valider ? `${entreprise.nom} est validée` : `${entreprise.nom} est refusée`);
+        this.notifications.succes(
+          valider ? `${entreprise.nom} est validée` : `${entreprise.nom} est refusée`,
+        );
         this.entreprises.reload();
       });
   }

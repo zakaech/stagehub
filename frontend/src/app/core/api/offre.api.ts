@@ -14,7 +14,9 @@ export class OffreApi {
   // --- Consultation publique ---
 
   listerOuvertes(page: PageRequest): Observable<PageResponse<OffreResponse>> {
-    return this.http.get<PageResponse<OffreResponse>>(`${API_URL}/offres`, { params: paramsDePage(page) });
+    return this.http.get<PageResponse<OffreResponse>>(`${API_URL}/offres`, {
+      params: paramsDePage(page),
+    });
   }
 
   detailPublic(id: number): Observable<OffreResponse> {
