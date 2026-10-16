@@ -1,11 +1,18 @@
 package com.stagehub.cv.service;
 
+import com.stagehub.candidature.entity.Candidature;
+import com.stagehub.candidature.repository.CandidatureRepository;
+import com.stagehub.common.exception.AccesNonAutoriseException;
+import com.stagehub.common.exception.CvNotFoundException;
 import com.stagehub.common.exception.FichierNonPdfException;
 import com.stagehub.common.storage.LocalFichierStorage;
 import com.stagehub.cv.config.CvProperties;
+import com.stagehub.cv.dto.CvTelechargement;
+import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.mapper.EtudiantMapper;
 import com.stagehub.etudiant.repository.EtudiantRepository;
+import com.stagehub.offre.entity.Offre;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +50,8 @@ class CvServiceTest {
     Path dossier;
     @Mock
     private EtudiantRepository etudiantRepository;
+    @Mock
+    private CandidatureRepository candidatureRepository;
 
     private CvService service;
     private LocalFichierStorage storage;
@@ -51,8 +60,8 @@ class CvServiceTest {
     @BeforeEach
     void setUp() {
         storage = new LocalFichierStorage(dossier);
-        service = new CvService(etudiantRepository, Mappers.getMapper(EtudiantMapper.class), storage,
-                new CvProperties(dossier, DataSize.ofMegabytes(5)));
+        service = new CvService(etudiantRepository, candidatureRepository, Mappers.getMapper(EtudiantMapper.class),
+                storage, new CvProperties(dossier, DataSize.ofMegabytes(5)));
         etudiant = new Etudiant();
         etudiant.setId(ETUDIANT_ID);
         TransactionSynchronizationManager.initSynchronization();
@@ -91,6 +100,20 @@ class CvServiceTest {
     }
 
     @Test
+    void remplacer_conserveLAncienFichierSIlEstFigeDansUneCandidature() {
+        String ancien = storage.enregistrer(new ByteArrayInputStream(PdfValidatorTest.PDF_MINIMAL), ".pdf");
+        etudiant.setCheminCv(ancien);
+        when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
+        when(candidatureRepository.existsByCvFichier(ancien)).thenReturn(true);
+
+        service.deposer(ETUDIANT_ID, pdf("nouveau.pdf"));
+        terminerTransaction(TransactionSynchronization.STATUS_COMMITTED);
+
+        assertThat(storage.charger(ancien)).as("l'entreprise doit pouvoir télécharger le CV joint").isPresent();
+        assertThat(storage.charger(etudiant.getCheminCv())).isPresent();
+    }
+
+    @Test
     void rollback_supprimeLeNouveauFichierEtGardeLAncien() {
         String ancien = storage.enregistrer(new ByteArrayInputStream(PdfValidatorTest.PDF_MINIMAL), ".pdf");
         etudiant.setCheminCv(ancien);
@@ -112,6 +135,54 @@ class CvServiceTest {
         try (var fichiers = Files.list(dossier)) {
             assertThat(fichiers).isEmpty();
         }
+    }
+
+    @Test
+    void telechargerMonCv_sansCv_leveCvNotFound() {
+        when(etudiantRepository.findById(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
+
+        assertThatThrownBy(() -> service.telechargerMonCv(ETUDIANT_ID)).isInstanceOf(CvNotFoundException.class);
+    }
+
+    @Test
+    void telechargerCvCandidature_renvoieLeCvFigeAvecUnNomLisible() {
+        String fige = storage.enregistrer(new ByteArrayInputStream(PdfValidatorTest.PDF_MINIMAL), ".pdf");
+        etudiant.setCheminCv("un-autre-cv-plus-recent.pdf");
+        when(candidatureRepository.findById(100L)).thenReturn(Optional.of(candidature(2L, fige)));
+
+        CvTelechargement cv = service.telechargerCvCandidature(2L, 100L);
+
+        assertThat(cv.contenu().getFilename()).isEqualTo(fige);
+        assertThat(cv.nomFichier()).isEqualTo("CV Sara Alaoui.pdf");
+    }
+
+    @Test
+    void telechargerCvCandidature_dUneAutreEntreprise_leveAccesNonAutorise() {
+        when(candidatureRepository.findById(100L)).thenReturn(Optional.of(candidature(2L, "cv.pdf")));
+
+        assertThatThrownBy(() -> service.telechargerCvCandidature(3L, 100L))
+                .isInstanceOf(AccesNonAutoriseException.class);
+    }
+
+    @Test
+    void telechargerCvCandidature_sansCvJoint_leveCvNotFound() {
+        when(candidatureRepository.findById(100L)).thenReturn(Optional.of(candidature(2L, null)));
+
+        assertThatThrownBy(() -> service.telechargerCvCandidature(2L, 100L)).isInstanceOf(CvNotFoundException.class);
+    }
+
+    private Candidature candidature(Long entrepriseId, String cvFichier) {
+        Entreprise entreprise = new Entreprise();
+        entreprise.setId(entrepriseId);
+        Offre offre = new Offre();
+        offre.setEntreprise(entreprise);
+        etudiant.setPrenom("Sara");
+        etudiant.setNom("Alaoui");
+        Candidature candidature = new Candidature();
+        candidature.setOffre(offre);
+        candidature.setEtudiant(etudiant);
+        candidature.setCvFichier(cvFichier);
+        return candidature;
     }
 
     private static MockMultipartFile pdf(String nomEnvoye) {

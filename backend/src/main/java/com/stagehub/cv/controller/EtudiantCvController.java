@@ -5,9 +5,12 @@ import com.stagehub.etudiant.dto.EtudiantResponse;
 import com.stagehub.security.JwtClaims;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,5 +32,11 @@ public class EtudiantCvController {
     @Operation(summary = "Déposer ou remplacer mon CV (PDF, 5 Mo maximum)")
     public EtudiantResponse deposer(@AuthenticationPrincipal Jwt jwt, @RequestParam("fichier") MultipartFile fichier) {
         return cvService.deposer(JwtClaims.utilisateurId(jwt), fichier);
+    }
+
+    @GetMapping(produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(summary = "Télécharger mon CV actuel")
+    public ResponseEntity<Resource> telecharger(@AuthenticationPrincipal Jwt jwt) {
+        return ReponsesPdf.telechargement(cvService.telechargerMonCv(JwtClaims.utilisateurId(jwt)));
     }
 }

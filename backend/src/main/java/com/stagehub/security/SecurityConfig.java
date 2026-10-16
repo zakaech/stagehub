@@ -76,7 +76,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(properties.allowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        config.setExposedHeaders(List.of("Location"));
+        config.setExposedHeaders(List.of("Location", "Content-Disposition"));
         config.setMaxAge(Duration.ofHours(1));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

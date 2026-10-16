@@ -18,6 +18,8 @@ public record CandidatureEntrepriseResponse(
         String lettreMotivation,
         StatutCandidature statut,
         Instant dateCandidature,
-        Integer scoreMatching
+        Integer scoreMatching,
+        // CV figé au moment de la candidature, téléchargeable via /entreprise/candidatures/{id}/cv
+        boolean cvDisponible
 ) {
 }

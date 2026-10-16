@@ -26,5 +26,6 @@ public interface CandidatureMapper {
     @Mapping(target = "etudiantEmail", source = "etudiant.utilisateur.email")
     @Mapping(target = "etudiantEcole", source = "etudiant.ecole")
     @Mapping(target = "etudiantFiliere", source = "etudiant.filiere")
+    @Mapping(target = "cvDisponible", expression = "java(candidature.getCvFichier() != null)")
     CandidatureEntrepriseResponse toEntrepriseResponse(Candidature candidature);
 }

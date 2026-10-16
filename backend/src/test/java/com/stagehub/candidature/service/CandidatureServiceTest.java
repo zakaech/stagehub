@@ -86,7 +86,7 @@ class CandidatureServiceTest {
             Offre offre = offre(StatutOffre.OUVERTE, AUJOURDHUI.plusDays(10));
             when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.of(offre));
             when(candidatureRepository.existsByEtudiantIdAndOffreId(ETUDIANT_ID, OFFRE_ID)).thenReturn(false);
-            when(etudiantRepository.getReferenceById(ETUDIANT_ID)).thenReturn(etudiant);
+            when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
 
             CandidatureEtudiantResponse reponse =
                     service.postuler(ETUDIANT_ID, OFFRE_ID, new CandidatureRequest("Très motivée"));
@@ -105,9 +105,34 @@ class CandidatureServiceTest {
         }
 
         @Test
+        void figeLeCvEnVigueurAuMomentDePostuler() {
+            etudiant.setCheminCv("cv-en-vigueur.pdf");
+            when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.of(offre(StatutOffre.OUVERTE, AUJOURDHUI.plusDays(10))));
+            when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
+
+            service.postuler(ETUDIANT_ID, OFFRE_ID, null);
+
+            ArgumentCaptor<Candidature> captor = ArgumentCaptor.forClass(Candidature.class);
+            verify(candidatureRepository).saveAndFlush(captor.capture());
+            assertThat(captor.getValue().getCvFichier()).isEqualTo("cv-en-vigueur.pdf");
+        }
+
+        @Test
+        void sansCv_laCandidatureNaPasDeCv() {
+            when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.of(offre(StatutOffre.OUVERTE, AUJOURDHUI.plusDays(10))));
+            when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
+
+            service.postuler(ETUDIANT_ID, OFFRE_ID, null);
+
+            ArgumentCaptor<Candidature> captor = ArgumentCaptor.forClass(Candidature.class);
+            verify(candidatureRepository).saveAndFlush(captor.capture());
+            assertThat(captor.getValue().getCvFichier()).isNull();
+        }
+
+        @Test
         void sansLettreDeMotivation_estAcceptee() {
             when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.of(offre(StatutOffre.OUVERTE, AUJOURDHUI.plusDays(10))));
-            when(etudiantRepository.getReferenceById(ETUDIANT_ID)).thenReturn(etudiant);
+            when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
 
             CandidatureEtudiantResponse reponse = service.postuler(ETUDIANT_ID, OFFRE_ID, null);
 
@@ -117,7 +142,7 @@ class CandidatureServiceTest {
         @Test
         void dateLimiteAujourdhui_estEncoreAcceptee() {
             when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.of(offre(StatutOffre.OUVERTE, AUJOURDHUI)));
-            when(etudiantRepository.getReferenceById(ETUDIANT_ID)).thenReturn(etudiant);
+            when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
 
             service.postuler(ETUDIANT_ID, OFFRE_ID, null);
 
@@ -163,7 +188,7 @@ class CandidatureServiceTest {
         @Test
         void doublonConcurrent_rejeteParLaContrainteUnique_leveCandidatureDejaExistante() {
             when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.of(offre(StatutOffre.OUVERTE, AUJOURDHUI.plusDays(10))));
-            when(etudiantRepository.getReferenceById(ETUDIANT_ID)).thenReturn(etudiant);
+            when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
             when(candidatureRepository.saveAndFlush(any(Candidature.class)))
                     .thenThrow(new DataIntegrityViolationException("uk_candidature_etudiant_offre"));
 

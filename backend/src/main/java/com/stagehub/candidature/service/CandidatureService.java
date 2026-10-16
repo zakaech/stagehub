@@ -13,6 +13,8 @@ import com.stagehub.common.exception.CandidatureDejaExistanteException;
 import com.stagehub.common.exception.CandidatureNotFoundException;
 import com.stagehub.common.exception.OffreNonDisponibleException;
 import com.stagehub.common.exception.OffreNotFoundException;
+import com.stagehub.common.exception.UtilisateurNotFoundException;
+import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.repository.EtudiantRepository;
 import com.stagehub.offre.entity.Offre;
 import com.stagehub.offre.repository.OffreRepository;
@@ -56,8 +58,12 @@ public class CandidatureService {
         }
 
         Candidature candidature = new Candidature();
-        // Référence sans requête SELECT : seul l'id est nécessaire pour la clé étrangère
-        candidature.setEtudiant(etudiantRepository.getReferenceById(etudiantId));
+        // Verrou sur l'étudiant : un dépôt de CV simultané attend la fin de cette transaction (voir CvService)
+        Etudiant etudiant = etudiantRepository.findAvecVerrou(etudiantId)
+                .orElseThrow(() -> new UtilisateurNotFoundException(etudiantId));
+        candidature.setEtudiant(etudiant);
+        // Le CV est figé : l'entreprise téléchargera ce fichier, même si l'étudiant le remplace ensuite
+        candidature.setCvFichier(etudiant.getCheminCv());
         candidature.setOffre(offre);
         candidature.setLettreMotivation(request == null ? null : request.lettreMotivation());
 

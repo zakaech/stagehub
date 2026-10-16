@@ -53,6 +53,10 @@ public class Candidature {
     @Column(name = "date_candidature", nullable = false, updatable = false)
     private Instant dateCandidature;
 
+    /** Nom du fichier CV en vigueur quand l'étudiant a postulé (null s'il n'en avait pas). */
+    @Column(name = "cv_fichier", updatable = false)
+    private String cvFichier;
+
     /** Rempli en phase 8 (Spring AI). */
     @Column(name = "score_matching")
     private Integer scoreMatching;

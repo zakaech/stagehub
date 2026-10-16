@@ -14,6 +14,9 @@ public interface CandidatureRepository extends JpaRepository<Candidature, Long> 
 
     boolean existsByEtudiantIdAndOffreId(Long etudiantId, Long offreId);
 
+    /** Un fichier CV encore référencé par une candidature ne doit pas être supprimé. */
+    boolean existsByCvFichier(String cvFichier);
+
     @EntityGraph(attributePaths = {"offre", "offre.entreprise"})
     Page<Candidature> findByEtudiantId(Long etudiantId, Pageable pageable);
 
