@@ -12,6 +12,7 @@ import { RouterLink } from '@angular/router';
 import { EMPTY, of, switchMap } from 'rxjs';
 
 import { CandidatureApi } from '../../core/api/candidature.api';
+import { CvApi } from '../../core/api/cv.api';
 import { OffreApi } from '../../core/api/offre.api';
 import {
   CandidatureEntrepriseResponse,
@@ -23,6 +24,7 @@ import { confirmer } from '../../shared/confirm-dialog';
 import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
+import { enregistrerFichier } from '../../shared/telechargement';
 import { LettreDialog, LettreDialogData } from './lettre-dialog';
 
 const ACTIONS: Record<StatutCandidature, { libelle: string; icone: string }> = {
@@ -53,11 +55,20 @@ export class CandidaturesOffrePage {
   private readonly candidatureApi = inject(CandidatureApi);
   private readonly dialog = inject(MatDialog);
   private readonly notifications = inject(NotificationService);
+  private readonly cvApi = inject(CvApi);
 
   /** Paramètre de route :id (identifiant de l'offre). */
   readonly id = input.required({ transform: numberAttribute });
 
-  protected readonly colonnes = ['candidat', 'formation', 'date', 'lettre', 'statut', 'actions'];
+  protected readonly colonnes = [
+    'candidat',
+    'formation',
+    'date',
+    'lettre',
+    'cv',
+    'statut',
+    'actions',
+  ];
 
   protected readonly offre = rxResource({
     params: () => this.id(),
@@ -77,6 +88,15 @@ export class CandidaturesOffrePage {
 
   protected action(statut: StatutCandidature): { libelle: string; icone: string } {
     return ACTIONS[statut];
+  }
+
+  /** CV joint au moment de la candidature (figé côté serveur), même si l'étudiant l'a remplacé depuis. */
+  protected telechargerCv(c: CandidatureEntrepriseResponse): void {
+    this.cvApi
+      .telechargerCvCandidature(c.id)
+      .subscribe((reponse) =>
+        enregistrerFichier(reponse, `CV ${c.etudiantPrenom} ${c.etudiantNom}.pdf`),
+      );
   }
 
   protected voirLettre(c: CandidatureEntrepriseResponse): void {

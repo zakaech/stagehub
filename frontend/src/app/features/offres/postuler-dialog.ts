@@ -3,12 +3,16 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { RouterLink } from '@angular/router';
 
 import { messageErreurChamp } from '../../shared/form-errors';
 
 export interface PostulerDialogData {
   titreOffre: string;
+  /** null : inconnu (profil non chargé) — aucune mention n'est alors affichée. */
+  cvDisponible: boolean | null;
 }
 
 /** Saisie de la lettre de motivation (facultative). Renvoie la lettre (ou null), undefined si annulé. */
@@ -16,14 +20,26 @@ export interface PostulerDialogData {
   selector: 'app-postuler-dialog',
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule,
     MatDialogModule,
     MatFormFieldModule,
+    MatIconModule,
     MatInputModule,
   ],
   template: `
     <h2 mat-dialog-title>Postuler : {{ data.titreOffre }}</h2>
     <mat-dialog-content>
+      @if (data.cvDisponible === true) {
+        <p class="cv">
+          <mat-icon>attach_file</mat-icon> Votre CV actuel sera joint à la candidature.
+        </p>
+      } @else if (data.cvDisponible === false) {
+        <p class="info">
+          Vous n'avez pas encore déposé de CV : la candidature sera envoyée sans CV.
+          <a routerLink="/etudiant/profil" mat-dialog-close>Déposer mon CV</a>
+        </p>
+      }
       <mat-form-field class="pleine-largeur">
         <mat-label>Lettre de motivation (facultative)</mat-label>
         <textarea matInput [formControl]="lettre" rows="8"></textarea>
@@ -41,6 +57,11 @@ export interface PostulerDialogData {
   styles: `
     .pleine-largeur {
       width: 100%;
+    }
+    .cv {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
   `,
 })

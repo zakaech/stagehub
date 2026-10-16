@@ -60,6 +60,19 @@
           </td>
         </ng-container>
 
+        <ng-container matColumnDef="cv">
+          <th mat-header-cell *matHeaderCellDef>CV</th>
+          <td mat-cell *matCellDef="let c">
+            @if (c.cvDisponible) {
+              <button mat-button (click)="telechargerCv(c)">
+                <mat-icon>download</mat-icon> PDF
+              </button>
+            } @else {
+              <small>Aucun</small>
+            }
+          </td>
+        </ng-container>
+
         <ng-container matColumnDef="statut">
           <th mat-header-cell *matHeaderCellDef>Statut</th>
           <td mat-cell *matCellDef="let c"><app-statut-chip [statut]="c.statut" /></td>

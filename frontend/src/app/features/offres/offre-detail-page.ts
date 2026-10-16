@@ -44,13 +44,21 @@ export class OffreDetailPage {
     params: () => this.id(),
     stream: ({ params: id }) => this.offreApi.detailPublic(id),
   });
+  /** Profil chargé seulement pour un étudiant (params undefined → ressource inactive) : sait-on s'il a un CV ? */
+  private readonly profilEtudiant = rxResource({
+    params: () => (this.auth.role() === 'ETUDIANT' ? true : undefined),
+    stream: () => this.auth.chargerProfil(),
+  });
   protected readonly candidatureEnvoyee = signal(false);
   protected readonly envoiEnCours = signal(false);
 
   protected postuler(titreOffre: string): void {
+    const cvDisponible = this.profilEtudiant.hasValue()
+      ? !!this.profilEtudiant.value().etudiant?.cvDisponible
+      : null;
     this.dialog
       .open<PostulerDialog, PostulerDialogData, string | null>(PostulerDialog, {
-        data: { titreOffre },
+        data: { titreOffre, cvDisponible },
         width: '640px',
       })
       .afterClosed()

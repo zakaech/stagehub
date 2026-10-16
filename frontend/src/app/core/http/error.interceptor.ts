@@ -1,7 +1,7 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 
 import { API_URL } from '../api/api';
 import { AuthService } from '../auth/auth.service';
@@ -19,22 +19,59 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
   const notifications = inject(NotificationService);
 
-  return next(req).pipe(
-    catchError((erreur: unknown) => {
-      if (erreur instanceof HttpErrorResponse) {
-        if (erreur.status === 401) {
-          // 401 sur le login = identifiants incorrects : le formulaire l'affiche lui-même, pas de déconnexion
-          if (req.url !== URL_LOGIN) {
-            auth.deconnecter(false);
-            notifications.erreur('Votre session a expiré, veuillez vous reconnecter');
-            void router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
-          }
-        } else if (!problemDetail(erreur)?.erreurs?.length) {
-          // Les erreurs de validation (400 + "erreurs") sont affichées sous les champs par le formulaire
-          notifications.erreur(messageErreur(erreur));
+  const traiter = (erreur: unknown): Observable<never> => {
+    if (erreur instanceof HttpErrorResponse) {
+      if (erreur.status === 401) {
+        // 401 sur le login = identifiants incorrects : le formulaire l'affiche lui-même, pas de déconnexion
+        if (req.url !== URL_LOGIN) {
+          auth.deconnecter(false);
+          notifications.erreur('Votre session a expiré, veuillez vous reconnecter');
+          void router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
         }
+      } else if (!problemDetail(erreur)?.erreurs?.length) {
+        // Les erreurs de validation (400 + "erreurs") sont affichées sous les champs par le formulaire
+        notifications.erreur(messageErreur(erreur));
       }
-      return throwError(() => erreur);
-    }),
+    }
+    return throwError(() => erreur);
+  };
+
+  return next(req).pipe(
+    catchError((erreur: unknown) =>
+      estProblemeDansUnBlob(erreur)
+        ? from((erreur.error as Blob).text()).pipe(
+            map((texte) => avecCorpsJson(erreur, texte)),
+            switchMap(traiter),
+          )
+        : traiter(erreur),
+    ),
   );
 };
+
+/**
+ * Pour un téléchargement (responseType 'blob'), Angular livre aussi le corps d'erreur sous forme de Blob :
+ * le ProblemDetail JSON doit être relu avant de pouvoir afficher son message.
+ */
+function estProblemeDansUnBlob(erreur: unknown): erreur is HttpErrorResponse & { error: Blob } {
+  return (
+    erreur instanceof HttpErrorResponse &&
+    erreur.error instanceof Blob &&
+    erreur.error.type.includes('json')
+  );
+}
+
+function avecCorpsJson(erreur: HttpErrorResponse, texte: string): HttpErrorResponse {
+  let corps: unknown = texte;
+  try {
+    corps = JSON.parse(texte);
+  } catch {
+    // Corps illisible : on garde le texte brut, messageErreur affichera un message générique
+  }
+  return new HttpErrorResponse({
+    error: corps,
+    headers: erreur.headers,
+    status: erreur.status,
+    statusText: erreur.statusText,
+    url: erreur.url ?? undefined,
+  });
+}

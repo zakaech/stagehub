@@ -37,4 +37,6 @@ export interface CandidatureEntrepriseResponse {
   statut: StatutCandidature;
   dateCandidature: string;
   scoreMatching: number | null;
+  /** CV figé au moment de la candidature, téléchargeable par l'entreprise. */
+  cvDisponible: boolean;
 }

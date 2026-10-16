@@ -15,7 +15,10 @@ interface LienNavigation {
 }
 
 const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
-  ETUDIANT: [{ libelle: 'Mes candidatures', lien: '/etudiant/candidatures', icone: 'assignment' }],
+  ETUDIANT: [
+    { libelle: 'Mes candidatures', lien: '/etudiant/candidatures', icone: 'assignment' },
+    { libelle: 'Mon profil', lien: '/etudiant/profil', icone: 'badge' },
+  ],
   ENTREPRISE: [{ libelle: 'Mes offres', lien: '/entreprise/offres', icone: 'work' }],
   ADMIN: [
     { libelle: 'Entreprises', lien: '/admin/entreprises', icone: 'domain_verification' },

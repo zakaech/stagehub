@@ -52,6 +52,12 @@ export const routes: Routes = [
                 (m) => m.MesCandidaturesPage,
               ),
           },
+          {
+            path: 'profil',
+            title: 'Mon profil — StageHub',
+            loadComponent: () =>
+              import('./features/etudiant/profil-page').then((m) => m.ProfilPage),
+          },
         ],
       },
       {

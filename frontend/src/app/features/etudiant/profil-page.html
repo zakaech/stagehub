@@ -1,0 +1,82 @@
+<header class="entete-page">
+  <h1>Mon profil</h1>
+</header>
+
+@if (profil.isLoading() && !profil.hasValue()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (profil.hasValue()) {
+  @let p = profil.value();
+  <div class="cartes">
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>{{ p.etudiant?.prenom }} {{ p.etudiant?.nom }}</mat-card-title>
+        <mat-card-subtitle>{{ p.email }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <dl class="infos">
+          <div>
+            <dt>École</dt>
+            <dd>{{ p.etudiant?.ecole }}</dd>
+          </div>
+          <div>
+            <dt>Filière</dt>
+            <dd>{{ p.etudiant?.filiere }}</dd>
+          </div>
+          <div>
+            <dt>Ville</dt>
+            <dd>{{ p.etudiant?.ville }}</dd>
+          </div>
+        </dl>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined">
+      <mat-card-header>
+        <mat-card-title>Mon CV</mat-card-title>
+        <mat-card-subtitle>PDF uniquement, 5 Mo maximum</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (p.etudiant?.cvDisponible) {
+          <p class="statut-cv"><mat-icon>check_circle</mat-icon> Un CV est enregistré.</p>
+        } @else {
+          <p class="statut-cv">
+            <mat-icon>info</mat-icon> Aucun CV : vos candidatures seront envoyées sans CV.
+          </p>
+        }
+        <p class="aide">
+          Le CV en vigueur est joint à chaque nouvelle candidature. Remplacer votre CV ne modifie
+          pas les candidatures déjà envoyées.
+        </p>
+
+        @if (progression() !== null) {
+          <mat-progress-bar mode="determinate" [value]="progression()" />
+          <p class="aide">Envoi en cours… {{ progression() }} %</p>
+        }
+        @if (erreurFichier(); as erreur) {
+          <p class="message-erreur" role="alert"><mat-icon>error</mat-icon> {{ erreur }}</p>
+        }
+      </mat-card-content>
+      <mat-card-actions>
+        <!-- Champ fichier natif masqué, déclenché par le bouton Material -->
+        <input
+          #champFichier
+          type="file"
+          accept="application/pdf,.pdf"
+          hidden
+          (change)="deposer(champFichier)"
+        />
+        <button mat-flat-button (click)="champFichier.click()" [disabled]="progression() !== null">
+          <mat-icon>upload_file</mat-icon>
+          {{ p.etudiant?.cvDisponible ? 'Remplacer mon CV' : 'Déposer mon CV' }}
+        </button>
+        @if (p.etudiant?.cvDisponible) {
+          <button mat-button (click)="telecharger()">
+            <mat-icon>download</mat-icon> Télécharger
+          </button>
+        }
+      </mat-card-actions>
+    </mat-card>
+  </div>
+}
