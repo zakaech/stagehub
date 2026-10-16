@@ -16,7 +16,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
         "stagehub.jwt.secret=secret-de-test-pour-le-parcours-complet-0123456789",
         "stagehub.admin.email=admin@test.local",
         "stagehub.admin.password=admin-test-1234",
-        "stagehub.cors.allowed-origins=http://localhost:4200"
+        "stagehub.cors.allowed-origins=http://localhost:4200",
+        "stagehub.cv.dossier=target/test-uploads/cv"
 })
 @AutoConfigureMockMvc
 public abstract class IntegrationTestBase {

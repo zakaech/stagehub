@@ -30,6 +30,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  servlet:
+    multipart:
+      # Première barrière : Spring refuse les fichiers trop gros avant le contrôleur (le service revérifie)
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 stagehub:
   jwt:
@@ -42,6 +47,10 @@ stagehub:
   admin:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}
+  cv:
+    # Relatif au dossier de lancement (backend/) ; deviendra un volume Docker en phase 5
+    dossier: ${CV_STORAGE_DIR:./uploads/cv}
+    taille-max: 5MB
 
 springdoc:
   swagger-ui:

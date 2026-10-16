@@ -17,6 +17,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.List;
@@ -60,6 +61,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                                                   HttpStatusCode status, WebRequest request) {
         ProblemDetail body = probleme(HttpStatus.BAD_REQUEST,
                 "Corps de requête illisible : JSON mal formé ou valeur incompatible (ex. statut inconnu)", "CorpsIllisible");
+        return handleExceptionInternal(ex, body, headers, status, request);
+    }
+
+    /** Fichier refusé par Spring avant même d'atteindre le contrôleur (spring.servlet.multipart.max-file-size). */
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException ex,
+                                                                          HttpHeaders headers, HttpStatusCode status,
+                                                                          WebRequest request) {
+        ProblemDetail body = probleme(HttpStatus.CONTENT_TOO_LARGE,
+                "Le fichier dépasse la taille maximale autorisée", "FichierTropVolumineux");
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 
