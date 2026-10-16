@@ -87,4 +87,23 @@ describe('errorInterceptor', () => {
 
     expect(notifications.erreur).not.toHaveBeenCalled();
   });
+
+  it('téléchargement en erreur : relit le ProblemDetail reçu sous forme de Blob', async () => {
+    const url = '/api/v1/entreprise/candidatures/7/cv';
+    let erreurRecue: { status: number; error: unknown } | undefined;
+    http.get(url, { responseType: 'blob' }).subscribe({ error: (e) => (erreurRecue = e) });
+
+    const corps = JSON.stringify({ status: 403, detail: 'Cette candidature ne vous concerne pas' });
+    backend.expectOne(url).flush(new Blob([corps], { type: 'application/problem+json' }), {
+      status: 403,
+      statusText: 'Forbidden',
+    });
+
+    // La lecture du Blob est asynchrone : on attend que la notification parte
+    await vi.waitFor(() =>
+      expect(notifications.erreur).toHaveBeenCalledWith('Cette candidature ne vous concerne pas'),
+    );
+    expect(erreurRecue?.status).toBe(403);
+    expect(erreurRecue?.error).toEqual(expect.objectContaining({ status: 403 }));
+  });
 });
