@@ -8,12 +8,15 @@ import com.stagehub.common.exception.OffreNotFoundException;
 import com.stagehub.common.exception.TransitionStatutInvalideException;
 import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.entreprise.repository.EntrepriseRepository;
+import com.stagehub.offre.dto.FiltresDisponiblesResponse;
+import com.stagehub.offre.dto.OffreFiltre;
 import com.stagehub.offre.dto.OffreRequest;
 import com.stagehub.offre.dto.OffreResponse;
 import com.stagehub.offre.entity.Offre;
 import com.stagehub.offre.entity.StatutOffre;
 import com.stagehub.offre.mapper.OffreMapper;
 import com.stagehub.offre.repository.OffreRepository;
+import com.stagehub.offre.repository.OffreSpecifications;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +46,17 @@ public class OffreService {
         this.clock = clock;
     }
 
-    public PageResponse<OffreResponse> listerOffresOuvertes(Pageable pageable) {
-        return PageResponse.of(offreRepository.findByStatut(StatutOffre.OUVERTE, pageable), offreMapper::toResponse);
+    public PageResponse<OffreResponse> rechercherOffresOuvertes(OffreFiltre filtre, Pageable pageable) {
+        return PageResponse.of(
+                offreRepository.findAll(OffreSpecifications.ouvertesCorrespondantA(filtre), pageable),
+                offreMapper::toResponse);
+    }
+
+    public FiltresDisponiblesResponse filtresDisponibles() {
+        return new FiltresDisponiblesResponse(
+                offreRepository.villesDistinctes(StatutOffre.OUVERTE),
+                offreRepository.domainesDistincts(StatutOffre.OUVERTE),
+                offreRepository.technologiesDistinctes(StatutOffre.OUVERTE));
     }
 
     public OffreResponse getOffreOuverte(Long offreId) {

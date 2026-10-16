@@ -10,7 +10,9 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -64,8 +66,7 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.statut").value("OUVERTE")));
         appeler(get("/api/v1/offres"), null, null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[*].id", hasItem(offreId.intValue())))
-                .andExpect(jsonPath("$.totalElements").value(1));
+                .andExpect(jsonPath("$.content[*].id", hasItem(offreId.intValue())));
 
         // 5. Un étudiant s'inscrit et postule ; un second essai est refusé
         appeler(post("/api/v1/auth/register/etudiant"), null, """
@@ -108,8 +109,9 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.content[0].offre.statut").value("OUVERTE"));
         appeler(get("/api/v1/admin/stats"), tokenAdmin, null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.nombreOffres").value(1))
-                .andExpect(jsonPath("$.candidaturesParStatut.ACCEPTEE").value(1))
+                // La base est partagée entre les tests d'intégration : on vérifie des minimums, pas des totaux exacts
+                .andExpect(jsonPath("$.nombreOffres", greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.candidaturesParStatut.ACCEPTEE", greaterThanOrEqualTo(1)))
                 .andExpect(jsonPath("$.topTechnologies[*].technologie", hasItem("Java")));
 
         // 8. Contrôle d'accès : rôle insuffisant → 403, pas de jeton → 401
@@ -121,7 +123,7 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("FERMEE"));
         appeler(get("/api/v1/offres"), null, null)
-                .andExpect(jsonPath("$.totalElements").value(0));
+                .andExpect(jsonPath("$.content[*].id", not(hasItem(offreId.intValue()))));
         // L'étudiant garde sa candidature, avec le résumé de l'offre fermée
         appeler(get("/api/v1/etudiant/candidatures"), tokenEtudiant, null)
                 .andExpect(jsonPath("$.content[0].id").value(candidatureId.intValue()))

@@ -1,6 +1,8 @@
 package com.stagehub.offre.controller;
 
 import com.stagehub.common.dto.PageResponse;
+import com.stagehub.offre.dto.FiltresDisponiblesResponse;
+import com.stagehub.offre.dto.OffreFiltre;
 import com.stagehub.offre.dto.OffreResponse;
 import com.stagehub.offre.service.OffreService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,10 +31,19 @@ public class OffreController {
     }
 
     @GetMapping
-    @Operation(summary = "Liste paginée des offres ouvertes")
-    public PageResponse<OffreResponse> lister(
+    @Operation(summary = "Recherche paginée des offres ouvertes",
+            description = "Filtres facultatifs, cumulés (ET) : ville et domaine (égalité insensible à la casse), "
+                    + "technologies (l'offre doit en demander au moins une).")
+    public PageResponse<OffreResponse> rechercher(
+            @ParameterObject OffreFiltre filtre,
             @ParameterObject @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        return offreService.listerOffresOuvertes(pageable);
+        return offreService.rechercherOffresOuvertes(filtre, pageable);
+    }
+
+    @GetMapping("/filtres")
+    @Operation(summary = "Valeurs disponibles pour les filtres (villes, domaines, technologies des offres ouvertes)")
+    public FiltresDisponiblesResponse filtres() {
+        return offreService.filtresDisponibles();
     }
 
     @GetMapping("/{id}")

@@ -6,18 +6,22 @@ import com.stagehub.offre.entity.StatutOffre;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
 
-public interface OffreRepository extends JpaRepository<Offre, Long> {
+/** JpaSpecificationExecutor ajoute findAll(Specification, Pageable), utilisé par la recherche filtrée. */
+public interface OffreRepository extends JpaRepository<Offre, Long>, JpaSpecificationExecutor<Offre> {
 
     // L'entreprise est chargée par jointure (ManyToOne : compatible avec la pagination) ;
     // les technologies sont chargées par lots grâce à hibernate.default_batch_fetch_size.
+    @Override
     @EntityGraph(attributePaths = "entreprise")
-    Page<Offre> findByStatut(StatutOffre statut, Pageable pageable);
+    Page<Offre> findAll(Specification<Offre> specification, Pageable pageable);
 
     @EntityGraph(attributePaths = "entreprise")
     Page<Offre> findByEntrepriseId(Long entrepriseId, Pageable pageable);
@@ -34,4 +38,31 @@ public interface OffreRepository extends JpaRepository<Offre, Long> {
             order by count(o) desc, t asc
             """)
     List<TechnologieStat> compterParTechnologie(Pageable pageable);
+
+    // Valeurs des listes déroulantes : un représentant par groupe "lower(valeur)", donc
+    // "Rabat" et "rabat" ne donnent qu'une option (min() choisit l'orthographe de façon déterministe).
+
+    @Query("""
+            select min(o.ville) from Offre o
+            where o.statut = :statut
+            group by lower(o.ville)
+            order by lower(o.ville)
+            """)
+    List<String> villesDistinctes(StatutOffre statut);
+
+    @Query("""
+            select min(o.domaine) from Offre o
+            where o.statut = :statut
+            group by lower(o.domaine)
+            order by lower(o.domaine)
+            """)
+    List<String> domainesDistincts(StatutOffre statut);
+
+    @Query("""
+            select min(t) from Offre o join o.technologies t
+            where o.statut = :statut
+            group by lower(t)
+            order by lower(t)
+            """)
+    List<String> technologiesDistinctes(StatutOffre statut);
 }
