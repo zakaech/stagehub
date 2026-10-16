@@ -1,5 +1,6 @@
 package com.stagehub.offre.entity;
 
+import com.stagehub.common.util.Textes;
 import com.stagehub.entreprise.entity.Entreprise;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -18,7 +19,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 
 @Entity
@@ -74,5 +77,26 @@ public class Offre {
 
     public boolean appartientA(Long entrepriseId) {
         return entreprise.getId().equals(entrepriseId);
+    }
+
+    /**
+     * Nettoie les champs servant aux filtres : espaces superflus retirés, technologies dédoublonnées sans tenir
+     * compte de la casse ("Java" et "java " → une seule, la première saisie). Les filtres comparent en minuscules.
+     */
+    public void normaliserChampsDeFiltre() {
+        ville = Textes.nettoyer(ville);
+        domaine = Textes.nettoyer(domaine);
+
+        Set<String> vues = new HashSet<>();
+        Set<String> nettoyees = new LinkedHashSet<>();
+        for (String technologie : technologies) {
+            String propre = Textes.nettoyer(technologie);
+            if (propre != null && !propre.isEmpty() && vues.add(propre.toLowerCase(Locale.ROOT))) {
+                nettoyees.add(propre);
+            }
+        }
+        // On modifie la collection existante (suivie par Hibernate) plutôt que de la remplacer
+        technologies.clear();
+        technologies.addAll(nettoyees);
     }
 }

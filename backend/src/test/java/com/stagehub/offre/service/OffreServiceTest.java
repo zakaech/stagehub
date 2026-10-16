@@ -24,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -145,6 +147,20 @@ class OffreServiceTest {
             assertThat(reponse.statut()).isEqualTo(StatutOffre.OUVERTE);
             assertThat(reponse.entrepriseNom()).isEqualTo("Acme");
             assertThat(reponse.technologies()).containsExactly("Java");
+        }
+
+        @Test
+        void champsDeFiltre_sontNettoyesALEnregistrement() {
+            when(entrepriseRepository.findById(ENTREPRISE_ID)).thenReturn(Optional.of(entreprise));
+            when(offreRepository.save(any(Offre.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            OffreRequest saisie = new OffreRequest("Stage PFE Java", "API", "  Casa   blanca ", " Data ",
+                    new LinkedHashSet<>(List.of("Java", "java ", "Spring  Boot")), 6, AUJOURDHUI.plusDays(30));
+
+            OffreResponse reponse = service.creer(ENTREPRISE_ID, saisie);
+
+            assertThat(reponse.ville()).isEqualTo("Casa blanca");
+            assertThat(reponse.domaine()).isEqualTo("Data");
+            assertThat(reponse.technologies()).containsExactly("Java", "Spring Boot");
         }
 
         @Test
