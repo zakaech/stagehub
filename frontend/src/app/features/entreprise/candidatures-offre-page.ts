@@ -1,11 +1,11 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, input, numberAttribute, signal } from '@angular/core';
+import { Component, inject, input, numberAttribute } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
@@ -18,9 +18,9 @@ import {
   StatutCandidature,
   TRANSITIONS_CANDIDATURE,
 } from '../../core/models/candidature.models';
-import { PageRequest } from '../../core/models/page.models';
 import { NotificationService } from '../../core/notification.service';
 import { confirmer } from '../../shared/confirm-dialog';
+import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 import { LettreDialog, LettreDialogData } from './lettre-dialog';
@@ -63,9 +63,10 @@ export class CandidaturesOffrePage {
     params: () => this.id(),
     stream: ({ params: id }) => this.offreApi.monOffre(id),
   });
-  protected readonly pagination = signal<PageRequest>({ page: 0, size: 10 });
+  /** Page courante lue dans l'URL (?page=2&size=25). */
+  protected readonly etat = etatListeDansUrl(PAGINATION_TABLEAU);
   protected readonly candidatures = rxResource({
-    params: () => ({ offreId: this.id(), page: this.pagination() }),
+    params: () => ({ offreId: this.id(), page: this.etat.pagination() }),
     stream: ({ params }) => this.candidatureApi.candidaturesDeLOffre(params.offreId, params.page),
   });
 
@@ -76,10 +77,6 @@ export class CandidaturesOffrePage {
 
   protected action(statut: StatutCandidature): { libelle: string; icone: string } {
     return ACTIONS[statut];
-  }
-
-  protected changerPage(event: PageEvent): void {
-    this.pagination.set({ page: event.pageIndex, size: event.pageSize });
   }
 
   protected voirLettre(c: CandidatureEntrepriseResponse): void {

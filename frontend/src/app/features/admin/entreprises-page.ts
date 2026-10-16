@@ -1,20 +1,40 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleChange, MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
+import { ParamMap } from '@angular/router';
 import { filter, switchMap } from 'rxjs';
 
 import { AdminApi } from '../../core/api/admin.api';
 import { EntrepriseProfil, StatutValidation } from '../../core/models/auth.models';
 import { NotificationService } from '../../core/notification.service';
 import { confirmer } from '../../shared/confirm-dialog';
+import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
+
+const STATUTS: StatutValidation[] = ['EN_ATTENTE', 'VALIDEE', 'REFUSEE'];
+
+/** ?statut absent → EN_ATTENTE (vue par défaut) ; ?statut=TOUTES → toutes les entreprises (null). */
+export function lireFiltreStatut(params: ParamMap): StatutValidation | null {
+  const valeur = params.get('statut');
+  if (valeur === 'TOUTES') {
+    return null;
+  }
+  return STATUTS.find((s) => s === valeur) ?? 'EN_ATTENTE';
+}
+
+export function paramDeFiltreStatut(statut: StatutValidation | null): string | null {
+  if (statut === null) {
+    return 'TOUTES';
+  }
+  return statut === 'EN_ATTENTE' ? null : statut;
+}
 
 /** Validation des comptes entreprise (spec §2, admin). Par défaut : les comptes en attente. */
 @Component({
@@ -37,21 +57,18 @@ export class EntreprisesPage {
   private readonly notifications = inject(NotificationService);
 
   protected readonly colonnes = ['nom', 'contact', 'secteur', 'statut', 'actions'];
-  protected readonly filtre = signal<StatutValidation | null>('EN_ATTENTE');
-  protected readonly pagination = signal({ page: 0, size: 10 });
+
+  /** Filtre et page lus dans l'URL : ?statut=VALIDEE&page=2 (sans statut : les comptes en attente). */
+  protected readonly etat = etatListeDansUrl(PAGINATION_TABLEAU);
+  protected readonly filtre = computed(() => lireFiltreStatut(this.etat.params()));
 
   protected readonly entreprises = rxResource({
-    params: () => ({ statut: this.filtre(), page: this.pagination() }),
+    params: () => ({ statut: this.filtre(), page: this.etat.pagination() }),
     stream: ({ params }) => this.adminApi.entreprises(params.statut, params.page),
   });
 
   protected changerFiltre(event: MatButtonToggleChange): void {
-    this.filtre.set(event.value as StatutValidation | null);
-    this.pagination.update((p) => ({ ...p, page: 0 }));
-  }
-
-  protected changerPage(event: PageEvent): void {
-    this.pagination.set({ page: event.pageIndex, size: event.pageSize });
+    this.etat.filtrer({ statut: paramDeFiltreStatut(event.value as StatutValidation | null) });
   }
 
   protected statuer(entreprise: EntrepriseProfil, decision: 'VALIDEE' | 'REFUSEE'): void {

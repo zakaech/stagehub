@@ -1,9 +1,64 @@
 <header class="entete-page">
   <h1>Offres de stage</h1>
   @if (offres.hasValue()) {
-    <span>{{ offres.value().totalElements }} offre(s) ouverte(s)</span>
+    <span
+      >{{ offres.value().totalElements }}
+      {{ filtreActif() ? 'offre(s) trouvée(s)' : 'offre(s) ouverte(s)' }}</span
+    >
   }
 </header>
+
+<!-- Les sélections reflètent l'URL ; chaque changement navigue (historique, lien partageable) -->
+<section class="filtres" aria-label="Filtres">
+  @let options = filtresDisponibles.hasValue() ? filtresDisponibles.value() : null;
+  <mat-form-field subscriptSizing="dynamic">
+    <mat-label>Ville</mat-label>
+    <mat-select
+      [value]="filtre().ville"
+      [compareWith]="memeTexte"
+      (selectionChange)="modifierFiltre({ ville: $event.value })"
+    >
+      <mat-option [value]="null">Toutes les villes</mat-option>
+      @for (ville of options?.villes ?? []; track ville) {
+        <mat-option [value]="ville">{{ ville }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field subscriptSizing="dynamic">
+    <mat-label>Domaine</mat-label>
+    <mat-select
+      [value]="filtre().domaine"
+      [compareWith]="memeTexte"
+      (selectionChange)="modifierFiltre({ domaine: $event.value })"
+    >
+      <mat-option [value]="null">Tous les domaines</mat-option>
+      @for (domaine of options?.domaines ?? []; track domaine) {
+        <mat-option [value]="domaine">{{ domaine }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field subscriptSizing="dynamic" class="filtre-technos">
+    <mat-label>Technologies (au moins une)</mat-label>
+    <mat-select
+      multiple
+      [value]="filtre().technologies"
+      [compareWith]="memeTexte"
+      (selectionChange)="modifierFiltre({ technologies: $event.value })"
+    >
+      @for (techno of options?.technologies ?? []; track techno) {
+        <mat-option [value]="techno">{{ techno }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  @if (filtreActif()) {
+    <button mat-button (click)="reinitialiser()">
+      <mat-icon>filter_alt_off</mat-icon> Réinitialiser
+    </button>
+  }
+</section>
 
 @if (offres.isLoading()) {
   <mat-progress-bar mode="indeterminate" />
@@ -20,7 +75,16 @@
   @if (page.content.length === 0) {
     <section class="etat-vide">
       <mat-icon>work_off</mat-icon>
-      <p>Aucune offre ouverte pour le moment.</p>
+      <p>
+        {{
+          filtreActif()
+            ? 'Aucune offre ne correspond à ces filtres.'
+            : 'Aucune offre ouverte pour le moment.'
+        }}
+      </p>
+      @if (filtreActif()) {
+        <button mat-stroked-button (click)="reinitialiser()">Réinitialiser les filtres</button>
+      }
     </section>
   } @else {
     <div class="grille-offres">
@@ -59,7 +123,7 @@
       [pageIndex]="page.page"
       [pageSize]="page.size"
       [pageSizeOptions]="[9, 18, 36]"
-      (page)="changerPage($event)"
+      (page)="etat.changerPage($event)"
       aria-label="Pagination des offres"
     />
   }

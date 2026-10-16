@@ -29,3 +29,26 @@
   gap: 4px 16px;
   color: var(--mat-sys-on-surface-variant);
 }
+
+.filtres {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  mat-form-field {
+    width: 200px;
+  }
+
+  .filtre-technos {
+    width: 280px;
+  }
+}
+
+@media (max-width: 600px) {
+  .filtres mat-form-field,
+  .filtres .filtre-technos {
+    width: 100%;
+  }
+}

@@ -1,11 +1,11 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
@@ -14,10 +14,10 @@ import { filter, switchMap } from 'rxjs';
 import { OffreApi } from '../../core/api/offre.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { OffreResponse, StatutOffre } from '../../core/models/offre.models';
-import { PageRequest } from '../../core/models/page.models';
 import { NotificationService } from '../../core/notification.service';
 import { confirmer } from '../../shared/confirm-dialog';
 import { dateDepassee } from '../../shared/dates';
+import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 import { StatutEntrepriseBanner } from './statut-entreprise-banner';
@@ -54,15 +54,12 @@ export class MesOffresPage {
     this.profil.hasValue() ? (this.profil.value().entreprise?.statutValidation ?? null) : null,
   );
 
-  protected readonly pagination = signal<PageRequest>({ page: 0, size: 10, sort: 'id,desc' });
+  /** Page courante lue dans l'URL (?page=2&size=25). */
+  protected readonly etat = etatListeDansUrl(PAGINATION_TABLEAU);
   protected readonly offres = rxResource({
-    params: () => this.pagination(),
+    params: () => ({ ...this.etat.pagination(), sort: 'id,desc' }),
     stream: ({ params }) => this.offreApi.mesOffres(params),
   });
-
-  protected changerPage(event: PageEvent): void {
-    this.pagination.update((p) => ({ ...p, page: event.pageIndex, size: event.pageSize }));
-  }
 
   protected changerStatut(offre: OffreResponse, statut: StatutOffre): void {
     const fermer = statut === 'FERMEE';
