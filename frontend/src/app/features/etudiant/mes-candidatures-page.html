@@ -7,8 +7,7 @@
   <mat-progress-bar mode="indeterminate" />
 }
 
-@if (candidatures.hasValue()) {
-  @let page = candidatures.value();
+@if (candidaturesAffichees(); as page) {
   @if (page.totalElements === 0) {
     <section class="etat-vide">
       <mat-icon>assignment</mat-icon>

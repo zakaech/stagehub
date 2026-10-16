@@ -20,6 +20,7 @@ import { dateDepassee } from '../../shared/dates';
 import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
+import { valeurConservee } from '../../shared/valeur-conservee';
 import { StatutEntrepriseBanner } from './statut-entreprise-banner';
 
 @Component({
@@ -60,6 +61,8 @@ export class MesOffresPage {
     params: () => ({ ...this.etat.pagination(), sort: 'id,desc' }),
     stream: ({ params }) => this.offreApi.mesOffres(params),
   });
+  /** Dernière page reçue, conservée pendant les rechargements (pas de clignotement). */
+  protected readonly offresAffichees = valeurConservee(this.offres);
 
   protected changerStatut(offre: OffreResponse, statut: StatutOffre): void {
     const fermer = statut === 'FERMEE';

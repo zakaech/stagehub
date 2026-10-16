@@ -1,8 +1,8 @@
 <header class="entete-page">
   <h1>Offres de stage</h1>
-  @if (offres.hasValue()) {
+  @if (offresAffichees(); as page) {
     <span
-      >{{ offres.value().totalElements }}
+      >{{ page.totalElements }}
       {{ filtreActif() ? 'offre(s) trouvée(s)' : 'offre(s) ouverte(s)' }}</span
     >
   }
@@ -70,8 +70,7 @@
     <p>Impossible de charger les offres pour le moment.</p>
     <button mat-stroked-button (click)="offres.reload()">Réessayer</button>
   </section>
-} @else if (offres.hasValue()) {
-  @let page = offres.value();
+} @else if (offresAffichees(); as page) {
   @if (page.content.length === 0) {
     <section class="etat-vide">
       <mat-icon>work_off</mat-icon>

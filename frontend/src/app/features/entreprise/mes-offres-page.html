@@ -15,8 +15,7 @@
   <mat-progress-bar mode="indeterminate" />
 }
 
-@if (offres.hasValue()) {
-  @let page = offres.value();
+@if (offresAffichees(); as page) {
   @if (page.totalElements === 0) {
     <section class="etat-vide">
       <mat-icon>work_outline</mat-icon>

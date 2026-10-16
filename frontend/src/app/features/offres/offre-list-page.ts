@@ -15,6 +15,7 @@ import { OffreApi } from '../../core/api/offre.api';
 import { OffreFiltre } from '../../core/models/offre.models';
 import { etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
+import { valeurConservee } from '../../shared/valeur-conservee';
 import { filtreActif, lireFiltreOffres, memeTexte, paramsDeFiltreOffres } from './filtre-offres';
 
 /** Recherche publique des offres ouvertes : filtres et page vivent dans l'URL (?ville=…&page=2). */
@@ -60,6 +61,8 @@ export class OffreListPage {
     params: () => ({ filtre: this.filtre(), page: { ...this.etat.pagination(), sort: 'id,desc' } }),
     stream: ({ params }) => this.offreApi.rechercherOuvertes(params.filtre, params.page),
   });
+  /** Dernière page reçue, conservée pendant les rechargements (pas de clignotement). */
+  protected readonly offresAffichees = valeurConservee(this.offres);
 
   protected modifierFiltre(changement: Partial<OffreFiltre>): void {
     this.etat.filtrer(paramsDeFiltreOffres({ ...this.filtre(), ...changement }));

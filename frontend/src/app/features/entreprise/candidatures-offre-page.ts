@@ -25,6 +25,7 @@ import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 import { enregistrerFichier } from '../../shared/telechargement';
+import { valeurConservee } from '../../shared/valeur-conservee';
 import { LettreDialog, LettreDialogData } from './lettre-dialog';
 
 const ACTIONS: Record<StatutCandidature, { libelle: string; icone: string }> = {
@@ -80,6 +81,8 @@ export class CandidaturesOffrePage {
     params: () => ({ offreId: this.id(), page: this.etat.pagination() }),
     stream: ({ params }) => this.candidatureApi.candidaturesDeLOffre(params.offreId, params.page),
   });
+  /** Dernière page reçue, conservée pendant les rechargements (pas de clignotement). */
+  protected readonly candidaturesAffichees = valeurConservee(this.candidatures);
 
   /** Statuts atteignables depuis le statut actuel (vide pour ACCEPTEE et REFUSEE). */
   protected transitionsDe(c: CandidatureEntrepriseResponse): StatutCandidature[] {

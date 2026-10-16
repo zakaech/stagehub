@@ -17,8 +17,7 @@
   <mat-progress-bar mode="indeterminate" />
 }
 
-@if (entreprises.hasValue()) {
-  @let page = entreprises.value();
+@if (entreprisesAffichees(); as page) {
   @if (page.totalElements === 0) {
     <section class="etat-vide">
       <mat-icon>task_alt</mat-icon>

@@ -17,6 +17,7 @@ import { confirmer } from '../../shared/confirm-dialog';
 import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
+import { valeurConservee } from '../../shared/valeur-conservee';
 
 const STATUTS: StatutValidation[] = ['EN_ATTENTE', 'VALIDEE', 'REFUSEE'];
 
@@ -66,6 +67,8 @@ export class EntreprisesPage {
     params: () => ({ statut: this.filtre(), page: this.etat.pagination() }),
     stream: ({ params }) => this.adminApi.entreprises(params.statut, params.page),
   });
+  /** Dernière page reçue, conservée pendant les rechargements (pas de clignotement). */
+  protected readonly entreprisesAffichees = valeurConservee(this.entreprises);
 
   protected changerFiltre(event: MatButtonToggleChange): void {
     this.etat.filtrer({ statut: paramDeFiltreStatut(event.value as StatutValidation | null) });

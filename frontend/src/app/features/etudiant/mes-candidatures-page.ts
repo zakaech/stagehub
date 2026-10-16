@@ -12,6 +12,7 @@ import { CandidatureApi } from '../../core/api/candidature.api';
 import { PAGINATION_TABLEAU, etatListeDansUrl } from '../../shared/etat-url';
 import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
+import { valeurConservee } from '../../shared/valeur-conservee';
 
 @Component({
   selector: 'app-mes-candidatures-page',
@@ -43,4 +44,6 @@ export class MesCandidaturesPage {
     params: () => this.etat.pagination(),
     stream: ({ params }) => this.candidatureApi.mesCandidatures(params),
   });
+  /** Dernière page reçue, conservée pendant les rechargements (pas de clignotement). */
+  protected readonly candidaturesAffichees = valeurConservee(this.candidatures);
 }
