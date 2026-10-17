@@ -67,8 +67,11 @@ stagehub:
   admin:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}
+  demo:
+    # Mot de passe commun des comptes de démo (profils dev et demo ; données publiques, pas un secret)
+    mot-de-passe: ${DEMO_PASSWORD:demo1234}
   cv:
-    # Relatif au dossier de lancement (backend/) ; deviendra un volume Docker en phase 5
+    # Relatif au dossier de lancement (backend/) ; en conteneur : /data/cv (volume nommé cv-data)
     dossier: ${CV_STORAGE_DIR:./uploads/cv}
     taille-max: 5MB
 

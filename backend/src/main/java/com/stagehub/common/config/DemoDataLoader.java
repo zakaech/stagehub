@@ -31,11 +31,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
- * Jeu de données de démonstration, chargé uniquement en profil {@code dev} et seulement si la base
- * ne contient encore aucune entreprise. Les mots de passe passent par le vrai PasswordEncoder (BCrypt).
+ * Jeu de données de démonstration, chargé en profil {@code dev} (développement) ou {@code demo} (instance de
+ * démonstration : SPRING_PROFILES_ACTIVE=prod,demo), et seulement si la base ne contient encore aucune entreprise.
+ * Une vraie production (profil prod seul) n'en charge jamais. Mots de passe hachés par le vrai PasswordEncoder.
  */
 @Component
-@Profile("dev")
+@Profile({"dev", "demo"})
 @Order(2)
 public class DemoDataLoader implements ApplicationRunner {
 

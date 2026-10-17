@@ -4,11 +4,6 @@ spring:
       hibernate:
         format_sql: true
 
-stagehub:
-  demo:
-    # Mot de passe commun des comptes de démo (données publiques, pas un secret)
-    mot-de-passe: ${DEMO_PASSWORD:demo1234}
-
 logging:
   level:
     com.stagehub: DEBUG
