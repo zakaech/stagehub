@@ -1,0 +1,29 @@
+# Profil prod : utilisé dans les conteneurs (docker compose, serveur). Sans données de démo :
+# l'instance de démonstration ajoute le profil "demo" (SPRING_PROFILES_ACTIVE=prod,demo).
+
+server:
+  # Derrière Nginx : X-Forwarded-Proto / X-Forwarded-Host servent à construire les URL publiques
+  # (en-tête Location des réponses 201 en https://domaine/... et non http://backend:8080/...)
+  forward-headers-strategy: framework
+  # Arrêt propre : les requêtes en cours se terminent (20 s maximum) avant l'arrêt du conteneur
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+# Swagger UI et /v3/api-docs : désactivés par défaut, activés sur l'instance de démo (SWAGGER_ENABLED=true)
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
+# Format des logs : texte lisible par défaut. Sur le serveur, LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
+# (variable d'environnement) produit du JSON structuré, prêt pour un outil d'agrégation de logs.
+logging:
+  level:
+    root: INFO
+    com.stagehub: INFO

@@ -72,6 +72,23 @@ stagehub:
     dossier: ${CV_STORAGE_DIR:./uploads/cv}
     taille-max: 5MB
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Seul l'état de santé est exposé (healthchecks Docker), sans aucun détail interne
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      # /actuator/health/liveness et /actuator/health/readiness
+      probes:
+        enabled: true
+  health:
+    # L'envoi d'emails n'est pas indispensable : un SMTP en panne ne doit pas rendre l'application "DOWN"
+    mail:
+      enabled: false
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

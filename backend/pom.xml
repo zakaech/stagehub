@@ -49,6 +49,12 @@
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
 
+        <!-- Santé de l'application pour les healthchecks Docker (seul /actuator/health est exposé) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- AOP (aspects d'audit et de mesure du temps) et emails -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
