@@ -59,6 +59,12 @@ conteneurs.
 cp .env.example .env && docker compose up -d --build
 ```
 
+Sous Windows (invite de commandes `cmd`) :
+
+```bat
+copy .env.example .env && docker compose up -d --build
+```
+
 Le premier lancement télécharge les images et construit l'application (plusieurs minutes). Ensuite :
 
 | | Adresse |
