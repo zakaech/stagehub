@@ -1,0 +1,94 @@
+# Configuration Nginx de StageHub (copiée dans /etc/nginx/templates/ : envsubst remplace ${BACKEND_URL}
+# et ${MAILPIT_URL} au démarrage ; les variables Nginx comme $host ne sont pas touchées).
+
+# Derrière Caddy (HTTPS sur le serveur), on garde le protocole d'origine ; en local, c'est celui d'Nginx.
+map $http_x_forwarded_proto $protocole_client {
+    default $http_x_forwarded_proto;
+    ''      $scheme;
+}
+
+# WebSocket (mises à jour en direct de l'interface Mailpit)
+map $http_upgrade $connexion_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # DNS interne de Docker, interrogé à chaque requête (cf. "set $..." ci-dessous) : si le backend
+    # redémarre avec une autre IP, Nginx le retrouve ; et un service absent (ex. pas de Mailpit en
+    # production) ne l'empêche pas de démarrer.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    # CV jusqu'à 5 Mo + enveloppe multipart ; le backend reste l'autorité sur la limite de 5 Mo
+    client_max_body_size 6m;
+
+    gzip on;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "DENY" always;
+
+    # --- API Spring Boot -----------------------------------------------------------------
+    location /api/ {
+        set $backend ${BACKEND_URL};
+        proxy_pass $backend;
+
+        # Host d'origine, port compris ($http_host et non $host) : le backend voit la même origine que le
+        # navigateur (pas de faux "cross-origin" refusé par CORS) et construit des URL publiques correctes
+        # (en-tête Location des réponses 201).
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $protocole_client;
+    }
+
+    # --- Swagger (n'existe côté backend que si SWAGGER_ENABLED=true) -------------------------
+    location ~ ^/(swagger-ui\.html|swagger-ui/|v3/api-docs) {
+        set $backend ${BACKEND_URL};
+        proxy_pass $backend;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $protocole_client;
+    }
+
+    # --- Mailpit (démo) : interface servie sous /mail/ grâce à MP_WEBROOT=mail ----------------
+    location /mail/ {
+        set $mailpit ${MAILPIT_URL};
+        proxy_pass $mailpit;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connexion_upgrade;
+        proxy_set_header Host $http_host;
+    }
+
+    # --- Angular -----------------------------------------------------------------------------
+    # index.html ne doit jamais être mis en cache : il référence les fichiers JS/CSS du dernier build
+    location = /index.html {
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Frame-Options "DENY" always;
+    }
+
+    # JS/CSS nommés avec un hash (outputHashing) : leur contenu ne change jamais, cache d'un an
+    location ~* \.(?:js|css)$ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # Routes Angular (/offres/3, /admin/audit...) : fichier existant, sinon index.html et Angular route
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
