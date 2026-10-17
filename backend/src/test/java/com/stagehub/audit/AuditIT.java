@@ -19,8 +19,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Audit de bout en bout : succès, échecs métier, rollback de transaction. */
@@ -98,6 +101,21 @@ class AuditIT extends IntegrationTestBase {
         assertThat(historique(EntiteAuditee.CANDIDATURE, s.candidatureId())).isEmpty();
         assertThat(candidatureRepository.findById(s.candidatureId()).orElseThrow().getStatut())
                 .isEqualTo(StatutCandidature.EN_ATTENTE);
+    }
+
+    @Test
+    void journal_consultableParLAdminUniquement() throws Exception {
+        ApiDeTest.Compte entreprise = api.inscrireEntreprise();
+        api.validerEntreprise(entreprise.id());
+        String tokenAdmin = api.tokenAdmin();
+
+        api.lire("/api/v1/admin/audit?entite=ENTREPRISE", tokenAdmin)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].entiteId").value(entreprise.id().intValue()))
+                .andExpect(jsonPath("$.content[0].action").value("VALIDATION_ENTREPRISE"))
+                .andExpect(jsonPath("$.content[0].nouvelleValeur").value("VALIDEE"))
+                .andExpect(jsonPath("$.content[*].entite", everyItem(is("ENTREPRISE"))));
+        api.lire("/api/v1/admin/audit", entreprise.token()).andExpect(status().isForbidden());
     }
 
     @Test

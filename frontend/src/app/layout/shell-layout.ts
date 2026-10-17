@@ -23,6 +23,7 @@ const LIENS_PAR_ROLE: Record<Role, LienNavigation[]> = {
   ADMIN: [
     { libelle: 'Entreprises', lien: '/admin/entreprises', icone: 'domain_verification' },
     { libelle: 'Statistiques', lien: '/admin/statistiques', icone: 'bar_chart' },
+    { libelle: "Journal d'audit", lien: '/admin/audit', icone: 'history' },
   ],
 };
 

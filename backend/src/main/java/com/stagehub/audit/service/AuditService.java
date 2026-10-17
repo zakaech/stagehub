@@ -1,8 +1,14 @@
 package com.stagehub.audit.service;
 
+import com.stagehub.audit.dto.AuditLogResponse;
 import com.stagehub.audit.entity.ActionAudit;
 import com.stagehub.audit.entity.AuditLog;
+import com.stagehub.audit.entity.EntiteAuditee;
+import com.stagehub.audit.mapper.AuditLogMapper;
 import com.stagehub.audit.repository.AuditLogRepository;
+import com.stagehub.common.dto.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -17,11 +23,22 @@ public class AuditService {
     static final String SYSTEME = "systeme";
 
     private final AuditLogRepository auditLogRepository;
+    private final AuditLogMapper auditLogMapper;
     private final Clock clock;
 
-    public AuditService(AuditLogRepository auditLogRepository, Clock clock) {
+    public AuditService(AuditLogRepository auditLogRepository, AuditLogMapper auditLogMapper, Clock clock) {
         this.auditLogRepository = auditLogRepository;
+        this.auditLogMapper = auditLogMapper;
         this.clock = clock;
+    }
+
+    /** Journal paginé, filtrable par type d'entité (null = tout). */
+    @Transactional(readOnly = true)
+    public PageResponse<AuditLogResponse> lister(EntiteAuditee entite, Pageable pageable) {
+        Page<AuditLog> page = entite == null
+                ? auditLogRepository.findAll(pageable)
+                : auditLogRepository.findByEntite(entite, pageable);
+        return PageResponse.of(page, auditLogMapper::toResponse);
     }
 
     /**

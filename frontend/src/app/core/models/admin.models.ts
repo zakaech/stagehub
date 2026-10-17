@@ -15,3 +15,18 @@ export interface StatistiquesResponse {
   topTechnologies: TechnologieStat[];
   entreprisesEnAttente: number;
 }
+
+export type EntiteAuditee = 'CANDIDATURE' | 'ENTREPRISE';
+export type ActionAudit = 'CHANGEMENT_STATUT_CANDIDATURE' | 'VALIDATION_ENTREPRISE';
+
+/** Miroir de com.stagehub.audit.dto.AuditLogResponse. */
+export interface AuditLogResponse {
+  id: number;
+  action: ActionAudit;
+  utilisateur: string;
+  entite: EntiteAuditee;
+  entiteId: number;
+  ancienneValeur: string | null;
+  nouvelleValeur: string | null;
+  date: string;
+}

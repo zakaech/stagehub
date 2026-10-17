@@ -110,6 +110,11 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/admin/statistiques-page').then((m) => m.StatistiquesPage),
           },
+          {
+            path: 'audit',
+            title: "Journal d'audit — StageHub",
+            loadComponent: () => import('./features/admin/audit-page').then((m) => m.AuditPage),
+          },
         ],
       },
       { path: '**', title: 'Page introuvable — StageHub', component: PageIntrouvable },

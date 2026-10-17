@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import { StatistiquesResponse } from '../models/admin.models';
+import { AuditLogResponse, EntiteAuditee, StatistiquesResponse } from '../models/admin.models';
 import { EntrepriseProfil, StatutValidation } from '../models/auth.models';
 import { PageRequest, PageResponse } from '../models/page.models';
 import { API_URL } from './api';
@@ -37,5 +37,17 @@ export class AdminApi {
 
   statistiques(): Observable<StatistiquesResponse> {
     return this.http.get<StatistiquesResponse>(`${API_URL}/admin/stats`);
+  }
+
+  /** entite null = tout le journal. */
+  journalAudit(
+    entite: EntiteAuditee | null,
+    page: PageRequest,
+  ): Observable<PageResponse<AuditLogResponse>> {
+    let params: HttpParams = paramsDePage(page);
+    if (entite) {
+      params = params.set('entite', entite);
+    }
+    return this.http.get<PageResponse<AuditLogResponse>>(`${API_URL}/admin/audit`, { params });
   }
 }
