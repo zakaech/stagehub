@@ -1,0 +1,7 @@
+# Seuls pom.xml, mvnw, .mvn/ et src/ sont utiles au build de l'image
+target/
+uploads/
+.idea/
+.vscode/
+*.iml
+*.log
