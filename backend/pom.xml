@@ -48,6 +48,16 @@
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
 
+        <!-- AOP (aspects d'audit et de mesure du temps) et emails -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Base de données -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -111,6 +121,12 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Attendre un résultat asynchrone (email envoyé par un autre thread) sans Thread.sleep -->
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

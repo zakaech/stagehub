@@ -30,6 +30,14 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  mail:
+    # En local : Mailpit (docker compose) ; aucune authentification
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   servlet:
     multipart:
       # Première barrière : Spring refuse les fichiers trop gros avant le contrôleur (le service revérifie)
@@ -37,6 +45,10 @@ spring:
       max-request-size: 6MB
 
 stagehub:
+  # Fuseau de référence pour toutes les règles de date (postuler, rouvrir, fermeture nocturne)
+  fuseau: Africa/Casablanca
+  mail:
+    expediteur: ${MAIL_FROM:no-reply@stagehub.local}
   jwt:
     secret: ${JWT_SECRET:}
     expiration: ${JWT_EXPIRATION:PT1H}

@@ -16,5 +16,21 @@ services:
       timeout: 3s
       retries: 10
 
+  # Faux serveur SMTP pour le développement : capture tous les emails, rien ne part vraiment.
+  # Interface web : http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    container_name: stagehub-mailpit
+    ports:
+      - "${MAIL_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   postgres-data:
