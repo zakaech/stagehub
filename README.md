@@ -1,0 +1,229 @@
+# StageHub
+
+**Plateforme de gestion des stages PFE** : les entreprises publient leurs offres, les étudiants postulent avec leur CV,
+l'administrateur valide les entreprises et suit l'activité.
+
+Projet portfolio full stack : **Spring Boot 4 · Java 21 · Angular 22 · PostgreSQL · Docker**, avec sécurité JWT,
+tests automatisés (couverture contrôlée par JaCoCo), audit par AOP, emails asynchrones et tâches planifiées.
+
+![Liste des offres avec filtres](docs/captures/offres.png)
+
+---
+
+## Sommaire
+
+- [Fonctionnalités](#fonctionnalités)
+- [Démarrage en une commande](#démarrage-en-une-commande)
+- [Comptes de démo](#comptes-de-démo)
+- [Captures d'écran](#captures-décran)
+- [Architecture](#architecture)
+- [Stack technique](#stack-technique)
+- [Développement](#développement)
+- [Tests et qualité](#tests-et-qualité)
+- [Déploiement](#déploiement)
+- [Structure du dépôt](#structure-du-dépôt)
+
+---
+
+## Fonctionnalités
+
+**Étudiant**
+- Inscription, connexion
+- Recherche d'offres : filtres ville, domaine, technologies (au moins une), pagination ; filtres et page dans l'URL
+  (bouton retour, liens partageables)
+- Dépôt du CV (PDF vérifié par son contenu, 5 Mo maximum), candidature avec lettre de motivation
+- Suivi du statut de ses candidatures, notification par email à chaque changement
+
+**Entreprise**
+- Inscription (compte en attente de validation par l'administrateur), email à la validation ou au refus
+- Publication, modification, fermeture et réouverture de ses offres
+- Candidatures reçues : profil, lettre, **CV tel qu'il était au moment de la candidature**
+- Décision (entretien, acceptée, refusée) selon une machine à états ; seules les transitions valides sont proposées
+
+**Administrateur**
+- Validation ou refus des comptes entreprise
+- Statistiques : offres, candidatures par statut, technologies les plus demandées
+- Journal d'audit : qui a changé quel statut, quand, de quelle valeur à quelle valeur
+
+**Automatique**
+- Chaque nuit à 00:05 (heure de Casablanca), fermeture des offres dont la date limite est passée
+
+---
+
+## Démarrage en une commande
+
+Prérequis : **Docker** (Docker Desktop sous Windows/macOS). Rien d'autre : Java, Node et PostgreSQL tournent dans des
+conteneurs.
+
+```bash
+cp .env.example .env && docker compose up -d --build
+```
+
+Le premier lancement télécharge les images et construit l'application (plusieurs minutes). Ensuite :
+
+| | Adresse |
+|---|---|
+| **Application** | http://localhost:8090 |
+| Emails envoyés (Mailpit) | http://localhost:8090/mail/ |
+| Documentation de l'API (Swagger) | http://localhost:8090/swagger-ui.html |
+
+`docker compose ps` doit montrer tous les services `healthy`. Arrêt : `docker compose down` (les données sont
+conservées dans des volumes).
+
+> Les valeurs de `.env.example` conviennent pour un essai local. Sur un serveur, changer **tous** les mots de passe et
+> le secret JWT (voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)).
+
+---
+
+## Comptes de démo
+
+Chargés automatiquement au premier démarrage (profil `demo`). Mot de passe commun : **`demo1234`**
+(variable `DEMO_PASSWORD`).
+
+| Rôle | Email | Situation |
+|---|---|---|
+| Étudiant | `sara.alaoui@etu.demo` | 2 candidatures |
+| Étudiant | `youssef.bennani@etu.demo` | 3 candidatures, dont une acceptée |
+| Étudiant | `imane.tazi@etu.demo` | 2 candidatures |
+| Entreprise | `rh@technova.demo` | Validée, 3 offres |
+| Entreprise | `stages@datasphere.demo` | Validée, 3 offres (dont une fermée) |
+| Entreprise | `contact@greenbyte.demo` | **En attente** de validation |
+| Admin | `ADMIN_EMAIL` / `ADMIN_PASSWORD` du `.env` | `admin@stagehub.local` / `change-me-admin` avec l'exemple |
+
+Tous les emails (adresses fictives) arrivent dans **Mailpit** : http://localhost:8090/mail/.
+
+---
+
+## Captures d'écran
+
+| | |
+|---|---|
+| ![Filtres des offres](docs/captures/offres.png) | ![Candidatures reçues](docs/captures/candidatures-recues.png) |
+| Offres : filtres dans l'URL | Entreprise : candidatures reçues, CV, décision |
+| ![Profil et CV](docs/captures/profil-cv.png) | ![Statistiques](docs/captures/statistiques.png) |
+| Étudiant : dépôt du CV | Admin : statistiques |
+| ![Journal d'audit](docs/captures/audit.png) | ![Email dans Mailpit](docs/captures/mailpit.png) |
+| Admin : journal d'audit | Email de changement de statut (Mailpit) |
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    navigateur["Navigateur<br/>Angular 22"]
+    subgraph docker["docker compose"]
+        nginx["Nginx<br/>fichiers Angular<br/>+ relais /api"]
+        backend["Spring Boot 4<br/>API REST /api/v1"]
+        postgres[("PostgreSQL 17<br/>Flyway")]
+        cv[("Volume<br/>CV (PDF)")]
+        mailpit["Mailpit<br/>SMTP de démo"]
+    end
+    navigateur -- "HTTP(S)" --> nginx
+    nginx -- "/api, /swagger-ui" --> backend
+    nginx -- "/mail/" --> mailpit
+    backend -- "JPA" --> postgres
+    backend -- "fichiers" --> cv
+    backend -- "SMTP, après commit, @Async" --> mailpit
+```
+
+Points de conception :
+
+- **Monolithe modulaire** : packages par fonctionnalité (`offre`, `candidature`, `cv`, `audit`, `notification`…), chacun
+  avec ses couches. Le découpage prépare le passage aux microservices.
+- **Sécurité** : JWT HS256 sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
+  propriété dans les services (une entreprise n'agit que sur ses offres).
+- **Erreurs** : format standard ProblemDetail (RFC 9457) avec un `code` stable, y compris pour les 401/403.
+- **CV figé** : la candidature garde le fichier en vigueur au moment où l'étudiant postule ; un CV remplacé n'est supprimé
+  que si aucune candidature ne le référence.
+- **Audit par AOP** : annotation `@Audite`, écriture dans la transaction de l'action (un rollback annule aussi l'audit).
+- **Emails** : événements publiés par les services, envoyés **après le commit** (`@TransactionalEventListener`) par un
+  pool de threads dédié (`@Async`) ; modèles dans `backend/src/main/resources/emails`.
+
+---
+
+## Stack technique
+
+| Domaine | Technologies |
+|---|---|
+| Backend | Java 21, Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security + OAuth2 Resource Server, AOP, Mail, Actuator), Maven |
+| Données | PostgreSQL 17, Flyway, Hibernate (`ddl-auto=validate`), Specifications JPA |
+| Mapping | MapStruct, Lombok (limité aux getters/setters des entités) |
+| API | REST `/api/v1`, pagination, ProblemDetail, springdoc-openapi (Swagger UI) |
+| Frontend | Angular 22 (standalone, zoneless, signals, `rxResource`), Angular Material 3 |
+| Tests | JUnit 5, Mockito, Spring Boot Test, `@WebMvcTest`, Testcontainers, Vitest, JaCoCo |
+| Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
+| À venir | Jenkins (CI/CD), Spring Cloud + Kafka (microservices), Spring AI + Ollama |
+
+---
+
+## Développement
+
+Pour travailler sur le code, lancer seulement les services d'appui dans Docker, et le backend et Angular sur la machine
+(rechargement à chaud) :
+
+```bash
+cp .env.example .env
+docker compose up -d postgres mailpit             # PostgreSQL (5433) + Mailpit (SMTP 1025, interface :8025/mail/)
+
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev     # API sur http://localhost:8081 + données de démo
+
+cd frontend                                              # Node 24 LTS
+npm ci
+npm start                                                # http://localhost:4200 (proxy /api → :8081)
+```
+
+Prérequis : JDK 21, Node 24 LTS, Docker.
+
+---
+
+## Tests et qualité
+
+```bash
+cd backend
+./mvnw test        # tests unitaires (Mockito, @WebMvcTest)
+./mvnw verify      # + tests d'intégration sur un vrai PostgreSQL (Testcontainers, Docker requis)
+                   #   + rapport de couverture JaCoCo et contrôle des seuils
+
+cd frontend
+npm test -- --watch=false     # tests Vitest
+npm run format:check          # formatage Prettier
+```
+
+- Rapport de couverture : `backend/target/site/jacoco/index.html` (après `verify`).
+- **Seuil** : chaque package de services doit couvrir au moins 80 % des lignes et 70 % des branches, sinon le build échoue.
+
+---
+
+## Déploiement
+
+Le même `docker-compose.yml` tourne sur un serveur, complété par `docker-compose.prod.yml` (Caddy pour le HTTPS, aucun
+port interne exposé) :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Guide complet (Oracle Cloud Always Free, ou Hetzner en alternative) : [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md).
+
+---
+
+## Structure du dépôt
+
+```
+StageHub/
+├── backend/                  Spring Boot (Dockerfile multi-stage)
+│   └── src/main/java/com/stagehub/
+│       ├── auth/  offre/  candidature/  cv/  entreprise/  etudiant/  admin/
+│       ├── audit/            audit AOP (@Audite) et journal
+│       ├── notification/     emails asynchrones après commit
+│       ├── security/         JWT, CORS, erreurs 401/403
+│       └── common/           exceptions, configuration, stockage, aspects
+├── frontend/                 Angular (Dockerfile + configuration Nginx)
+├── deploiement/              Caddyfile (HTTPS sur serveur)
+├── docs/                     DEPLOIEMENT.md, captures
+├── docker-compose.yml        application complète (local)
+├── docker-compose.prod.yml   surcouche serveur
+└── .env.example              configuration (copier en .env)
+```
