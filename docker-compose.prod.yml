@@ -1,0 +1,47 @@
+# Surcouche pour le serveur (Oracle Cloud ou Hetzner), à combiner avec docker-compose.yml :
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Différences avec le local :
+#   - Caddy en façade sur les ports 80/443 : certificat HTTPS Let's Encrypt obtenu et renouvelé automatiquement ;
+#   - plus aucun port exposé directement pour PostgreSQL, Mailpit et Nginx (!reset vide la liste héritée).
+# Voir docs/DEPLOIEMENT.md.
+
+services:
+  postgres:
+    ports: !reset []
+
+  mailpit:
+    # SMTP et interface uniquement dans le réseau Docker ; interface publique via https://domaine/mail/ (mot de passe)
+    ports: !reset []
+
+  frontend:
+    # Nginx n'est joignable que par Caddy
+    ports: !reset []
+
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: stagehub-caddy
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAINE: ${DOMAINE:?DOMAINE doit être défini dans .env (ex. stagehub.duckdns.org)}
+    volumes:
+      - ./deploiement/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificats et état de Caddy : conservés pour ne pas redemander un certificat à chaque redémarrage
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy-data:
+  caddy-config:

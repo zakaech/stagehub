@@ -1,0 +1,7 @@
+# Caddy : HTTPS automatique (Let's Encrypt) pour le domaine, puis relais vers Nginx (conteneur frontend).
+# Caddy transmet le Host d'origine et ajoute X-Forwarded-For / X-Forwarded-Proto : Nginx les relaie
+# au backend, qui construit ainsi des URL publiques en https://.
+{$DOMAINE} {
+	encode zstd gzip
+	reverse_proxy frontend:8080
+}

@@ -1,12 +1,22 @@
+# StageHub — toute l'application en une commande :  docker compose up -d --build
+#   Application : http://localhost:8090   ·   Emails (Mailpit) : http://localhost:8090/mail/
+#
+# En développement (backend et Angular lancés hors Docker), ne démarrer que les services d'appui :
+#   docker compose up -d postgres mailpit
+#
+# Les valeurs viennent du fichier .env (copie de .env.example).
+
 services:
   postgres:
     image: postgres:17-alpine
     container_name: stagehub-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-stagehub}
       POSTGRES_USER: ${DB_USERNAME:-stagehub}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD doit être défini dans .env}
     ports:
+      # Exposé pour le développement local (backend hors Docker) ; retiré en production
       - "${DB_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -15,22 +25,103 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    logging: &logs-limites
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Faux serveur SMTP pour le développement : capture tous les emails, rien ne part vraiment.
-  # Interface web : http://localhost:8025
+  # Faux serveur SMTP : capture tous les emails, rien ne part vraiment.
+  # Interface servie sous /mail/ (MP_WEBROOT) : via Nginx sur http://localhost:8090/mail/,
+  # ou directement sur http://localhost:8025/mail/ en développement.
   mailpit:
     image: axllent/mailpit:v1.31.6
     container_name: stagehub-mailpit
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_WEBROOT: mail
+      # Mot de passe de l'interface (format utilisateur:motdepasse) ; vide = pas de mot de passe (local)
+      MP_UI_AUTH: ${MAILPIT_UI_AUTH:-}
     ports:
       - "${MAIL_PORT:-1025}:1025"
       - "${MAILPIT_UI_PORT:-8025}:8025"
-    environment:
-      MP_MAX_MESSAGES: 500
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 5s
       timeout: 3s
       retries: 10
+    logging: *logs-limites
+
+  backend:
+    build: ./backend
+    image: stagehub-backend:${IMAGE_TAG:-local}
+    container_name: stagehub-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    environment:
+      # prod,demo : configuration de production + comptes de démo ; une vraie production : "prod"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod,demo}
+      # Dans le réseau Docker, les services se joignent par leur nom (et leur port interne)
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-stagehub}
+      DB_USERNAME: ${DB_USERNAME:-stagehub}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-PT1H}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
+      # SMTP vu depuis le conteneur : Mailpit par défaut, ou un vrai serveur (SMTP_HOST/SMTP_PORT dans .env)
+      MAIL_HOST: ${SMTP_HOST:-mailpit}
+      MAIL_PORT: ${SMTP_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@stagehub.local}
+      FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8090}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:-http://localhost:8090}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      CV_STORAGE_DIR: /data/cv
+      # Format des logs : vide = texte lisible ; "ecs" = JSON structuré (serveur)
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
+    volumes:
+      - cv-data:/data/cv
+    # Pas de port publié : le backend n'est joignable que par Nginx (réseau Docker interne)
+    deploy:
+      resources:
+        limits:
+          # La JVM en prend 75 % pour le tas (MaxRAMPercentage, cf. Dockerfile)
+          memory: 768m
+    healthcheck:
+      # readiness : l'application a démarré et accepte du trafic (BusyBox wget, présent dans l'image)
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      # Laisse le temps à Spring de démarrer avant de compter les échecs
+      start_period: 60s
+    logging: *logs-limites
+
+  frontend:
+    build: ./frontend
+    image: stagehub-frontend:${IMAGE_TAG:-local}
+    container_name: stagehub-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8090}:8080"
+    logging: *logs-limites
 
 volumes:
   postgres-data:
+  # CV déposés par les étudiants : conservés quand les conteneurs sont recréés
+  cv-data:
