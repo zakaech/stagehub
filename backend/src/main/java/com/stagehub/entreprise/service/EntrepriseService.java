@@ -8,8 +8,10 @@ import com.stagehub.common.exception.TransitionStatutInvalideException;
 import com.stagehub.entreprise.dto.EntrepriseResponse;
 import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.entreprise.entity.StatutValidation;
+import com.stagehub.entreprise.event.EntrepriseValidationEvent;
 import com.stagehub.entreprise.mapper.EntrepriseMapper;
 import com.stagehub.entreprise.repository.EntrepriseRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,10 +23,13 @@ public class EntrepriseService {
 
     private final EntrepriseRepository entrepriseRepository;
     private final EntrepriseMapper entrepriseMapper;
+    private final ApplicationEventPublisher evenements;
 
-    public EntrepriseService(EntrepriseRepository entrepriseRepository, EntrepriseMapper entrepriseMapper) {
+    public EntrepriseService(EntrepriseRepository entrepriseRepository, EntrepriseMapper entrepriseMapper,
+                             ApplicationEventPublisher evenements) {
         this.entrepriseRepository = entrepriseRepository;
         this.entrepriseMapper = entrepriseMapper;
+        this.evenements = evenements;
     }
 
     /** Sans filtre de statut, renvoie toutes les entreprises. */
@@ -48,6 +53,9 @@ public class EntrepriseService {
         }
 
         entreprise.setStatutValidation(decision);
+        // Email envoyé après le commit (NotificationListener), jamais pour une décision annulée
+        evenements.publishEvent(new EntrepriseValidationEvent(
+                entreprise.getId(), entreprise.getUtilisateur().getEmail(), entreprise.getNom(), decision));
         return entrepriseMapper.toResponse(entreprise);
     }
 }

@@ -6,6 +6,7 @@ import com.stagehub.candidature.dto.CandidatureEntrepriseResponse;
 import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
 import com.stagehub.candidature.dto.CandidatureRequest;
 import com.stagehub.candidature.entity.Candidature;
+import com.stagehub.candidature.event.CandidatureStatutChangeEvent;
 import com.stagehub.candidature.entity.StatutCandidature;
 import com.stagehub.candidature.mapper.CandidatureMapper;
 import com.stagehub.candidature.repository.CandidatureRepository;
@@ -20,6 +21,7 @@ import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.repository.EtudiantRepository;
 import com.stagehub.offre.entity.Offre;
 import com.stagehub.offre.repository.OffreRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,14 +38,17 @@ public class CandidatureService {
     private final OffreRepository offreRepository;
     private final EtudiantRepository etudiantRepository;
     private final CandidatureMapper candidatureMapper;
+    private final ApplicationEventPublisher evenements;
     private final Clock clock;
 
     public CandidatureService(CandidatureRepository candidatureRepository, OffreRepository offreRepository,
-                              EtudiantRepository etudiantRepository, CandidatureMapper candidatureMapper, Clock clock) {
+                              EtudiantRepository etudiantRepository, CandidatureMapper candidatureMapper,
+                              ApplicationEventPublisher evenements, Clock clock) {
         this.candidatureRepository = candidatureRepository;
         this.offreRepository = offreRepository;
         this.etudiantRepository = etudiantRepository;
         this.candidatureMapper = candidatureMapper;
+        this.evenements = evenements;
         this.clock = clock;
     }
 
@@ -105,7 +110,19 @@ public class CandidatureService {
             throw new AccesNonAutoriseException("Cette candidature ne concerne pas une offre de votre entreprise");
         }
 
+        StatutCandidature ancienStatut = candidature.getStatut();
         candidature.changerStatut(nouveauStatut);
+
+        // Publié maintenant, traité après le commit (NotificationListener) : rien n'est envoyé si la transaction échoue
+        Etudiant etudiant = candidature.getEtudiant();
+        evenements.publishEvent(new CandidatureStatutChangeEvent(
+                candidature.getId(),
+                etudiant.getUtilisateur().getEmail(),
+                etudiant.getPrenom(),
+                candidature.getOffre().getTitre(),
+                candidature.getOffre().getEntreprise().getNom(),
+                ancienStatut,
+                nouveauStatut));
         return candidatureMapper.toEntrepriseResponse(candidature);
     }
 }

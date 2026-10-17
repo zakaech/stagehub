@@ -123,12 +123,6 @@
             <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Attendre un résultat asynchrone (email envoyé par un autre thread) sans Thread.sleep -->
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>

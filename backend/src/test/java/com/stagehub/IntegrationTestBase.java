@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
@@ -32,4 +34,11 @@ public abstract class IntegrationTestBase {
 
     @Autowired
     protected MockMvc mockMvc;
+
+    /**
+     * Aucun serveur SMTP en test (ni en local, ni en CI) : l'envoi est remplacé par un mock, sur lequel les
+     * tests vérifient ce qui aurait été envoyé. Déclaré ici pour garder un seul contexte Spring partagé.
+     */
+    @MockitoBean
+    protected JavaMailSender mailSender;
 }

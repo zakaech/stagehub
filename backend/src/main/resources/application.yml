@@ -49,6 +49,8 @@ stagehub:
   fuseau: Africa/Casablanca
   mail:
     expediteur: ${MAIL_FROM:no-reply@stagehub.local}
+    # Base des liens insérés dans les emails (front Angular)
+    url-frontend: ${FRONTEND_URL:http://localhost:4200}
   perf:
     # Au-delà, MesureTempsAspect logue un WARN ; en dessous, un DEBUG
     seuil-lent: 500ms
