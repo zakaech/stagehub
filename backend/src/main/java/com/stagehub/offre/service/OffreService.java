@@ -17,6 +17,8 @@ import com.stagehub.offre.entity.StatutOffre;
 import com.stagehub.offre.mapper.OffreMapper;
 import com.stagehub.offre.repository.OffreRepository;
 import com.stagehub.offre.repository.OffreSpecifications;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,8 @@ import java.time.LocalDate;
 @Service
 @Transactional(readOnly = true)
 public class OffreService {
+
+    private static final Logger log = LoggerFactory.getLogger(OffreService.class);
 
     private final OffreRepository offreRepository;
     private final EntrepriseRepository entrepriseRepository;
@@ -57,6 +61,20 @@ public class OffreService {
                 offreRepository.villesDistinctes(StatutOffre.OUVERTE),
                 offreRepository.domainesDistincts(StatutOffre.OUVERTE),
                 offreRepository.technologiesDistinctes(StatutOffre.OUVERTE));
+    }
+
+    /**
+     * Ferme les offres dont la date limite est strictement passée (appelée chaque nuit par FermetureOffresJob).
+     * Pas d'audit ni d'email : c'est une règle automatique, pas une décision d'un utilisateur.
+     *
+     * @return le nombre d'offres fermées
+     */
+    @Transactional
+    public int fermerOffresExpirees() {
+        LocalDate aujourdhui = LocalDate.now(clock);
+        int fermees = offreRepository.fermerOffresExpirees(aujourdhui, StatutOffre.OUVERTE, StatutOffre.FERMEE);
+        log.info("Fermeture automatique : {} offre(s) dont la date limite est antérieure au {}", fermees, aujourdhui);
+        return fermees;
     }
 
     public OffreResponse getOffreOuverte(Long offreId) {

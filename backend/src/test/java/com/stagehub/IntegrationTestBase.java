@@ -19,7 +19,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
         "stagehub.admin.email=admin@test.local",
         "stagehub.admin.password=admin-test-1234",
         "stagehub.cors.allowed-origins=http://localhost:4200",
-        "stagehub.cv.dossier=target/test-uploads/cv"
+        "stagehub.cv.dossier=target/test-uploads/cv",
+        // Tâche nocturne désactivée : les tests appellent directement OffreService.fermerOffresExpirees
+        "stagehub.offres.cron-fermeture=-"
 })
 @AutoConfigureMockMvc
 public abstract class IntegrationTestBase {

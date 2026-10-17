@@ -5,12 +5,14 @@ import com.stagehub.offre.entity.Offre;
 import com.stagehub.offre.entity.StatutOffre;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,6 +32,18 @@ public interface OffreRepository extends JpaRepository<Offre, Long>, JpaSpecific
     Optional<Offre> findByIdAndStatut(Long id, StatutOffre statut);
 
     long countByStatut(StatutOffre statut);
+
+    /**
+     * Mise à jour en masse : une seule requête SQL, sans charger les entités. clearAutomatically vide ensuite le
+     * contexte de persistance, qui contiendrait sinon des offres encore marquées OUVERTE en mémoire.
+     * Strictement avant aujourd'hui : le jour de la date limite, on peut encore postuler.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            update Offre o set o.statut = :fermee
+            where o.statut = :ouverte and o.dateLimite < :aujourdhui
+            """)
+    int fermerOffresExpirees(LocalDate aujourdhui, StatutOffre ouverte, StatutOffre fermee);
 
     @Query("""
             select new com.stagehub.offre.dto.TechnologieStat(t, count(o))

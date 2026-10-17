@@ -131,6 +131,14 @@ class OffreServiceTest {
         }
     }
 
+    @Test
+    void fermerOffresExpirees_fermeCellesAvantAujourdhuiDansLeFuseauDeReference() {
+        when(offreRepository.fermerOffresExpirees(AUJOURDHUI, StatutOffre.OUVERTE, StatutOffre.FERMEE)).thenReturn(3);
+
+        assertThat(service.fermerOffresExpirees()).isEqualTo(3);
+        verify(offreRepository).fermerOffresExpirees(AUJOURDHUI, StatutOffre.OUVERTE, StatutOffre.FERMEE);
+    }
+
     @Nested
     class Creer {
 

@@ -54,6 +54,9 @@ stagehub:
   perf:
     # Au-delà, MesureTempsAspect logue un WARN ; en dessous, un DEBUG
     seuil-lent: 500ms
+  offres:
+    # Fermeture des offres expirées : chaque jour à 00:05 (fuseau stagehub.fuseau) ; "-" pour désactiver
+    cron-fermeture: "0 5 0 * * *"
   jwt:
     secret: ${JWT_SECRET:}
     expiration: ${JWT_EXPIRATION:PT1H}
