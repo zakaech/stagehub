@@ -1,5 +1,7 @@
 package com.stagehub.entreprise.service;
 
+import com.stagehub.audit.aspect.Audite;
+import com.stagehub.audit.entity.ActionAudit;
 import com.stagehub.common.dto.PageResponse;
 import com.stagehub.common.exception.EntrepriseNotFoundException;
 import com.stagehub.common.exception.TransitionStatutInvalideException;
@@ -35,6 +37,7 @@ public class EntrepriseService {
 
     /** Seule une entreprise EN_ATTENTE peut être validée ou refusée (sinon 409). */
     @Transactional
+    @Audite(value = ActionAudit.VALIDATION_ENTREPRISE, idParam = "entrepriseId")
     public EntrepriseResponse statuer(Long entrepriseId, StatutValidation decision) {
         Entreprise entreprise = entrepriseRepository.findById(entrepriseId)
                 .orElseThrow(() -> new EntrepriseNotFoundException(entrepriseId));

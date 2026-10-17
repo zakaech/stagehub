@@ -1,5 +1,7 @@
 package com.stagehub.candidature.service;
 
+import com.stagehub.audit.aspect.Audite;
+import com.stagehub.audit.entity.ActionAudit;
 import com.stagehub.candidature.dto.CandidatureEntrepriseResponse;
 import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
 import com.stagehub.candidature.dto.CandidatureRequest;
@@ -94,6 +96,7 @@ public class CandidatureService {
 
     /** La machine à états est appliquée par l'entité (→ 409 si transition invalide). */
     @Transactional
+    @Audite(value = ActionAudit.CHANGEMENT_STATUT_CANDIDATURE, idParam = "candidatureId")
     public CandidatureEntrepriseResponse changerStatut(Long entrepriseId, Long candidatureId,
                                                        StatutCandidature nouveauStatut) {
         Candidature candidature = candidatureRepository.findById(candidatureId)
