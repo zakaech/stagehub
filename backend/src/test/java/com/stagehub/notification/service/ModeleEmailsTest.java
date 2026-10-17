@@ -50,6 +50,22 @@ class ModeleEmailsTest {
     }
 
     @Test
+    void modeleSansLigneObjet_estRefuse() {
+        // Modèle de test (src/test/resources/emails) volontairement mal formé
+        assertThatThrownBy(() -> modeles.rendre("test-sans-objet", VARIABLES))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Objet :");
+    }
+
+    @Test
+    void modeleDUneSeuleLigne_donneUnCorpsVide() {
+        ModeleEmails.EmailRendu email = modeles.rendre("test-une-ligne", VARIABLES);
+
+        assertThat(email.objet()).isEqualTo("Rappel pour Sara");
+        assertThat(email.corps()).isEmpty();
+    }
+
+    @Test
     void modeleInexistant_estSignale() {
         assertThatThrownBy(() -> modeles.rendre("inconnu", VARIABLES)).hasMessageContaining("inconnu");
     }

@@ -39,8 +39,8 @@ public class ModeleEmails {
         if (!premiereLigne.startsWith(PREFIXE_OBJET)) {
             throw new IllegalStateException("Le modèle " + nomModele + " doit commencer par « " + PREFIXE_OBJET + " »");
         }
-        return new EmailRendu(premiereLigne.substring(PREFIXE_OBJET.length()).strip(),
-                texte.substring(finPremiereLigne + 1).strip());
+        String corps = finPremiereLigne < 0 ? "" : texte.substring(finPremiereLigne + 1).strip();
+        return new EmailRendu(premiereLigne.substring(PREFIXE_OBJET.length()).strip(), corps);
     }
 
     private String lire(String nomModele) {
