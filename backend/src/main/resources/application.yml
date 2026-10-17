@@ -49,6 +49,9 @@ stagehub:
   fuseau: Africa/Casablanca
   mail:
     expediteur: ${MAIL_FROM:no-reply@stagehub.local}
+  perf:
+    # Au-delà, MesureTempsAspect logue un WARN ; en dessous, un DEBUG
+    seuil-lent: 500ms
   jwt:
     secret: ${JWT_SECRET:}
     expiration: ${JWT_EXPIRATION:PT1H}
