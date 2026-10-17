@@ -31,10 +31,17 @@ spring:
     enabled: true
     locations: classpath:db/migration
   mail:
-    # En local : Mailpit (docker compose) ; aucune authentification
+    # Par défaut : Mailpit (docker compose), sans authentification.
+    # Vrai SMTP (ex. Brevo : smtp-relay.brevo.com:587) : MAIL_USERNAME, MAIL_PASSWORD,
+    # MAIL_SMTP_AUTH=true et MAIL_STARTTLS=true, sans toucher au code.
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+      mail.smtp.starttls.required: ${MAIL_STARTTLS:false}
       mail.smtp.connectiontimeout: 5000
       mail.smtp.timeout: 5000
       mail.smtp.writetimeout: 5000
