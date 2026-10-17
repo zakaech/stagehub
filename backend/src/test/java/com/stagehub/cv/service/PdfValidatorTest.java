@@ -6,9 +6,15 @@ import com.stagehub.common.exception.FichierVideException;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.util.unit.DataSize;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class PdfValidatorTest {
 
@@ -56,6 +62,20 @@ class PdfValidatorTest {
         assertThatThrownBy(() -> PdfValidator.valider(fichier("cv.pdf", "application/pdf", sixMo), CINQ_MO))
                 .isInstanceOf(FichierTropVolumineuxException.class)
                 .hasMessageContaining("5 Mo");
+    }
+
+    @Test
+    void aucunFichier_estRefuse() {
+        assertThatThrownBy(() -> PdfValidator.valider(null, CINQ_MO)).isInstanceOf(FichierVideException.class);
+    }
+
+    @Test
+    void lectureImpossible_erreurExplicite() throws Exception {
+        MultipartFile fichier = mock(MultipartFile.class);
+        when(fichier.getSize()).thenReturn(10L);
+        when(fichier.getInputStream()).thenThrow(new IOException("flux fermé"));
+
+        assertThatThrownBy(() -> PdfValidator.valider(fichier, CINQ_MO)).isInstanceOf(UncheckedIOException.class);
     }
 
     private static MockMultipartFile fichier(String nom, String type, byte[] contenu) {

@@ -15,6 +15,7 @@ import com.stagehub.common.exception.CandidatureNotFoundException;
 import com.stagehub.common.exception.OffreNonDisponibleException;
 import com.stagehub.common.exception.OffreNotFoundException;
 import com.stagehub.common.exception.TransitionStatutInvalideException;
+import com.stagehub.common.exception.UtilisateurNotFoundException;
 import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.repository.EtudiantRepository;
@@ -249,6 +250,23 @@ class CandidatureServiceTest {
             assertThatThrownBy(() -> service.changerStatut(ENTREPRISE_ID, CANDIDATURE_ID, StatutCandidature.ENTRETIEN))
                     .isInstanceOf(CandidatureNotFoundException.class);
         }
+    }
+
+    @Test
+    void listerCandidaturesOffre_offreInexistante_leve404() {
+        when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.listerCandidaturesOffre(ENTREPRISE_ID, OFFRE_ID, Pageable.unpaged()))
+                .isInstanceOf(OffreNotFoundException.class);
+    }
+
+    @Test
+    void postuler_etudiantInexistant_leve404() {
+        when(offreRepository.findById(OFFRE_ID)).thenReturn(Optional.of(offre(StatutOffre.OUVERTE, AUJOURDHUI.plusDays(10))));
+        when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.postuler(ETUDIANT_ID, OFFRE_ID, null))
+                .isInstanceOf(UtilisateurNotFoundException.class);
     }
 
     @Test

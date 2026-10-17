@@ -3,8 +3,10 @@ package com.stagehub.cv.service;
 import com.stagehub.candidature.entity.Candidature;
 import com.stagehub.candidature.repository.CandidatureRepository;
 import com.stagehub.common.exception.AccesNonAutoriseException;
+import com.stagehub.common.exception.CandidatureNotFoundException;
 import com.stagehub.common.exception.CvNotFoundException;
 import com.stagehub.common.exception.FichierNonPdfException;
+import com.stagehub.common.exception.UtilisateurNotFoundException;
 import com.stagehub.common.storage.LocalFichierStorage;
 import com.stagehub.cv.config.CvProperties;
 import com.stagehub.cv.dto.CvTelechargement;
@@ -26,14 +28,18 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronizationUtils;
 import org.springframework.util.unit.DataSize;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -183,6 +189,50 @@ class CvServiceTest {
         candidature.setEtudiant(etudiant);
         candidature.setCvFichier(cvFichier);
         return candidature;
+    }
+
+    @Test
+    void deposer_etudiantInexistant_leve404() {
+        when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.deposer(ETUDIANT_ID, pdf("cv.pdf"))).isInstanceOf(UtilisateurNotFoundException.class);
+    }
+
+    @Test
+    void deposer_lectureImpossibleDuFichier_erreurExplicite() throws Exception {
+        MultipartFile fichier = mock(MultipartFile.class);
+        when(fichier.isEmpty()).thenReturn(false);
+        when(fichier.getSize()).thenReturn(100L);
+        // 1re lecture (validation) : un vrai début de PDF ; 2e lecture (enregistrement) : erreur disque
+        when(fichier.getInputStream())
+                .thenReturn(new ByteArrayInputStream(PdfValidatorTest.PDF_MINIMAL))
+                .thenThrow(new IOException("disque plein"));
+        when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
+
+        assertThatThrownBy(() -> service.deposer(ETUDIANT_ID, fichier)).isInstanceOf(UncheckedIOException.class);
+    }
+
+    @Test
+    void telechargerMonCv_etudiantInexistant_leve404() {
+        when(etudiantRepository.findById(ETUDIANT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.telechargerMonCv(ETUDIANT_ID)).isInstanceOf(UtilisateurNotFoundException.class);
+    }
+
+    @Test
+    void telechargerCvCandidature_inexistante_leve404() {
+        when(candidatureRepository.findById(100L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.telechargerCvCandidature(2L, 100L))
+                .isInstanceOf(CandidatureNotFoundException.class);
+    }
+
+    @Test
+    void cvReferenceEnBaseMaisAbsentDuDisque_leve404() {
+        etudiant.setCheminCv("00000000-0000-0000-0000-000000000000.pdf");
+        when(etudiantRepository.findById(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
+
+        assertThatThrownBy(() -> service.telechargerMonCv(ETUDIANT_ID)).isInstanceOf(CvNotFoundException.class);
     }
 
     private static MockMultipartFile pdf(String nomEnvoye) {
