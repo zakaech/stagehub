@@ -20,6 +20,7 @@ tests automatisés (couverture contrôlée par JaCoCo), audit par AOP, emails as
 - [Stack technique](#stack-technique)
 - [Développement](#développement)
 - [Tests et qualité](#tests-et-qualité)
+- [Intégration continue (Jenkins)](#intégration-continue-jenkins)
 - [Déploiement](#déploiement)
 - [Structure du dépôt](#structure-du-dépôt)
 
@@ -159,7 +160,8 @@ Points de conception :
 | Frontend | Angular 22 (standalone, zoneless, signals, `rxResource`), Angular Material 3 |
 | Tests | JUnit 5, Mockito, Spring Boot Test, `@WebMvcTest`, Testcontainers, Vitest, JaCoCo |
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
-| À venir | Jenkins (CI/CD), Spring Cloud + Kafka (microservices), Spring AI + Ollama |
+| CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
+| À venir | Spring Cloud + Kafka (microservices), Spring AI + Ollama |
 
 ---
 
@@ -202,6 +204,32 @@ npm run format:check          # formatage Prettier
 
 ---
 
+## Intégration continue (Jenkins)
+
+Jenkins tourne dans Docker (http://localhost:8085) et surveille le dépôt GitHub toutes les 2 minutes. Pour chaque
+branche, le [Jenkinsfile](Jenkinsfile) enchaîne :
+
+1. **Tests** backend (`mvn verify` : unitaires, intégration Testcontainers, seuils JaCoCo) et frontend (Prettier,
+   Vitest), en parallèle ; rapports JUnit et couverture publiés dans Jenkins ;
+2. **Images Docker** avec buildx : amd64 sur les branches de travail, **amd64 + arm64** sur `main` (serveur ARM) ;
+3. sur `main` : **déploiement de recette** avec docker compose (http://localhost:8095) et test de fumée ;
+4. prévu, désactivé : publication sur GHCR et déploiement distant par SSH (identifiants dans les credentials Jenkins).
+
+Un test en échec ou une couverture sous le seuil arrête le pipeline : rien n'est construit ni déployé.
+
+```bash
+docker compose -f ci/docker-compose.yml --env-file .env up -d --build    # Jenkins + démon Docker dédié (DinD)
+```
+
+Mise en place (token GitHub, credentials), choix techniques et dépannage : [docs/CI.md](docs/CI.md).
+
+| Pipeline en échec | Pipeline vert | Couverture (JaCoCo) |
+|---|---|---|
+| _capture à ajouter après la démonstration_ | _capture à ajouter après la démonstration_ | _capture à ajouter après la démonstration_ |
+| Un test rouge arrête le pipeline : images et déploiement sautés | Toutes les étapes, jusqu'au déploiement de recette | Couverture par package dans Jenkins |
+
+---
+
 ## Déploiement
 
 Le même `docker-compose.yml` tourne sur un serveur, complété par `docker-compose.prod.yml` (Caddy pour le HTTPS, aucun
@@ -227,8 +255,10 @@ StageHub/
 │       ├── security/         JWT, CORS, erreurs 401/403
 │       └── common/           exceptions, configuration, stockage, aspects
 ├── frontend/                 Angular (Dockerfile + configuration Nginx)
+├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code
 ├── deploiement/              Caddyfile (HTTPS sur serveur)
-├── docs/                     DEPLOIEMENT.md, captures
+├── docs/                     DEPLOIEMENT.md, CI.md, captures
+├── Jenkinsfile               pipeline CI/CD
 ├── docker-compose.yml        application complète (local)
 ├── docker-compose.prod.yml   surcouche serveur
 └── .env.example              configuration (copier en .env)
