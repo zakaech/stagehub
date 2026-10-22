@@ -1,0 +1,60 @@
+# Configuration en code de Jenkins (plugin configuration-as-code), appliquée à chaque démarrage.
+# Les ${...} sont lus dans l'environnement du conteneur (ci/docker-compose.yml ← .env) : aucun secret ici.
+# Les credentials (token GitHub, .env de recette, clé SSH) ne sont PAS décrits ici : ils sont saisis une
+# fois dans l'interface et stockés chiffrés dans le volume jenkins-home (voir docs/CI.md).
+
+jenkins:
+  systemMessage: "StageHub : intégration continue (phase 6). Guide : docs/CI.md"
+  # Un seul build à la fois sur ce PC : Maven + Testcontainers + npm + buildx consomment beaucoup de mémoire
+  numExecutors: 1
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_ID}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      # Personne ne voit rien sans être connecté
+      allowAnonymousRead: false
+
+unclassified:
+  location:
+    url: "${JENKINS_URL}"
+
+# Le job est créé par un script Job DSL : supprimer le volume jenkins-home et relancer redonne le même job
+jobs:
+  - script: |
+      multibranchPipelineJob('stagehub') {
+        displayName('StageHub')
+        description('Un pipeline par branche du dépôt GitHub, décrit par le Jenkinsfile de la branche.')
+        branchSources {
+          branchSource {
+            source {
+              git {
+                id('stagehub-github')
+                remote('https://github.com/zakaech/stagehub.git')
+                // Token GitHub à grain fin, en lecture seule (credential créé dans l'interface)
+                credentialsId('github-stagehub')
+                traits {
+                  gitBranchDiscovery()
+                }
+              }
+            }
+          }
+        }
+        // Polling : toutes les 2 minutes, Jenkins demande à GitHub si une branche a bougé
+        // (connexion sortante uniquement ; aucun webhook, Jenkins n'est pas exposé sur Internet)
+        triggers {
+          periodicFolderTrigger {
+            interval('2m')
+          }
+        }
+        // Branche supprimée sur GitHub : son job disparaît au scan suivant
+        orphanedItemStrategy {
+          discardOldItems {
+            numToKeep(0)
+          }
+        }
+      }

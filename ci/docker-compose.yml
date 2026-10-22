@@ -1,0 +1,80 @@
+# Intégration continue de StageHub (phase 6) : Jenkins + un démon Docker séparé (Docker-in-Docker).
+# Lancement depuis la racine du dépôt (les variables viennent du .env de la racine) :
+#
+#   docker compose -f ci/docker-compose.yml --env-file .env up -d --build
+#
+# Jenkins : http://localhost:8085 · application de recette déployée par Jenkins : http://localhost:8095
+# Guide complet : docs/CI.md
+
+name: stagehub-ci
+
+services:
+  # Démon Docker dédié au pipeline : builds d'images, conteneurs Testcontainers, application de recette.
+  # Le pipeline ne voit ni les conteneurs, ni les volumes, ni les fichiers de la machine (pas de socket monté).
+  docker:
+    image: docker:29.9.2-dind
+    container_name: stagehub-ci-docker
+    restart: unless-stopped
+    # Obligatoire pour faire tourner un démon Docker dans un conteneur. C'est le point faible de DinD :
+    # ce conteneur-là a des droits étendus ; il n'est joignable que par Jenkins (port 2376 non publié).
+    privileged: true
+    environment:
+      # Le démon génère une autorité de certification, un certificat serveur et un certificat client :
+      # Jenkins lui parle en TCP chiffré et authentifié (TLS mutuel) sur le port 2376.
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - docker-certs-ca:/certs/ca
+      - docker-certs-client:/certs/client
+      # Images, cache de build et volumes de la recette : conservés entre deux redémarrages
+      - docker-data:/var/lib/docker
+    ports:
+      # Application de recette (Nginx, port 8090 à l'intérieur de DinD), visible seulement depuis ce PC
+      - "127.0.0.1:${CI_RECETTE_PORT:-8095}:8090"
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: &logs-limites
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  jenkins:
+    build: ./jenkins
+    image: stagehub-jenkins:2.580.1
+    container_name: stagehub-ci-jenkins
+    restart: unless-stopped
+    depends_on:
+      docker:
+        condition: service_healthy
+    environment:
+      # La CLI Docker, buildx, compose et Testcontainers lisent ces trois variables
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
+      # Compte administrateur créé par la configuration en code (casc.yaml)
+      JENKINS_ADMIN_ID: ${JENKINS_ADMIN_ID:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:?JENKINS_ADMIN_PASSWORD doit être défini dans .env}
+      JENKINS_URL: http://localhost:${JENKINS_PORT:-8085}/
+      # Tas de Jenkins limité : Maven, ses JVM de test et npm tournent dans ce même conteneur
+      JAVA_OPTS: -Xmx768m -Djenkins.install.runSetupWizard=false
+    volumes:
+      # Configuration, historique des builds, credentials (chiffrés), cache Maven (~/.m2) et npm
+      - jenkins-home:/var/jenkins_home
+      - docker-certs-client:/certs/client:ro
+    ports:
+      # 127.0.0.1 : Jenkins n'est pas joignable depuis le réseau local, seulement depuis ce PC
+      - "127.0.0.1:${JENKINS_PORT:-8085}:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+    logging: *logs-limites
+
+volumes:
+  docker-certs-ca:
+  docker-certs-client:
+  docker-data:
+  jenkins-home:
