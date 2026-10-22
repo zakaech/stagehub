@@ -225,8 +225,8 @@ Mise en place (token GitHub, credentials), choix techniques et dépannage : [doc
 
 | Pipeline en échec | Pipeline vert | Couverture (JaCoCo) |
 |---|---|---|
-| _capture à ajouter après la démonstration_ | _capture à ajouter après la démonstration_ | _capture à ajouter après la démonstration_ |
-| Un test rouge arrête le pipeline : images et déploiement sautés | Toutes les étapes, jusqu'au déploiement de recette | Couverture par package dans Jenkins |
+| ![Pipeline en échec](docs/captures/jenkins-echec-test.png) | ![Pipeline vert](docs/captures/jenkins-vert.png) | ![Couverture JaCoCo](docs/captures/jenkins-couverture.png) |
+| Un test rouge arrête le pipeline : images et déploiement sautés | `main` : toutes les étapes, jusqu'au déploiement de recette | Rapport de couverture publié à chaque build |
 
 ---
 

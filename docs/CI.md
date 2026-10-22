@@ -152,6 +152,26 @@ QEMU. Les caches BuildKit (`--mount=type=cache`) évitent de retélécharger les
 
 Le `.env` de production reste sur le serveur : aucun secret de production ne passe par Jenkins.
 
+### Vérifier qu'un échec bloque le pipeline
+
+Démonstration faite le 2026-10-22 sur une branche jetable `demo/pipeline-rouge` (supprimée ensuite : Jenkins retire
+alors son job au scan suivant) :
+
+| Build | Modification | Résultat |
+|---|---|---|
+| #1 | Une ligne de `StatutCandidatureTest` inversée (`EN_ATTENTE → ACCEPTEE : true`) | ❌ `Tests run: 128, Failures: 1` ; Frontend vert (parallèle) ; Images *skipped due to earlier failure(s)* |
+| #2 | Test rétabli, seuil des **lignes** à 0.99 | ✅ ne bloque pas : chaque package `service` est couvert à **100 % des lignes** |
+| #3 | Seuil des **branches** à 0.90 | ❌ `Rule violated for package com.stagehub.audit.service: branches covered ratio is 0.83, but expected minimum is 0.90` alors que tous les tests passent |
+| #4 | Seuils rétablis (0.80 / 0.70) | ✅ images amd64 seulement ; recette *skipped due to when conditional* (pas `main`) |
+
+Leçon du build #2 : la couverture globale affichée par Jenkins (≈ 87 % des lignes) inclut controllers et
+configuration ; la règle Maven ne porte que sur les packages `service`. Avant de relever un seuil, regarder la
+couverture **de ces packages** (rapport HTML JaCoCo ou onglet *Files* de Jenkins).
+
+| Échec d'un test (#1) | Seuil de couverture non atteint (#3) |
+|---|---|
+| ![Build #1 en échec](captures/jenkins-echec-test.png) | ![Build #3 en échec](captures/jenkins-echec-couverture.png) |
+
 ---
 
 ## Exploitation
