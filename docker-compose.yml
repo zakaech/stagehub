@@ -55,7 +55,9 @@ services:
 
   backend:
     build: ./backend
-    image: stagehub-backend:${IMAGE_TAG:-local}
+    # Tag "local" (build sur la machine) ou SHA du commit (Jenkins) ; IMAGE_REGISTRY=ghcr.io/zakaech/ pour
+    # tirer l'image du registre sur le serveur (voir docs/CI.md)
+    image: ${IMAGE_REGISTRY:-}stagehub-backend:${IMAGE_TAG:-local}
     container_name: stagehub-backend
     restart: unless-stopped
     depends_on:
@@ -111,7 +113,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: stagehub-frontend:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-frontend:${IMAGE_TAG:-local}
     container_name: stagehub-frontend
     restart: unless-stopped
     depends_on:
