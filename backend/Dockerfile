@@ -3,18 +3,23 @@
 # =============================================================================
 # Étape 1 — compilation : JDK + Maven, rien de tout cela ne part en production
 # =============================================================================
-FROM eclipse-temurin:21-jdk-alpine AS build
+# --platform=$BUILDPLATFORM : cette étape tourne toujours sur l'architecture de la machine qui construit
+# (amd64 sur le PC), même quand on vise arm64. Le jar produit est le même partout : inutile de compiler
+# deux fois, et surtout de compiler sous émulation QEMU (environ 10 fois plus lent).
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /build
 
 # Dépendances d'abord, dans une couche à part : tant que pom.xml ne change pas,
 # Docker réutilise cette couche et ne retélécharge rien.
+# --mount=type=cache : le dépôt Maven (~/.m2) est un cache de BuildKit, conservé d'un build à l'autre
+# mais hors de l'image ; un pom.xml modifié ne fait télécharger que les nouvelles dépendances.
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
-RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2 chmod +x mvnw && ./mvnw -B -ntp dependency:go-offline
 
-# Puis le code. Les tests tournent dans "mvn verify" (et Jenkins en phase 6), pas ici.
+# Puis le code. Les tests tournent dans "mvn verify" (pipeline Jenkins), pas ici.
 COPY src/ src/
-RUN ./mvnw -B -q package -DskipTests -Djacoco.skip=true \
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q package -DskipTests -Djacoco.skip=true \
     && cp target/stagehub-backend-*.jar application.jar \
     # Découpe le jar en couches : dépendances (changent rarement) / chargeur Spring / code (change souvent)
     && java -Djarmode=tools -jar application.jar extract --layers --destination extrait
@@ -22,6 +27,7 @@ RUN ./mvnw -B -q package -DskipTests -Djacoco.skip=true \
 # =============================================================================
 # Étape 2 — exécution : JRE seul, utilisateur non-root
 # =============================================================================
+# Sans --platform : cette étape est construite pour chaque architecture demandée (amd64, arm64)
 FROM eclipse-temurin:21-jre-alpine
 
 # Utilisateur système sans privilèges ; /data/cv lui appartient : un volume nommé vide monté à cet

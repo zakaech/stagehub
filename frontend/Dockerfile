@@ -3,12 +3,15 @@
 # =============================================================================
 # Étape 1 — build Angular (Node), rien de tout cela ne part en production
 # =============================================================================
-FROM node:24-alpine AS build
+# --platform=$BUILDPLATFORM : le build Angular (HTML/JS/CSS) ne dépend pas de l'architecture ;
+# il est fait une seule fois, en natif, même pour une image arm64.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /build
 
-# Dépendances d'abord (couche réutilisée tant que package-lock.json ne change pas)
+# Dépendances d'abord (couche réutilisée tant que package-lock.json ne change pas) ;
+# cache npm conservé par BuildKit d'un build à l'autre
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 COPY . .
 RUN npm run build
@@ -16,6 +19,7 @@ RUN npm run build
 # =============================================================================
 # Étape 2 — Nginx non-root : sert les fichiers statiques et relaie /api vers le backend
 # =============================================================================
+# Construite pour chaque architecture demandée (amd64, arm64)
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 
 # Les fichiers de configuration placés dans templates/ passent par envsubst au démarrage :
