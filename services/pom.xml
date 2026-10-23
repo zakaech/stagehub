@@ -28,6 +28,7 @@
         <module>discovery-server</module>
         <module>api-gateway</module>
         <module>auth-service</module>
+        <module>notification-service</module>
         <module>demo-seeder</module>
     </modules>
 

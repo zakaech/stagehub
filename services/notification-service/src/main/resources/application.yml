@@ -1,0 +1,93 @@
+server:
+  # Hors Docker ; dans un conteneur, la variable SERVER_PORT (Dockerfile) a priorité
+  port: 8083
+
+spring:
+  application:
+    name: notification-service
+  config:
+    import: optional:file:../../.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${NOTIFICATION_DB_NAME:stagehub_notification}
+    username: ${NOTIFICATION_DB_USERNAME:stagehub_notification}
+    password: ${NOTIFICATION_DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    consumer:
+      # Groupe de consommateurs : les instances de notification-service se partagent les partitions, et Kafka
+      # retient pour le groupe la position (« offset ») du dernier message traité
+      group-id: notification-service
+      # Premier démarrage du groupe : lire depuis le début (rien n'est perdu si le service démarre après le monolithe)
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Texte brut : le JSON est lu par EvenementsListener (erreur de lecture → topic d'erreurs, sans nouvel essai)
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      # Utilisé seulement pour envoyer les messages en échec dans les topics « .DLT »
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+  mail:
+    # Par défaut : Mailpit (docker compose), sans authentification.
+    # Vrai SMTP (ex. Brevo : smtp-relay.brevo.com:587) : MAIL_USERNAME, MAIL_PASSWORD,
+    # MAIL_SMTP_AUTH=true et MAIL_STARTTLS=true, sans toucher au code.
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+      mail.smtp.starttls.required: ${MAIL_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+eureka:
+  client:
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+stagehub:
+  mail:
+    expediteur: ${MAIL_FROM:no-reply@stagehub.local}
+    # Base des liens insérés dans les emails (front Angular)
+    url-frontend: ${FRONTEND_URL:http://localhost:4200}
+  topics:
+    candidature-statut-change: stagehub.candidature.statut-change
+    entreprise-validation: stagehub.entreprise.validation
+  erreurs:
+    # Échec d'envoi (SMTP en panne...) : nouvelles tentatives espacées de 2 s, 4 s, 8 s, puis topic « .DLT »
+    tentatives: 3
+    premier-delai: 2s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    # Un SMTP en panne ne rend pas le service « DOWN » : les messages attendent dans Kafka (nouvelles tentatives)
+    mail:
+      enabled: false
+
+logging:
+  level:
+    com.netflix.discovery: WARN

@@ -1,0 +1,9 @@
+Objet : Votre compte StageHub est validé
+
+Bonjour,
+
+Le compte de ${nom} a été validé par l'administrateur : vous pouvez dès maintenant publier vos offres de stage.
+
+Votre espace : ${lienEspace}
+
+L'équipe StageHub

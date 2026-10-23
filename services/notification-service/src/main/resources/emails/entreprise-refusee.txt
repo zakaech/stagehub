@@ -1,0 +1,8 @@
+Objet : Votre demande de compte StageHub
+
+Bonjour,
+
+Après examen, l'administrateur n'a pas validé le compte de ${nom} : la publication d'offres n'est pas possible.
+Pour toute question, répondez à ce message.
+
+L'équipe StageHub
