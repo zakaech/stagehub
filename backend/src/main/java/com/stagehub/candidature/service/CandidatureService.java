@@ -4,7 +4,10 @@ import com.stagehub.audit.aspect.Audite;
 import com.stagehub.audit.entity.ActionAudit;
 import com.stagehub.candidature.dto.CandidatureEntrepriseResponse;
 import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
+import com.stagehub.candidature.client.OffreClient;
+import com.stagehub.candidature.client.OffreInterne;
 import com.stagehub.candidature.dto.CandidatureRequest;
+import com.stagehub.candidature.dto.OffreResumeResponse;
 import com.stagehub.candidature.entity.Candidature;
 import com.stagehub.candidature.event.CandidatureStatutChangeEvent;
 import com.stagehub.candidature.entity.StatutCandidature;
@@ -12,102 +15,90 @@ import com.stagehub.candidature.mapper.CandidatureMapper;
 import com.stagehub.candidature.repository.CandidatureRepository;
 import com.stagehub.common.dto.PageResponse;
 import com.stagehub.common.exception.AccesNonAutoriseException;
-import com.stagehub.common.exception.CandidatureDejaExistanteException;
 import com.stagehub.common.exception.CandidatureNotFoundException;
 import com.stagehub.common.exception.OffreNonDisponibleException;
-import com.stagehub.common.exception.OffreNotFoundException;
-import com.stagehub.common.exception.UtilisateurNotFoundException;
 import com.stagehub.outbox.Topics;
 import com.stagehub.outbox.service.OutboxService;
 import com.stagehub.etudiant.entity.Etudiant;
-import com.stagehub.etudiant.repository.EtudiantRepository;
-import com.stagehub.offre.entity.Offre;
-import com.stagehub.offre.repository.OffreRepository;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.LocalDate;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
 public class CandidatureService {
 
     private final CandidatureRepository candidatureRepository;
-    private final OffreRepository offreRepository;
-    private final EtudiantRepository etudiantRepository;
+    private final EnregistrementCandidature enregistrement;
+    private final OffreClient offreClient;
     private final CandidatureMapper candidatureMapper;
     private final OutboxService outbox;
-    private final Clock clock;
 
-    public CandidatureService(CandidatureRepository candidatureRepository, OffreRepository offreRepository,
-                              EtudiantRepository etudiantRepository, CandidatureMapper candidatureMapper,
-                              OutboxService outbox, Clock clock) {
+    public CandidatureService(CandidatureRepository candidatureRepository, EnregistrementCandidature enregistrement,
+                              OffreClient offreClient, CandidatureMapper candidatureMapper, OutboxService outbox) {
         this.candidatureRepository = candidatureRepository;
-        this.offreRepository = offreRepository;
-        this.etudiantRepository = etudiantRepository;
+        this.enregistrement = enregistrement;
+        this.offreClient = offreClient;
         this.candidatureMapper = candidatureMapper;
         this.outbox = outbox;
-        this.clock = clock;
     }
 
-    /** Spec §4.3 : offre OUVERTE et date limite non dépassée ; un doublon renvoie 409. */
-    @Transactional
+    /**
+     * Spec §4.3 : offre OUVERTE et date limite non dépassée (règle évaluée par offre-service, données à jour) ; un
+     * doublon renvoie 409. offre-service injoignable : 503, on ne prend jamais une candidature non vérifiée.
+     * NOT_SUPPORTED : l'appel réseau se fait hors transaction ; l'écriture a sa propre transaction, courte.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public CandidatureEtudiantResponse postuler(Long etudiantId, Long offreId, CandidatureRequest request) {
-        Offre offre = offreRepository.findById(offreId).orElseThrow(() -> new OffreNotFoundException(offreId));
-        if (!offre.accepteCandidatures(LocalDate.now(clock))) {
+        OffreInterne offre = offreClient.offre(offreId);
+        if (!offre.accepteCandidatures()) {
             throw new OffreNonDisponibleException(
                     "Cette offre n'accepte plus de candidatures (fermée ou date limite dépassée)");
         }
-        if (candidatureRepository.existsByEtudiantIdAndOffreId(etudiantId, offreId)) {
-            throw new CandidatureDejaExistanteException();
-        }
-
-        Candidature candidature = new Candidature();
-        // Verrou sur l'étudiant : un dépôt de CV simultané attend la fin de cette transaction (voir CvService)
-        Etudiant etudiant = etudiantRepository.findAvecVerrou(etudiantId)
-                .orElseThrow(() -> new UtilisateurNotFoundException(etudiantId));
-        candidature.setEtudiant(etudiant);
-        // Le CV est figé : l'entreprise téléchargera ce fichier, même si l'étudiant le remplace ensuite
-        candidature.setCvFichier(etudiant.getCheminCv());
-        candidature.setOffre(offre);
-        candidature.setLettreMotivation(request == null ? null : request.lettreMotivation());
-
-        try {
-            candidatureRepository.saveAndFlush(candidature);
-        } catch (DataIntegrityViolationException e) {
-            // Filet de sécurité : deux requêtes simultanées peuvent passer le exists() ;
-            // la contrainte unique (etudiant_id, offre_id) tranche en base.
-            throw new CandidatureDejaExistanteException();
-        }
-        return candidatureMapper.toEtudiantResponse(candidature);
+        Candidature candidature = enregistrement.enregistrer(etudiantId, offre, request);
+        return candidatureMapper.toEtudiantResponse(candidature,
+                new OffreResumeResponse(offre.id(), offre.titre(), offre.entrepriseNom(), offre.ville(), offre.statut()));
     }
 
+    /**
+     * Le résumé de chaque offre (statut à jour, titre modifié...) est lu dans offre-service, en un seul appel pour la
+     * page. Si offre-service ne répond pas, la page s'affiche quand même, avec l'instantané pris au moment de postuler.
+     */
     public PageResponse<CandidatureEtudiantResponse> listerCandidaturesEtudiant(Long etudiantId, Pageable pageable) {
-        return PageResponse.of(candidatureRepository.findByEtudiantId(etudiantId, pageable),
-                candidatureMapper::toEtudiantResponse);
+        Page<Candidature> page = candidatureRepository.findByEtudiantId(etudiantId, pageable);
+        Set<Long> offreIds = page.getContent().stream().map(Candidature::getOffreId).collect(Collectors.toSet());
+        Map<Long, OffreResumeResponse> resumes = offreIds.isEmpty() ? Map.of() : offreClient.resumes(offreIds).stream()
+                .collect(Collectors.toMap(OffreResumeResponse::id, Function.identity()));
+        return PageResponse.of(page, c -> candidatureMapper.toEtudiantResponse(c,
+                resumes.getOrDefault(c.getOffreId(), candidatureMapper.toOffreResumeDegrade(c))));
     }
 
+    /** Propriété vérifiée auprès d'offre-service (l'offre peut n'avoir encore aucune candidature). */
     public PageResponse<CandidatureEntrepriseResponse> listerCandidaturesOffre(Long entrepriseId, Long offreId,
                                                                                Pageable pageable) {
-        Offre offre = offreRepository.findById(offreId).orElseThrow(() -> new OffreNotFoundException(offreId));
-        if (!offre.appartientA(entrepriseId)) {
+        OffreInterne offre = offreClient.offre(offreId);
+        if (!entrepriseId.equals(offre.entrepriseId())) {
             throw new AccesNonAutoriseException("Cette offre n'appartient pas à votre entreprise");
         }
         return PageResponse.of(candidatureRepository.findByOffreId(offreId, pageable),
                 candidatureMapper::toEntrepriseResponse);
     }
 
-    /** La machine à états est appliquée par l'entité (→ 409 si transition invalide). */
+    /** La machine à états est appliquée par l'entité (→ 409 si transition invalide). Aucun appel réseau. */
     @Transactional
     @Audite(value = ActionAudit.CHANGEMENT_STATUT_CANDIDATURE, idParam = "candidatureId")
     public CandidatureEntrepriseResponse changerStatut(Long entrepriseId, Long candidatureId,
                                                        StatutCandidature nouveauStatut) {
         Candidature candidature = candidatureRepository.findById(candidatureId)
                 .orElseThrow(() -> new CandidatureNotFoundException(candidatureId));
-        if (!candidature.getOffre().appartientA(entrepriseId)) {
+        if (!candidature.concerneLEntreprise(entrepriseId)) {
             throw new AccesNonAutoriseException("Cette candidature ne concerne pas une offre de votre entreprise");
         }
 
@@ -121,8 +112,8 @@ public class CandidatureService {
                 candidature.getId(),
                 etudiant.getEmail(),
                 etudiant.getPrenom(),
-                candidature.getOffre().getTitre(),
-                candidature.getOffre().getEntreprise().getNom(),
+                candidature.getOffreTitre(),
+                candidature.getEntrepriseNom(),
                 ancienStatut,
                 nouveauStatut));
         return candidatureMapper.toEntrepriseResponse(candidature);

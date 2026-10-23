@@ -2,7 +2,6 @@ package com.stagehub.candidature.entity;
 
 import com.stagehub.common.exception.TransitionStatutInvalideException;
 import com.stagehub.etudiant.entity.Etudiant;
-import com.stagehub.offre.entity.Offre;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -37,9 +36,26 @@ public class Candidature {
     @JoinColumn(name = "etudiant_id", nullable = false)
     private Etudiant etudiant;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "offre_id", nullable = false)
-    private Offre offre;
+    /** Id de l'offre, dans offre-service (plus de clé étrangère : autre base, depuis la phase 7 c). */
+    @Column(name = "offre_id", nullable = false, updatable = false)
+    private Long offreId;
+
+    // Instantané de l'offre au moment de postuler (dénormalisation volontaire, comme le CV figé) :
+    //  - entrepriseId ne change jamais : la règle de propriété (une entreprise ne voit que ses candidatures) se vérifie
+    //    localement, sans appel réseau ;
+    //  - titre, entreprise, ville : l'email de changement de statut et le repli de la liste « mes candidatures »
+    //    quand offre-service ne répond pas (sinon, la liste affiche les données à jour d'offre-service).
+    @Column(name = "entreprise_id", nullable = false, updatable = false)
+    private Long entrepriseId;
+
+    @Column(name = "offre_titre", nullable = false, updatable = false)
+    private String offreTitre;
+
+    @Column(name = "entreprise_nom", nullable = false, updatable = false)
+    private String entrepriseNom;
+
+    @Column(name = "offre_ville", updatable = false)
+    private String offreVille;
 
     @Column(name = "lettre_motivation")
     private String lettreMotivation;
@@ -60,6 +76,10 @@ public class Candidature {
     /** Rempli en phase 8 (Spring AI). */
     @Column(name = "score_matching")
     private Integer scoreMatching;
+
+    public boolean concerneLEntreprise(Long idEntreprise) {
+        return entrepriseId.equals(idEntreprise);
+    }
 
     public void changerStatut(StatutCandidature nouveauStatut) {
         if (!statut.peutPasserA(nouveauStatut)) {

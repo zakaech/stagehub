@@ -51,13 +51,13 @@ class AuditServiceTest {
     @Test
     void enregistrer_avecLUtilisateurAuthentifie() {
         SecurityContextHolder.getContext().setAuthentication(
-                UsernamePasswordAuthenticationToken.authenticated("admin@stagehub.ma", null, List.of()));
+                UsernamePasswordAuthenticationToken.authenticated("rh@acme.ma", null, List.of()));
 
-        service.enregistrer(ActionAudit.VALIDATION_ENTREPRISE, 5L, "EN_ATTENTE", "VALIDEE");
+        service.enregistrer(ActionAudit.CHANGEMENT_STATUT_CANDIDATURE, 5L, "EN_ATTENTE", "ENTRETIEN");
 
         AuditLog log = enregistre();
-        assertThat(log.getUtilisateur()).isEqualTo("admin@stagehub.ma");
-        assertThat(log.getEntite()).isEqualTo(EntiteAuditee.ENTREPRISE);
+        assertThat(log.getUtilisateur()).isEqualTo("rh@acme.ma");
+        assertThat(log.getEntite()).isEqualTo(EntiteAuditee.CANDIDATURE);
         assertThat(log.getEntiteId()).isEqualTo(5L);
         assertThat(log.getDate()).isEqualTo(MAINTENANT);
     }
@@ -70,15 +70,13 @@ class AuditServiceTest {
     }
 
     @Test
-    void lister_avecOuSansFiltre() {
+    void lister_filtreParEntite() {
         PageRequest page = PageRequest.of(0, 25);
         AuditLog log = new AuditLog();
-        log.setAction(ActionAudit.VALIDATION_ENTREPRISE);
-        when(auditLogRepository.findAll(page)).thenReturn(new PageImpl<>(List.of(log), page, 1));
-        when(auditLogRepository.findByEntite(EntiteAuditee.CANDIDATURE, page)).thenReturn(new PageImpl<>(List.of(), page, 0));
+        log.setAction(ActionAudit.CHANGEMENT_STATUT_CANDIDATURE);
+        when(auditLogRepository.findByEntite(EntiteAuditee.CANDIDATURE, page)).thenReturn(new PageImpl<>(List.of(log), page, 1));
 
-        assertThat(service.lister(null, page).totalElements()).isEqualTo(1);
-        assertThat(service.lister(EntiteAuditee.CANDIDATURE, page).content()).isEmpty();
+        assertThat(service.lister(EntiteAuditee.CANDIDATURE, page).totalElements()).isEqualTo(1);
     }
 
     private AuditLog enregistre() {

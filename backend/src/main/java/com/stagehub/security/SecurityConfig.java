@@ -3,7 +3,6 @@ package com.stagehub.security;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -36,9 +35,9 @@ public class SecurityConfig {
                         // Healthchecks Docker : seule la santé est exposée par Actuator (voir application.yml)
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        // Appels d'autres services (création des profils par auth-service) : jeton de service seulement
+                        // Appels d'autres services (création des profils étudiants par auth-service) : jeton de
+                        // service seulement. Les offres publiques sont dans offre-service depuis la phase 7 (c).
                         .requestMatchers("/internal/**").hasRole(JwtClaims.ROLE_SERVICE)
-                        .requestMatchers(HttpMethod.GET, "/api/v1/offres", "/api/v1/offres/**").permitAll()
                         .requestMatchers("/api/v1/etudiant/**").hasRole("ETUDIANT")
                         .requestMatchers("/api/v1/entreprise/**").hasRole("ENTREPRISE")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

@@ -17,10 +17,9 @@ public interface CandidatureRepository extends JpaRepository<Candidature, Long> 
     /** Un fichier CV encore référencé par une candidature ne doit pas être supprimé. */
     boolean existsByCvFichier(String cvFichier);
 
-    @EntityGraph(attributePaths = {"offre", "offre.entreprise"})
     Page<Candidature> findByEtudiantId(Long etudiantId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"offre", "etudiant"})
+    @EntityGraph(attributePaths = "etudiant")
     Page<Candidature> findByOffreId(Long offreId, Pageable pageable);
 
     @Query("""

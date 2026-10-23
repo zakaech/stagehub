@@ -1,6 +1,7 @@
 package com.stagehub;
 
 import com.jayway.jsonpath.JsonPath;
+import com.stagehub.candidature.client.OffreInterne;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
@@ -9,67 +10,37 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Parcours complet de la phase 1, sur un vrai PostgreSQL lancé par Testcontainers :
- * inscription → validation admin → offre → candidature → changements de statut.
- * Phase 7 : l'inscription et la connexion sont dans auth-service ; ici, les profils sont créés par l'API interne
- * et les jetons signés par {@link JetonsDeTest}.
+ * Parcours complet du monolithe, sur un vrai PostgreSQL lancé par Testcontainers : inscription de l'étudiant →
+ * candidature → traitement par l'entreprise → suivi par l'étudiant → statistiques.
+ * Phase 7 : l'inscription et la connexion sont dans auth-service (profils créés ici par l'API interne, jetons signés
+ * par {@link JetonsDeTest}) ; les entreprises et les offres sont dans offre-service, remplacé ici par
+ * {@link FauxOffreService} (leur parcours est testé dans offre-service).
  * Exécuté par Failsafe ({@code mvn verify}) grâce au suffixe IT.
  */
 class ParcoursCompletIT extends IntegrationTestBase {
 
     @Test
-    void inscriptionValidationOffreCandidatureEtChangementsDeStatut() throws Exception {
-        // 1. Une entreprise s'inscrit : auth-service crée son compte puis son profil ici (API interne), en attente
+    void candidatureTraitementSuiviEtStatistiques() throws Exception {
+        // 1. Une entreprise validée a publié une offre ouverte (dans offre-service)
         Long entrepriseId = ApiDeTest.nouvelId();
-        appeler(post("/internal/entreprises"), JetonsDeTest.service(), """
-                {"id": %d, "email": "rh@acme.ma", "nom": "Acme", "secteur": "Informatique", "ville": "Casablanca"}
-                """.formatted(entrepriseId))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.statutValidation").value("EN_ATTENTE"));
         String tokenEntreprise = JetonsDeTest.utilisateur(entrepriseId, "rh@acme.ma", "ENTREPRISE");
+        Long offreId = ApiDeTest.nouvelId();
+        OffreInterne offre = new OffreInterne(offreId, "Stage PFE Java", "Casablanca", "OUVERTE",
+                LocalDate.now().plusDays(30), entrepriseId, "Acme", true);
+        FauxOffreService.declarer(offre);
 
-        // 2. Tant qu'elle n'est pas validée, elle ne peut pas publier
-        String offre = """
-                {"titre": "Stage PFE Java", "description": "API Spring Boot", "ville": "Casablanca",
-                 "domaine": "Développement", "technologies": ["Java", "Spring Boot"], "dureeMois": 6,
-                 "dateLimite": "%s"}
-                """.formatted(LocalDate.now().plusDays(30));
-        appeler(post("/api/v1/entreprise/offres"), tokenEntreprise, offre)
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("EntrepriseNonValidee"));
-
-        // 3. L'admin la voit dans les comptes en attente et la valide
-        String tokenAdmin = new ApiDeTest(mockMvc).tokenAdmin();
-        appeler(get("/api/v1/admin/entreprises").param("statut", "EN_ATTENTE"), tokenAdmin, null)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[*].id", hasItem(entrepriseId.intValue())));
-        appeler(patch("/api/v1/admin/entreprises/{id}/validation", entrepriseId), tokenAdmin, """
-                {"decision": "VALIDEE"}
-                """)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.statutValidation").value("VALIDEE"));
-
-        // 4. L'entreprise publie son offre, visible publiquement sans authentification
-        Long offreId = idDe(appeler(post("/api/v1/entreprise/offres"), tokenEntreprise, offre)
-                .andExpect(status().isCreated())
-                .andExpect(header().exists("Location"))
-                .andExpect(jsonPath("$.statut").value("OUVERTE")));
-        appeler(get("/api/v1/offres"), null, null)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[*].id", hasItem(offreId.intValue())));
-
-        // 5. Un étudiant s'inscrit et postule ; un second essai est refusé
+        // 2. Un étudiant s'inscrit : auth-service crée son compte puis son profil ici (API interne)
         Long etudiantId = ApiDeTest.nouvelId();
         appeler(post("/internal/etudiants"), JetonsDeTest.service(), """
                 {"id": %d, "email": "sara@etu.ma", "nom": "Alaoui", "prenom": "Sara",
@@ -78,20 +49,25 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(status().isCreated());
         String tokenEtudiant = JetonsDeTest.utilisateur(etudiantId, "sara@etu.ma", "ETUDIANT");
 
+        // 3. Il postule ; un second essai est refusé. L'offre a été lue dans offre-service, au nom de l'étudiant
         String lettre = """
                 {"lettreMotivation": "Très motivée par ce stage"}
                 """;
         Long candidatureId = idDe(appeler(post("/api/v1/etudiant/offres/{id}/candidatures", offreId), tokenEtudiant, lettre)
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.statut").value("EN_ATTENTE")));
+                .andExpect(jsonPath("$.statut").value("EN_ATTENTE"))
+                .andExpect(jsonPath("$.offre.titre").value("Stage PFE Java")));
+        FauxOffreService.SERVEUR.verify(getRequestedFor(urlPathEqualTo("/internal/offres/" + offreId))
+                .withHeader("Authorization", equalTo("Bearer " + tokenEtudiant)));
         appeler(post("/api/v1/etudiant/offres/{id}/candidatures", offreId), tokenEtudiant, lettre)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CandidatureDejaExistante"));
 
-        // 6. L'entreprise consulte la candidature et la fait avancer selon la machine à états
+        // 4. L'entreprise consulte la candidature et la fait avancer selon la machine à états
         appeler(get("/api/v1/entreprise/offres/{id}/candidatures", offreId), tokenEntreprise, null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].etudiantEmail").value("sara@etu.ma"))
+                .andExpect(jsonPath("$.content[0].offreTitre").value("Stage PFE Java"))
                 .andExpect(jsonPath("$.content[0].lettreMotivation").value("Très motivée par ce stage"));
         changerStatut(candidatureId, tokenEntreprise, "ENTRETIEN").andExpect(status().isOk());
         changerStatut(candidatureId, tokenEntreprise, "EN_ATTENTE")
@@ -101,7 +77,7 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("ACCEPTEE"));
 
-        // 7. L'étudiant voit le nouveau statut ; l'admin le retrouve dans les statistiques
+        // 5. L'étudiant voit le nouveau statut ; l'admin le retrouve dans les statistiques
         appeler(get("/api/v1/etudiant/candidatures"), tokenEtudiant, null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].statut").value("ACCEPTEE"))
@@ -109,30 +85,28 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.content[0].offre.entrepriseNom").value("Acme"))
                 .andExpect(jsonPath("$.content[0].offre.ville").value("Casablanca"))
                 .andExpect(jsonPath("$.content[0].offre.statut").value("OUVERTE"));
-        appeler(get("/api/v1/admin/stats"), tokenAdmin, null)
+        String tokenAdmin = new ApiDeTest(mockMvc).tokenAdmin();
+        appeler(get("/api/v1/admin/stats/candidatures"), tokenAdmin, null)
                 .andExpect(status().isOk())
                 // La base est partagée entre les tests d'intégration : on vérifie des minimums, pas des totaux exacts
-                .andExpect(jsonPath("$.nombreOffres", greaterThanOrEqualTo(1)))
-                .andExpect(jsonPath("$.candidaturesParStatut.ACCEPTEE", greaterThanOrEqualTo(1)))
-                .andExpect(jsonPath("$.topTechnologies[*].technologie", hasItem("Java")));
+                .andExpect(jsonPath("$.nombreCandidatures", greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.candidaturesParStatut.ACCEPTEE", greaterThanOrEqualTo(1)));
 
-        // 8. Contrôle d'accès : rôle insuffisant → 403, pas de jeton → 401
-        appeler(get("/api/v1/admin/stats"), tokenEtudiant, null).andExpect(status().isForbidden());
+        // 6. Contrôle d'accès : rôle insuffisant → 403, pas de jeton → 401
+        appeler(get("/api/v1/admin/stats/candidatures"), tokenEtudiant, null).andExpect(status().isForbidden());
         appeler(get("/api/v1/etudiant/candidatures"), null, null).andExpect(status().isUnauthorized());
 
-        // 9. L'entreprise ferme l'offre (elle disparaît du public), puis la rouvre : sa date limite est future
-        changerStatutOffre(offreId, tokenEntreprise, "FERMEE")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.statut").value("FERMEE"));
-        appeler(get("/api/v1/offres"), null, null)
-                .andExpect(jsonPath("$.content[*].id", not(hasItem(offreId.intValue()))));
-        // L'étudiant garde sa candidature, avec le résumé de l'offre fermée
+        // 7. L'entreprise ferme l'offre (dans offre-service) : l'étudiant garde sa candidature, avec le statut à jour
+        // de l'offre, et plus personne ne peut postuler
+        FauxOffreService.declarer(new OffreInterne(offreId, "Stage PFE Java", "Casablanca", "FERMEE",
+                offre.dateLimite(), entrepriseId, "Acme", false));
         appeler(get("/api/v1/etudiant/candidatures"), tokenEtudiant, null)
                 .andExpect(jsonPath("$.content[0].id").value(candidatureId.intValue()))
                 .andExpect(jsonPath("$.content[0].offre.statut").value("FERMEE"));
-        changerStatutOffre(offreId, tokenEntreprise, "OUVERTE")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.statut").value("OUVERTE"));
+        String autreEtudiant = new ApiDeTest(mockMvc).inscrireEtudiant().token();
+        appeler(post("/api/v1/etudiant/offres/{id}/candidatures", offreId), autreEtudiant, null)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OffreNonDisponible"));
     }
 
     // --- Utilitaires ---
@@ -149,11 +123,6 @@ class ParcoursCompletIT extends IntegrationTestBase {
 
     private ResultActions changerStatut(Long candidatureId, String token, String statut) throws Exception {
         return appeler(patch("/api/v1/entreprise/candidatures/{id}/statut", candidatureId), token,
-                "{\"statut\": \"%s\"}".formatted(statut));
-    }
-
-    private ResultActions changerStatutOffre(Long offreId, String token, String statut) throws Exception {
-        return appeler(patch("/api/v1/entreprise/offres/{id}/statut", offreId), token,
                 "{\"statut\": \"%s\"}".formatted(statut));
     }
 

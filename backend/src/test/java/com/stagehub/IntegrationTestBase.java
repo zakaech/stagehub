@@ -5,6 +5,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
@@ -15,8 +17,6 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  */
 @SpringBootTest(properties = {
         "stagehub.cv.dossier=target/test-uploads/cv",
-        // Tâche nocturne désactivée : les tests appellent directement OffreService.fermerOffresExpirees
-        "stagehub.offres.cron-fermeture=-",
         // Pas de Kafka pour la plupart des tests : les événements restent dans l'outbox (OutboxIT teste le relais)
         "stagehub.outbox.relais.actif=false"
 })
@@ -35,4 +35,10 @@ public abstract class IntegrationTestBase {
 
     @Autowired
     protected MockMvc mockMvc;
+
+    /** Le client Feign d'offre-service (contextId « offres ») appelle le faux service au lieu de passer par Eureka. */
+    @DynamicPropertySource
+    static void fauxOffreService(DynamicPropertyRegistry proprietes) {
+        proprietes.add("spring.cloud.openfeign.client.config.offres.url", FauxOffreService::url);
+    }
 }

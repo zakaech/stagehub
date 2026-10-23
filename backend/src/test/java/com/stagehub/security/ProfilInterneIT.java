@@ -61,24 +61,6 @@ class ProfilInterneIT extends IntegrationTestBase {
     }
 
     @Test
-    void profilEntreprise_creeEnAttenteAvecSonEmail() throws Exception {
-        long id = ApiDeTest.nouvelId();
-        String service = "Bearer " + JetonsDeTest.service();
-
-        mockMvc.perform(post("/internal/entreprises").header("Authorization", service)
-                        .contentType(MediaType.APPLICATION_JSON).content("""
-                                {"id": %d, "email": "rh@interne.test", "nom": "Acme", "secteur": "IT", "ville": "Rabat"}
-                                """.formatted(id)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.statutValidation").value("EN_ATTENTE"))
-                .andExpect(jsonPath("$.email").value("rh@interne.test"));
-        mockMvc.perform(delete("/internal/entreprises/{id}", id).header("Authorization", service))
-                .andExpect(status().isNoContent());
-        mockMvc.perform(get("/internal/entreprises/{id}", id).header("Authorization", service))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
     void demandeIncomplete_400AvecLesChampsInvalides() throws Exception {
         mockMvc.perform(post("/internal/etudiants").header("Authorization", "Bearer " + JetonsDeTest.service())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"email\": \"pas-un-email\"}"))

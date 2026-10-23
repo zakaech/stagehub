@@ -2,24 +2,27 @@ package com.stagehub.candidature.mapper;
 
 import com.stagehub.candidature.dto.CandidatureEntrepriseResponse;
 import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
+import com.stagehub.candidature.dto.OffreResumeResponse;
 import com.stagehub.candidature.entity.Candidature;
 import com.stagehub.common.config.MapStructConfig;
-import com.stagehub.offre.dto.OffreResumeResponse;
-import com.stagehub.offre.entity.Offre;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 @Mapper(config = MapStructConfig.class)
 public interface CandidatureMapper {
 
-    /** Le champ offre est converti par {@link #toOffreResume}, que MapStruct utilise automatiquement. */
-    CandidatureEtudiantResponse toEtudiantResponse(Candidature candidature);
+    /** Le résumé de l'offre vient d'offre-service (à jour), ou de l'instantané de la candidature en repli. */
+    default CandidatureEtudiantResponse toEtudiantResponse(Candidature candidature, OffreResumeResponse offre) {
+        return new CandidatureEtudiantResponse(candidature.getId(), offre, candidature.getLettreMotivation(),
+                candidature.getStatut(), candidature.getDateCandidature());
+    }
 
-    @Mapping(target = "entrepriseNom", source = "entreprise.nom")
-    OffreResumeResponse toOffreResume(Offre offre);
+    /** Offre telle qu'au moment de postuler ; statut inconnu (null) : on ne sait pas si elle a été fermée depuis. */
+    default OffreResumeResponse toOffreResumeDegrade(Candidature candidature) {
+        return new OffreResumeResponse(candidature.getOffreId(), candidature.getOffreTitre(),
+                candidature.getEntrepriseNom(), candidature.getOffreVille(), null);
+    }
 
-    @Mapping(target = "offreId", source = "offre.id")
-    @Mapping(target = "offreTitre", source = "offre.titre")
     @Mapping(target = "etudiantId", source = "etudiant.id")
     @Mapping(target = "etudiantNom", source = "etudiant.nom")
     @Mapping(target = "etudiantPrenom", source = "etudiant.prenom")

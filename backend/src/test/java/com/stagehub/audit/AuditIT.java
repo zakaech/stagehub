@@ -48,26 +48,9 @@ class AuditIT extends IntegrationTestBase {
     }
 
     @Test
-    void validationEntreprise_estAuditeeAvecLAdminCommeAuteur() throws Exception {
-        ApiDeTest.Compte entreprise = api.inscrireEntreprise();
-
-        api.validerEntreprise(entreprise.id());
-
-        assertThat(historique(EntiteAuditee.ENTREPRISE, entreprise.id()))
-                .singleElement()
-                .satisfies(log -> {
-                    assertThat(log.getAction()).isEqualTo(ActionAudit.VALIDATION_ENTREPRISE);
-                    assertThat(log.getAncienneValeur()).isEqualTo("EN_ATTENTE");
-                    assertThat(log.getNouvelleValeur()).isEqualTo("VALIDEE");
-                    assertThat(log.getUtilisateur()).isEqualTo(ApiDeTest.ADMIN_EMAIL);
-                    assertThat(log.getDate()).isNotNull();
-                });
-    }
-
-    @Test
     void changementsDeStatut_reussis_sontAudites_etEchecsIgnores() throws Exception {
         ApiDeTest.Scenario s = api.scenarioAvecCandidature();
-        ApiDeTest.Compte autreEntreprise = api.inscrireEntreprise();
+        ApiDeTest.Compte autreEntreprise = api.entreprise();
 
         api.changerStatutCandidature(s.candidatureId(), s.entreprise().token(), "ENTRETIEN")
                 .andExpect(status().isOk());
@@ -104,24 +87,28 @@ class AuditIT extends IntegrationTestBase {
     }
 
     @Test
-    void journal_consultableParLAdminUniquement() throws Exception {
-        ApiDeTest.Compte entreprise = api.inscrireEntreprise();
-        api.validerEntreprise(entreprise.id());
+    void journal_consultableParLAdminUniquement_avecUneEntiteObligatoire() throws Exception {
+        ApiDeTest.Scenario s = api.scenarioAvecCandidature();
+        api.changerStatutCandidature(s.candidatureId(), s.entreprise().token(), "ENTRETIEN").andExpect(status().isOk());
         String tokenAdmin = api.tokenAdmin();
 
-        api.lire("/api/v1/admin/audit?entite=ENTREPRISE", tokenAdmin)
+        api.lire("/api/v1/admin/audit?entite=CANDIDATURE", tokenAdmin)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].entiteId").value(entreprise.id().intValue()))
-                .andExpect(jsonPath("$.content[0].action").value("VALIDATION_ENTREPRISE"))
-                .andExpect(jsonPath("$.content[0].nouvelleValeur").value("VALIDEE"))
-                .andExpect(jsonPath("$.content[*].entite", everyItem(is("ENTREPRISE"))));
-        api.lire("/api/v1/admin/audit", entreprise.token()).andExpect(status().isForbidden());
+                .andExpect(jsonPath("$.content[0].entiteId").value(s.candidatureId().intValue()))
+                .andExpect(jsonPath("$.content[0].action").value("CHANGEMENT_STATUT_CANDIDATURE"))
+                .andExpect(jsonPath("$.content[0].nouvelleValeur").value("ENTRETIEN"))
+                .andExpect(jsonPath("$.content[*].entite", everyItem(is("CANDIDATURE"))));
+        // Phase 7 (c) : chaque service tient son propre journal ; « toutes les entités » n'a plus de sens ici, et
+        // celui des entreprises est dans offre-service
+        api.lire("/api/v1/admin/audit", tokenAdmin).andExpect(status().isBadRequest());
+        api.lire("/api/v1/admin/audit?entite=ENTREPRISE", tokenAdmin).andExpect(status().isBadRequest());
+        api.lire("/api/v1/admin/audit?entite=CANDIDATURE", s.entreprise().token()).andExpect(status().isForbidden());
     }
 
     @Test
     void enregistrementHorsTransaction_estRefuse() {
         // Garde-fou : l'audit ne peut pas être écrit dans une transaction à part
-        assertThatThrownBy(() -> auditService.enregistrer(ActionAudit.VALIDATION_ENTREPRISE, 1L, "A", "B"))
+        assertThatThrownBy(() -> auditService.enregistrer(ActionAudit.CHANGEMENT_STATUT_CANDIDATURE, 1L, "A", "B"))
                 .isInstanceOf(IllegalTransactionStateException.class);
     }
 

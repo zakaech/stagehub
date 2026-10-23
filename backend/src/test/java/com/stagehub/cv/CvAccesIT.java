@@ -16,7 +16,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,7 +84,7 @@ class CvAccesIT extends IntegrationTestBase {
     @Test
     void autreEntreprise_recoit403() throws Exception {
         Scenario s = scenario();
-        String autreEntreprise = inscrireEntreprise();
+        String autreEntreprise = autreEntreprise();
 
         appeler(get("/api/v1/entreprise/candidatures/{id}/cv", s.candidatureId()), autreEntreprise)
                 .andExpect(status().isForbidden())
@@ -156,13 +155,9 @@ class CvAccesIT extends IntegrationTestBase {
 
     private Scenario scenario() throws Exception {
         ApiDeTest api = new ApiDeTest(mockMvc);
-        ApiDeTest.Compte entreprise = api.inscrireEntreprise();
-        api.validerEntreprise(entreprise.id());
+        ApiDeTest.Compte entreprise = api.entreprise();
         String tokenEntreprise = entreprise.token();
-        Long offreId = idDe(appeler(post("/api/v1/entreprise/offres"), tokenEntreprise, """
-                {"titre": "Stage CV", "description": "Test", "ville": "Rabat", "domaine": "Dev",
-                 "technologies": ["Java"], "dureeMois": 4, "dateLimite": "%s"}
-                """.formatted(LocalDate.now().plusDays(30))).andExpect(status().isCreated()));
+        Long offreId = api.offreOuverte(entreprise);
 
         String tokenEtudiant = inscrireEtudiant();
         Long etudiantId = idDe(deposer(tokenEtudiant, CV_1).andExpect(status().isOk()));
@@ -176,8 +171,9 @@ class CvAccesIT extends IntegrationTestBase {
         return new ApiDeTest(mockMvc).inscrireEtudiant().token();
     }
 
-    private String inscrireEntreprise() throws Exception {
-        return new ApiDeTest(mockMvc).inscrireEntreprise().token();
+    /** Entreprise (dans offre-service) : seulement un jeton ici. */
+    private String autreEntreprise() {
+        return new ApiDeTest(mockMvc).entreprise().token();
     }
 
     private ResultActions deposer(String token, byte[] contenu) throws Exception {

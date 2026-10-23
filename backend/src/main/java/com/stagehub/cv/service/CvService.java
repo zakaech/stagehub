@@ -82,7 +82,7 @@ public class CvService {
     public CvTelechargement telechargerCvCandidature(Long entrepriseId, Long candidatureId) {
         Candidature candidature = candidatureRepository.findById(candidatureId)
                 .orElseThrow(() -> new CandidatureNotFoundException(candidatureId));
-        if (!candidature.getOffre().appartientA(entrepriseId)) {
+        if (!candidature.concerneLEntreprise(entrepriseId)) {
             throw new AccesNonAutoriseException("Cette candidature ne concerne pas une offre de votre entreprise");
         }
         return charger(candidature.getCvFichier(), candidature.getEtudiant());

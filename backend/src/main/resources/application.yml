@@ -30,6 +30,26 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  cloud:
+    loadbalancer:
+      cache:
+        ttl: 5s
+    circuitbreaker:
+      resilience4j:
+        # L'appel reste dans le thread de la requête : sinon le jeton (RequestContextHolder) ne serait plus lisible
+        # par RelaisJetonFeignConfig. La durée est bornée par les délais de Feign, pas par un TimeLimiter.
+        disable-thread-pool: true
+        disable-time-limiter: true
+    openfeign:
+      # Phase 7 (c) : chaque appel Feign passe par un circuit breaker Resilience4j (voir resilience4j ci-dessous)
+      circuitbreaker:
+        enabled: true
+      client:
+        config:
+          default:
+            # Sans délai, un offre-service lent bloquerait les threads du monolithe : la panne se propagerait
+            connect-timeout: 2000
+            read-timeout: 3000
   kafka:
     # Phase 7 (e) : événements publiés par le relais de l'outbox ; les emails partent de notification-service
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
@@ -53,7 +73,8 @@ spring:
       max-request-size: 6MB
 
 stagehub:
-  # Fuseau de référence pour toutes les règles de date (postuler, rouvrir, fermeture nocturne)
+  # Fuseau de l'horloge (Clock) et des tâches planifiées (purge de l'outbox) ; les règles de date des offres sont
+  # dans offre-service depuis la phase 7 (c)
   fuseau: Africa/Casablanca
   outbox:
     relais:
@@ -63,9 +84,6 @@ stagehub:
   perf:
     # Au-delà, MesureTempsAspect logue un WARN ; en dessous, un DEBUG
     seuil-lent: 500ms
-  offres:
-    # Fermeture des offres expirées : chaque jour à 00:05 (fuseau stagehub.fuseau) ; "-" pour désactiver
-    cron-fermeture: "0 5 0 * * *"
   jwt:
     # Phase 7 : les jetons sont signés par auth-service (RS256) ; on vérifie avec sa clé publique (JWKS)
     jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8082/.well-known/jwks.json}
@@ -81,12 +99,34 @@ eureka:
     enabled: ${EUREKA_ENABLED:false}
     service-url:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    # Phase 7 (c) : le monolithe appelle offre-service ; copie locale de l'annuaire rafraîchie toutes les 5 s (30 par
+    # défaut) : une instance arrêtée cesse plus vite d'être appelée
+    registry-fetch-interval-seconds: 5
   instance:
     # Adresse IP du conteneur plutôt que son nom d'hôte (identifiant aléatoire dans Docker)
     prefer-ip-address: true
     # Signe de vie toutes les 10 s (30 par défaut) ; retiré de l'annuaire après 30 s de silence
     lease-renewal-interval-in-seconds: 10
     lease-expiration-duration-in-seconds: 30
+
+# Circuit breaker des appels vers offre-service. Sur les 20 derniers appels (5 au minimum), si la moitié échoue ou
+# dépasse 2 s, le circuit s'OUVRE : les appels suivants échouent aussitôt (repli : 503 ou mode dégradé), sans attendre
+# ni charger un service déjà en difficulté. Après 15 s, il est À MOITIÉ OUVERT : 3 appels d'essai, qui le referment
+# s'ils réussissent. Un 404 (offre inconnue) est une réponse normale : il ne compte pas comme un échec.
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+        ignore-exceptions:
+          - feign.FeignException$NotFound
 
 management:
   endpoints:

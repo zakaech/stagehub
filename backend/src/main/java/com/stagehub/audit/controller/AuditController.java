@@ -30,7 +30,7 @@ public class AuditController {
     @GetMapping
     @Operation(summary = "Journal d'audit (du plus récent au plus ancien), filtrable par type d'entité")
     public PageResponse<AuditLogResponse> journal(
-            @RequestParam(required = false) EntiteAuditee entite,
+            @RequestParam EntiteAuditee entite,
             @ParameterObject @PageableDefault(size = 25, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         return auditService.lister(entite, pageable);
     }

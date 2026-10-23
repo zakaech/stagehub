@@ -7,7 +7,6 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -17,10 +16,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Raccourcis HTTP pour mettre en place les scénarios des tests d'intégration (profils, validation, offre,
- * candidature). Chaque compte reçoit un id et un suffixe propres : les tests restent indépendants.
- * Phase 7 : les comptes sont dans auth-service. Ici, les profils sont créés par l'API interne (comme le fait
- * auth-service à l'inscription) et les jetons sont signés par {@link JetonsDeTest}.
+ * Raccourcis HTTP pour mettre en place les scénarios des tests d'intégration (profils, offre, candidature). Chaque
+ * compte reçoit un id et un suffixe propres : les tests restent indépendants.
+ * Phase 7 : les comptes sont dans auth-service. Ici, les profils étudiants sont créés par l'API interne (comme le fait
+ * auth-service à l'inscription) et les jetons sont signés par {@link JetonsDeTest}. Les entreprises et les offres sont
+ * dans offre-service (phase 7 c) : une entreprise n'est plus qu'un jeton, ses offres sont déclarées dans
+ * {@link FauxOffreService}.
  */
 public class ApiDeTest {
 
@@ -44,9 +45,8 @@ public class ApiDeTest {
     }
 
     public Scenario scenarioAvecCandidature() throws Exception {
-        Compte entreprise = inscrireEntreprise();
-        validerEntreprise(entreprise.id());
-        Long offreId = creerOffre(entreprise.token());
+        Compte entreprise = entreprise();
+        Long offreId = offreOuverte(entreprise);
         Compte etudiant = inscrireEtudiant();
         Long candidatureId = idDe(appeler(post("/api/v1/etudiant/offres/{id}/candidatures", offreId),
                 etudiant.token(), null).andExpect(status().isCreated()));
@@ -67,26 +67,18 @@ public class ApiDeTest {
         return new Compte(id, email, JetonsDeTest.utilisateur(id, email, "ETUDIANT"));
     }
 
-    /** Entreprise EN_ATTENTE de validation, comme après une inscription. */
-    public Compte inscrireEntreprise() throws Exception {
+    /** Entreprise (validée, dans offre-service) : ici, seulement un jeton portant son id. */
+    public Compte entreprise() {
         long id = nouvelId();
         String email = "rh-" + suffixe() + "@it.test";
-        appeler(post("/internal/entreprises"), JetonsDeTest.service(), """
-                {"id": %d, "email": "%s", "nom": "Acme", "secteur": "IT", "ville": "Rabat"}
-                """.formatted(id, email)).andExpect(status().isCreated());
         return new Compte(id, email, JetonsDeTest.utilisateur(id, email, "ENTREPRISE"));
     }
 
-    public ResultActions validerEntreprise(Long entrepriseId) throws Exception {
-        return appeler(patch("/api/v1/admin/entreprises/{id}/validation", entrepriseId), tokenAdmin(),
-                "{\"decision\": \"VALIDEE\"}").andExpect(status().isOk());
-    }
-
-    public Long creerOffre(String tokenEntreprise) throws Exception {
-        return idDe(appeler(post("/api/v1/entreprise/offres"), tokenEntreprise, """
-                {"titre": "Stage PFE Java", "description": "API Spring Boot", "ville": "Rabat", "domaine": "Dev",
-                 "technologies": ["Java"], "dureeMois": 6, "dateLimite": "%s"}
-                """.formatted(LocalDate.now().plusDays(30))).andExpect(status().isCreated()));
+    /** Offre ouverte de cette entreprise, déclarée dans le faux offre-service. */
+    public Long offreOuverte(Compte entreprise) {
+        long offreId = nouvelId();
+        FauxOffreService.offreOuverte(offreId, entreprise.id());
+        return offreId;
     }
 
     public ResultActions changerStatutCandidature(Long candidatureId, String token, String statut) throws Exception {

@@ -10,11 +10,9 @@ import com.stagehub.common.exception.UtilisateurNotFoundException;
 import com.stagehub.common.storage.LocalFichierStorage;
 import com.stagehub.cv.config.CvProperties;
 import com.stagehub.cv.dto.CvTelechargement;
-import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.mapper.EtudiantMapper;
 import com.stagehub.etudiant.repository.EtudiantRepository;
-import com.stagehub.offre.entity.Offre;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -178,14 +176,10 @@ class CvServiceTest {
     }
 
     private Candidature candidature(Long entrepriseId, String cvFichier) {
-        Entreprise entreprise = new Entreprise();
-        entreprise.setId(entrepriseId);
-        Offre offre = new Offre();
-        offre.setEntreprise(entreprise);
         etudiant.setPrenom("Sara");
         etudiant.setNom("Alaoui");
         Candidature candidature = new Candidature();
-        candidature.setOffre(offre);
+        candidature.setEntrepriseId(entrepriseId);
         candidature.setEtudiant(etudiant);
         candidature.setCvFichier(cvFichier);
         return candidature;

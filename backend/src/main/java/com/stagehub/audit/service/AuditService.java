@@ -7,7 +7,6 @@ import com.stagehub.audit.entity.EntiteAuditee;
 import com.stagehub.audit.mapper.AuditLogMapper;
 import com.stagehub.audit.repository.AuditLogRepository;
 import com.stagehub.common.dto.PageResponse;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,13 +31,10 @@ public class AuditService {
         this.clock = clock;
     }
 
-    /** Journal paginé, filtrable par type d'entité (null = tout). */
+    /** Journal paginé d'un type d'entité (obligatoire depuis la phase 7 c : un journal par service). */
     @Transactional(readOnly = true)
     public PageResponse<AuditLogResponse> lister(EntiteAuditee entite, Pageable pageable) {
-        Page<AuditLog> page = entite == null
-                ? auditLogRepository.findAll(pageable)
-                : auditLogRepository.findByEntite(entite, pageable);
-        return PageResponse.of(page, auditLogMapper::toResponse);
+        return PageResponse.of(auditLogRepository.findByEntite(entite, pageable), auditLogMapper::toResponse);
     }
 
     /**

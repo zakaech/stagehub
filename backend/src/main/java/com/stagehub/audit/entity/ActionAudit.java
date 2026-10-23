@@ -1,9 +1,11 @@
 package com.stagehub.audit.entity;
 
-/** Actions auditées ; chacune porte le type d'entité qu'elle modifie. */
+/**
+ * Actions auditées ; chacune porte le type d'entité qu'elle modifie. Depuis la phase 7 (c), la validation des
+ * entreprises est auditée par offre-service (bibliothèque audit).
+ */
 public enum ActionAudit {
-    CHANGEMENT_STATUT_CANDIDATURE(EntiteAuditee.CANDIDATURE),
-    VALIDATION_ENTREPRISE(EntiteAuditee.ENTREPRISE);
+    CHANGEMENT_STATUT_CANDIDATURE(EntiteAuditee.CANDIDATURE);
 
     private final EntiteAuditee entite;
 

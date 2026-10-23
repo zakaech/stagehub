@@ -64,17 +64,6 @@ class OutboxIT extends IntegrationTestBase {
     }
 
     @Test
-    void validationDEntreprise_publieDansSonTopic() throws Exception {
-        ApiDeTest api = new ApiDeTest(mockMvc);
-        ApiDeTest.Compte entreprise = api.inscrireEntreprise();
-
-        api.validerEntreprise(entreprise.id());
-
-        ConsumerRecord<String, String> message = attendreMessage(Topics.ENTREPRISE_VALIDATION, entreprise.id().toString());
-        assertThat(message.value()).contains("\"decision\":\"VALIDEE\"").contains(entreprise.email());
-    }
-
-    @Test
     void transitionRefusee_rollback_aucunEvenementDansLOutbox() throws Exception {
         ApiDeTest api = new ApiDeTest(mockMvc);
         ApiDeTest.Scenario s = api.scenarioAvecCandidature();
