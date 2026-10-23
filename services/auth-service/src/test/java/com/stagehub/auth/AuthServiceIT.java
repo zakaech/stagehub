@@ -61,7 +61,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "stagehub.admin.email=admin@test.local",
         "stagehub.admin.password=admin-test-1234",
         // Délai court pour simuler un service des profils trop lent
-        "spring.cloud.openfeign.client.config.default.read-timeout=2000",
+        "spring.cloud.openfeign.client.config.default.read-timeout=3000",
         // Nettoyage déclenché à la main par le test (abandon immédiat, pas d'exécution planifiée pendant le test)
         "stagehub.inscription.delai-abandon=PT0S",
         "stagehub.inscription.intervalle-nettoyage=PT1H"
@@ -113,8 +113,13 @@ class AuthServiceIT {
             // dépasser le délai de lecture du test ; on le fait une fois, hors assertions
             echauffe = true;
             profils.stubFor(delete(urlMatching("/internal/.*")).willReturn(aResponse().withStatus(204)));
-            profilEtudiantClient.supprimer(0L);
-            profilEntrepriseClient.supprimer(0L);
+            for (Runnable appel : new Runnable[]{() -> profilEtudiantClient.supprimer(0L), () -> profilEntrepriseClient.supprimer(0L)}) {
+                try {
+                    appel.run();
+                } catch (RuntimeException e) {
+                    // Échauffement seulement : même un délai dépassé a servi à initialiser le client
+                }
+            }
             profils.resetAll();
         }
     }
@@ -182,7 +187,7 @@ class AuthServiceIT {
     @Test
     void serviceDesProfilsInjoignablePuisDeRetour_compteEnAttenteNettoyePlusTard() throws Exception {
         // Création trop lente (délai dépassé) ET suppression impossible : la compensation ne peut pas aboutir
-        profils.stubFor(post(urlEqualTo("/internal/etudiants")).willReturn(aResponse().withStatus(201).withFixedDelay(4000)));
+        profils.stubFor(post(urlEqualTo("/internal/etudiants")).willReturn(aResponse().withStatus(201).withFixedDelay(6000)));
         profils.stubFor(delete(urlMatching("/internal/etudiants/.*"))
                 .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
         String email = email();
