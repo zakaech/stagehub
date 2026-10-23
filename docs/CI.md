@@ -104,7 +104,9 @@ volume `stagehub-ci_jenkins-home`.
 ### Configuration de la recette (`stagehub-env-recette`)
 
 1. Copier `ci/recette.env.example` en `ci/recette.env` (fichier ignoré par git) et remplacer les valeurs `change-me`
-   (`JWT_SECRET` : au moins 32 octets, ex. `openssl rand -base64 48`).
+   (`JWT_PRIVATE_KEY` : clé RSA d'auth-service, commande dans le fichier).
+   **À refaire quand de nouvelles variables apparaissent** (phase 7 : `AUTH_DB_PASSWORD`, `JWT_PRIVATE_KEY`) :
+   compléter le fichier puis **Credentials → stagehub-env-recette → Update** pour téléverser la nouvelle version.
 2. **Add Credentials** : *Kind* **Secret file**, *File* `ci/recette.env`, *ID* `stagehub-env-recette`.
 
 Jenkins le recopie dans un fichier temporaire pendant l'étape de déploiement seulement
@@ -118,9 +120,10 @@ Jenkins le recopie dans un fichier temporaire pendant l'étape de déploiement s
 |---|---|---|---|
 | Préparation | toutes | Tag des images = SHA court du commit ; plateformes selon la branche | — |
 | Tests › Backend | toutes | `./mvnw verify` : tests unitaires, tests d'intégration (Testcontainers sur DinD), rapport et **seuils JaCoCo** | un test échoue, ou couverture d'un package `service` < 80 % des lignes / 70 % des branches |
+| Tests › Services | toutes | `services/` : `./mvnw verify` de tous les microservices (après le backend : mémoire de Jenkins) | même règle que le backend, service par service |
 | Tests › Frontend | toutes | `npm ci`, Prettier, tests Vitest (rapport JUnit) | formatage incorrect ou test en échec |
 | Images | toutes | `docker buildx build` : **amd64** sur les branches de travail, **amd64 + arm64** sur `main` | un Dockerfile ne se construit pas |
-| Déploiement recette | `main` | `docker compose up --wait` sur DinD, puis test de fumée `GET /api/v1/offres` | un service n'atteint pas l'état *healthy* |
+| Déploiement recette | `main` | `docker compose up --wait` sur DinD, puis `demo-seeder` (données de démo par l'API, à travers la gateway) et test de fumée `GET /api/v1/offres` | un service n'atteint pas l'état *healthy*, ou le seeder échoue |
 | Publication GHCR | `main` + paramètre | Push des images sur `ghcr.io/zakaech` | (désactivée par défaut) |
 | Déploiement distant | `main` + paramètre | SSH sur le serveur : `git pull`, `compose pull`, `up --wait` | (désactivée par défaut) |
 

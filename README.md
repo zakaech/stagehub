@@ -72,19 +72,23 @@ Le premier lancement télécharge les images et construit l'application (plusieu
 |---|---|
 | **Application** | http://localhost:8090 |
 | Emails envoyés (Mailpit) | http://localhost:8090/mail/ |
-| Documentation de l'API (Swagger) | http://localhost:8090/swagger-ui.html |
+| Documentation de l'API (Swagger, une page par service) | http://localhost:8090/swagger-ui.html |
+| Annuaire des services (Eureka) | http://localhost:8761 |
 
-`docker compose ps` doit montrer tous les services `healthy`. Arrêt : `docker compose down` (les données sont
-conservées dans des volumes).
+`docker compose ps` doit montrer tous les services `healthy` ; le programme `demo-seeder` crée ensuite les données
+de démo puis s'arrête (`docker compose logs demo-seeder`). Arrêt : `docker compose down` (les données sont conservées
+dans des volumes).
 
-> Les valeurs de `.env.example` conviennent pour un essai local. Sur un serveur, changer **tous** les mots de passe et
-> le secret JWT (voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)).
+> Les valeurs de `.env.example` conviennent pour un essai local (la clé de signature des JWT est alors générée au
+> premier démarrage). Sur un serveur, changer **tous** les mots de passe et fournir la clé `JWT_PRIVATE_KEY`
+> (voir [docs/DEPLOIEMENT.md](docs/DEPLOIEMENT.md)).
 
 ---
 
 ## Comptes de démo
 
-Chargés automatiquement au premier démarrage (profil `demo`). Mot de passe commun : **`demo1234`**
+Créés au premier démarrage par le programme `demo-seeder` (profil compose `demo`), **à travers l'API** comme le ferait
+un utilisateur : inscriptions, validation par l'admin, offres, candidatures. Mot de passe commun : **`demo1234`**
 (variable `DEMO_PASSWORD`).
 
 | Rôle | Email | Situation |
@@ -123,16 +127,19 @@ flowchart LR
         nginx["Nginx<br/>fichiers Angular<br/>+ relais /api"]
         gateway["api-gateway<br/>Spring Cloud Gateway<br/>JWT, CORS, routage"]
         eureka["discovery-server<br/>Eureka"]
-        backend["Spring Boot 4<br/>API REST /api/v1"]
-        postgres[("PostgreSQL 17<br/>Flyway")]
+        auth["auth-service<br/>comptes, JWT RS256"]
+        backend["Monolithe Spring Boot 4<br/>offres, candidatures, CV"]
+        postgres[("PostgreSQL 17<br/>une base par service")]
         cv[("Volume<br/>CV (PDF)")]
         mailpit["Mailpit<br/>SMTP de démo"]
     end
     navigateur -- "HTTP(S)" --> nginx
     nginx -- "/api, /swagger-ui" --> gateway
-    gateway -- "lb://stagehub-backend" --> backend
+    gateway -- "/api/v1/auth" --> auth
+    gateway -- "/api (reste)" --> backend
+    auth -- "OpenFeign : profils (saga)" --> backend
     gateway -. "annuaire" .-> eureka
-    backend -. "enregistrement" .-> eureka
+    auth -- "JPA" --> postgres
     nginx -- "/mail/" --> mailpit
     backend -- "JPA" --> postgres
     backend -- "fichiers" --> cv
@@ -142,11 +149,15 @@ flowchart LR
 Points de conception :
 
 - **Passage aux microservices en cours** (phase 7, pattern *strangler fig*) : une gateway (Spring Cloud Gateway) et un
-  annuaire (Eureka) sont placés devant le monolithe ; les services seront extraits un par un derrière la gateway, sans
-  interrompre l'application. La gateway vérifie le JWT et traite CORS ; le monolithe revérifie le jeton.
+  annuaire (Eureka) sont placés devant le monolithe ; les services sont extraits un par un derrière la gateway, sans
+  interrompre l'application. Premier extrait : **auth-service** (comptes, connexion).
+- **JWT RS256** : seul auth-service détient la clé privée et signe les jetons ; la gateway et les services les vérifient
+  avec sa clé publique (JWKS). La gateway vérifie et traite CORS, chaque service revérifie (défense en profondeur).
+- **Inscription = saga** : le compte (base d'auth-service) et le profil (autre service) sont créés par deux transactions
+  locales ; si la seconde échoue, une compensation supprime le compte (pas de transaction distribuée).
 - **Monolithe modulaire** : packages par fonctionnalité (`offre`, `candidature`, `cv`, `audit`, `notification`…), chacun
   avec ses couches. Le découpage prépare le passage aux microservices.
-- **Sécurité** : JWT HS256 sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
+- **Sécurité** : JWT sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
   propriété dans les services (une entreprise n'agit que sur ses offres).
 - **Erreurs** : format standard ProblemDetail (RFC 9457) avec un `code` stable, y compris pour les 401/403.
 - **CV figé** : la candidature garde le fichier en vigueur au moment où l'étudiant postule ; un CV remplacé n'est supprimé
@@ -169,26 +180,26 @@ Points de conception :
 | Tests | JUnit 5, Mockito, Spring Boot Test, `@WebMvcTest`, Testcontainers, Vitest, JaCoCo |
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
 | CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
-| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka — en cours (phase 7) |
-| À venir | OpenFeign, Resilience4j, Kafka, Spring AI + Ollama |
+| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign ; JWT RS256 + JWKS — en cours (phase 7) |
+| À venir | Resilience4j, Kafka, Spring AI + Ollama |
 
 ---
 
 ## Développement
 
-Pour travailler sur le code, lancer seulement les services d'appui dans Docker, et le backend et Angular sur la machine
-(rechargement à chaud) :
+Depuis la phase 7, l'API est répartie entre plusieurs services : la pile complète tourne dans Docker, et on travaille
+sur une partie à la fois.
 
 ```bash
 cp .env.example .env
-docker compose up -d postgres mailpit             # PostgreSQL (5433) + Mailpit (SMTP 1025, interface :8025/mail/)
+docker compose up -d --build                      # toute la pile (gateway publiée sur http://localhost:8088)
 
-cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev     # API sur http://localhost:8081 + données de démo
-
-cd frontend                                              # Node 24 LTS
+cd frontend                                       # Angular, rechargement à chaud (Node 24 LTS)
 npm ci
-npm start                                                # http://localhost:4200 (proxy /api → :8081)
+npm start                                         # http://localhost:4200 (proxy /api → gateway :8088)
+
+docker compose up -d --build auth-service         # après une modification d'un service Java : reconstruire celui-ci
+cd services && ./mvnw verify -pl auth-service     # ses tests, sans le reste de la pile (Docker requis : Testcontainers)
 ```
 
 Prérequis : JDK 21, Node 24 LTS, Docker.
@@ -268,8 +279,11 @@ StageHub/
 │       ├── security/         JWT, CORS, erreurs 401/403
 │       └── common/           exceptions, configuration, stockage, aspects
 ├── services/                 microservices (POM parent multi-module, Dockerfile commun)
+│   ├── commons/              code technique partagé (format des erreurs, vérification des JWT)
 │   ├── discovery-server/     annuaire Eureka
-│   └── api-gateway/          Spring Cloud Gateway : JWT, CORS, routage
+│   ├── api-gateway/          Spring Cloud Gateway : JWT, CORS, routage
+│   ├── auth-service/         comptes, connexion, JWT RS256, saga d'inscription
+│   └── demo-seeder/          données de démo créées par l'API
 ├── frontend/                 Angular (Dockerfile + configuration Nginx)
 ├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code
 ├── deploiement/              Caddyfile (HTTPS sur serveur)

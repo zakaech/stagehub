@@ -154,9 +154,11 @@ nano .env
 | `DOMAINE` | `stagehub.duckdns.org` (à ajouter) |
 | `PUBLIC_URL` | `https://stagehub.duckdns.org` |
 | `DB_PASSWORD` | `openssl rand -base64 24` |
-| `JWT_SECRET` | `openssl rand -base64 48` (≥ 32 octets, sinon le backend refuse de démarrer) |
+| `AUTH_DB_PASSWORD` | `openssl rand -base64 24` (base d'auth-service, phase 7) |
+| `JWT_PRIVATE_KEY` | `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -outform DER | base64 -w0` : clé privée d'auth-service, à sauvegarder (la perdre déconnecte tout le monde) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Compte admin (mot de passe fort) |
-| `SPRING_PROFILES_ACTIVE` | `prod,demo` pour la démo (comptes de démo) ; `prod` pour une vraie production |
+| `COMPOSE_PROFILES` | `demo` pour la démo (comptes de démo créés par `demo-seeder`) ; vide pour une vraie production |
+| `SPRING_PROFILES_ACTIVE` | `prod` |
 | `SWAGGER_ENABLED` | `true` pour la démo, `false` sinon |
 | `LOG_FORMAT` | `ecs` (logs JSON) |
 | `MAILPIT_UI_AUTH` | `demo:<mot de passe>` : protège https://domaine/mail/ |
