@@ -1,13 +1,11 @@
 # StageHub — toute l'application en une commande :  docker compose up -d --build
 #   Application : http://localhost:8090   ·   Emails (Mailpit) : http://localhost:8090/mail/
-#   Annuaire Eureka : http://localhost:8761
+#   Annuaire Eureka : http://localhost:8761   ·   Gateway (pour « npm start ») : http://localhost:8088
 #
 # Chemin d'une requête : navigateur → Nginx (frontend) → api-gateway → service (trouvé dans Eureka)
 #
-# En développement (backend et Angular lancés hors Docker), ne démarrer que les services d'appui :
-#   docker compose up -d postgres mailpit
-#
-# Les valeurs viennent du fichier .env (copie de .env.example).
+# Données de démo : le programme « demo-seeder » les crée par l'API au démarrage, si le profil compose « demo » est
+# actif (COMPOSE_PROFILES=demo dans .env). Les valeurs viennent du fichier .env (copie de .env.example).
 
 services:
   postgres:
@@ -19,7 +17,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-stagehub}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD doit être défini dans .env}
     ports:
-      # Exposé pour le développement local (backend hors Docker) ; retiré en production
+      # Exposé pour le développement local (service lancé hors Docker) ; retiré en production
       - "${DB_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -33,6 +31,43 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Une base et un rôle PostgreSQL par service (même instance). Le rôle d'un service n'a de droits que sur sa base :
+  # un service ne peut pas lire les données d'un autre. Idempotent : rejoué à chaque démarrage (les bases existantes
+  # sont gardées, le mot de passe est resynchronisé avec .env), puis le conteneur s'arrête.
+  # Script écrit ici plutôt que dans un fichier monté : il marche aussi avec un démon Docker distant (DinD de Jenkins).
+  postgres-init:
+    image: postgres:17-alpine
+    container_name: stagehub-postgres-init
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${DB_USERNAME:-stagehub}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME:-stagehub}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD doit être défini dans .env}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        creer() {
+          printf '%s\n' \
+            "SELECT format('CREATE ROLE %I LOGIN', :'role') WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role') \gexec" \
+            "SELECT format('ALTER ROLE %I PASSWORD %L', :'role', :'mdp') \gexec" \
+            "SELECT format('CREATE DATABASE %I OWNER %I', :'role', :'role') WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'role') \gexec" \
+            "SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'role') \gexec" \
+            | psql -q -v ON_ERROR_STOP=1 -v role="$$1" -v mdp="$$2"
+          echo "Base et rôle $$1 prêts"
+        }
+        creer stagehub_auth "$$AUTH_DB_PASSWORD"
+        # Base du monolithe (créée par l'image postgres) : PostgreSQL y autorise la connexion de tous les rôles par
+        # défaut ; on la réserve à son propriétaire
+        printf '%s\n' "SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'base') \gexec" \
+          | psql -q -v ON_ERROR_STOP=1 -v base="$$PGDATABASE"
+    logging: *logs-limites
 
   # Faux serveur SMTP : capture tous les emails, rien ne part vraiment.
   # Interface servie sous /mail/ (MP_WEBROOT) : via Nginx sur http://localhost:8090/mail/,
@@ -87,8 +122,8 @@ services:
       start_period: 60s
     logging: *logs-limites
 
-  # Gateway : seule porte d'entrée de l'API (Nginx → gateway → services). Vérifie le JWT, traite CORS,
-  # relaie vers les instances trouvées dans Eureka. Pas de port publié : joignable seulement par Nginx.
+  # Gateway : seule porte d'entrée de l'API (Nginx → gateway → services). Vérifie le JWT avec la clé publique
+  # d'auth-service, traite CORS, relaie vers les instances trouvées dans Eureka.
   api-gateway:
     build:
       context: ./services
@@ -102,13 +137,63 @@ services:
         condition: service_healthy
     environment:
       EUREKA_URL: http://discovery-server:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
-      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:-http://localhost:8090}
+      JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
+      # Origines autorisées : l'application publiée et le serveur de développement Angular (npm start)
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:-http://localhost:8090},http://localhost:4200
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
+    ports:
+      # Pour le développement Angular (npm start relaie /api ici) ; boucle locale seulement, retiré en production
+      - "127.0.0.1:${GATEWAY_PORT:-8088}:8080"
+      - "[::1]:${GATEWAY_PORT:-8088}:8080"
     deploy:
       resources:
         limits:
           memory: 320m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+    logging: *logs-limites
+
+  # ---- Microservices ---------------------------------------------------------------------------------------------
+
+  # Comptes, connexion, JWT RS256. Clé privée connue de ce seul service : JWT_PRIVATE_KEY si elle est fournie (serveur),
+  # sinon générée au premier démarrage et gardée dans le volume auth-cles (essai local en une commande)
+  auth-service:
+    build:
+      context: ./services
+      args:
+        SERVICE: auth-service
+    image: ${IMAGE_REGISTRY:-}stagehub-auth-service:${IMAGE_TAG:-local}
+    container_name: stagehub-auth-service
+    restart: unless-stopped
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      discovery-server:
+        condition: service_healthy
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      DB_PORT: 5432
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_KEY_FILE: /data/jwt-private.key
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-PT1H}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
+    volumes:
+      - auth-cles:/data
+    deploy:
+      resources:
+        limits:
+          memory: 384m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
       interval: 10s
@@ -134,22 +219,18 @@ services:
       discovery-server:
         condition: service_healthy
     environment:
-      # prod,demo : configuration de production + comptes de démo ; une vraie production : "prod"
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod,demo}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       # Enregistrement dans l'annuaire : la gateway le trouve sous le nom « stagehub-backend »
       EUREKA_ENABLED: "true"
       EUREKA_URL: http://discovery-server:8761/eureka
+      # Jetons vérifiés avec la clé publique d'auth-service
+      JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
       # Dans le réseau Docker, les services se joignent par leur nom (et leur port interne)
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-stagehub}
       DB_USERNAME: ${DB_USERNAME:-stagehub}
       DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-PT1H}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
       # SMTP vu depuis le conteneur : Mailpit par défaut, ou un vrai serveur (SMTP_HOST/SMTP_PORT dans .env)
       MAIL_HOST: ${SMTP_HOST:-mailpit}
       MAIL_PORT: ${SMTP_PORT:-1025}
@@ -159,7 +240,6 @@ services:
       MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
       MAIL_FROM: ${MAIL_FROM:-no-reply@stagehub.local}
       FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8090}
-      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:-http://localhost:8090}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       CV_STORAGE_DIR: /data/cv
       # Format des logs : vide = texte lisible ; "ecs" = JSON structuré (serveur)
@@ -190,13 +270,42 @@ services:
     depends_on:
       api-gateway:
         condition: service_healthy
+      auth-service:
+        condition: service_healthy
       backend:
         condition: service_healthy
     ports:
       - "${APP_PORT:-8090}:8080"
     logging: *logs-limites
 
+  # Données de démo, créées par l'API (inscriptions, validations, offres, candidatures) puis arrêt.
+  # Seulement avec le profil compose « demo » ; ne fait rien si elles existent déjà.
+  demo-seeder:
+    build:
+      context: ./services
+      args:
+        SERVICE: demo-seeder
+    image: ${IMAGE_REGISTRY:-}stagehub-demo-seeder:${IMAGE_TAG:-local}
+    container_name: stagehub-demo-seeder
+    profiles: ["demo"]
+    restart: "no"
+    depends_on:
+      frontend:
+        condition: service_started
+    environment:
+      API_URL: http://api-gateway:8080
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    logging: *logs-limites
+
 volumes:
   postgres-data:
   # CV déposés par les étudiants : conservés quand les conteneurs sont recréés
   cv-data:
+  # Clé de signature générée par auth-service quand JWT_PRIVATE_KEY n'est pas fourni
+  auth-cles:

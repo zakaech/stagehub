@@ -27,7 +27,10 @@ RUN --mount=type=cache,target=/root/.m2,sharing=locked chmod +x mvnw \
 # =============================================================================
 FROM eclipse-temurin:21-jre-alpine
 
-RUN addgroup -S stagehub && adduser -S -H -G stagehub stagehub
+# /data : dossier de données éventuel d'un service (ex. clé générée par auth-service). Un volume nommé monté à cet
+# endroit hérite de ce propriétaire : le service y écrit sans être root.
+RUN addgroup -S stagehub && adduser -S -H -G stagehub stagehub \
+    && mkdir -p /data && chown stagehub:stagehub /data
 
 WORKDIR /app
 COPY --from=build /build/extrait/dependencies/ ./

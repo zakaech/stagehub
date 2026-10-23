@@ -19,6 +19,10 @@ services:
     # Annuaire des services : jamais exposé sur le serveur
     ports: !reset []
 
+  api-gateway:
+    # Joignable seulement par Nginx sur le serveur (le port local sert au développement Angular)
+    ports: !reset []
+
   frontend:
     # Nginx n'est joignable que par Caddy
     ports: !reset []
