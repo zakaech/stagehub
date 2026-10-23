@@ -17,9 +17,17 @@ import { valeurConservee } from '../../shared/valeur-conservee';
 
 const ENTITES: EntiteAuditee[] = ['CANDIDATURE', 'ENTREPRISE'];
 
-/** ?entite absent ou inconnu → tout le journal. */
-export function lireFiltreEntite(params: ParamMap): EntiteAuditee | null {
-  return ENTITES.find((e) => e === params.get('entite')) ?? null;
+/**
+ * ?entite absent ou inconnu → candidatures (vue par défaut). Depuis la phase 7 (c), chaque service tient le journal
+ * de ses entités : il n'y a plus de vue « tout le journal ».
+ */
+export function lireFiltreEntite(params: ParamMap): EntiteAuditee {
+  return ENTITES.find((e) => e === params.get('entite')) ?? 'CANDIDATURE';
+}
+
+/** Valeur de ?entite dans l'URL : la vue par défaut n'y figure pas. */
+export function paramDeFiltreEntite(entite: EntiteAuditee): string | null {
+  return entite === 'CANDIDATURE' ? null : entite;
 }
 
 const LIBELLES_ACTION: Record<ActionAudit, string> = {
@@ -75,6 +83,6 @@ export class AuditPage {
   }
 
   protected changerFiltre(event: MatButtonToggleChange): void {
-    this.etat.filtrer({ entite: event.value as EntiteAuditee | null });
+    this.etat.filtrer({ entite: paramDeFiltreEntite(event.value as EntiteAuditee) });
   }
 }

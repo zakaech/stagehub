@@ -46,13 +46,26 @@ export function versBarres(lignes: { libelle: string; valeur: number }[], unite:
 export class StatistiquesPage {
   private readonly adminApi = inject(AdminApi);
 
-  protected readonly stats = rxResource({ stream: () => this.adminApi.statistiques() });
+  // Deux services, deux chargements : si l'un ne répond pas, les chiffres de l'autre s'affichent quand même
+  protected readonly offres = rxResource({ stream: () => this.adminApi.statistiquesOffres() });
+  protected readonly candidatures = rxResource({
+    stream: () => this.adminApi.statistiquesCandidatures(),
+  });
+
+  protected readonly chargement = computed(
+    () => this.offres.isLoading() || this.candidatures.isLoading(),
+  );
+
+  protected actualiser(): void {
+    this.offres.reload();
+    this.candidatures.reload();
+  }
 
   protected readonly barresStatuts = computed<Barre[]>(() => {
-    if (!this.stats.hasValue()) {
+    if (!this.candidatures.hasValue()) {
       return [];
     }
-    const parStatut = this.stats.value().candidaturesParStatut;
+    const parStatut = this.candidatures.value().candidaturesParStatut;
     // Ordre du parcours d'une candidature, pas ordre de grandeur : il reste stable d'un chargement à l'autre
     const ordre: StatutCandidature[] = ['EN_ATTENTE', 'ENTRETIEN', 'ACCEPTEE', 'REFUSEE'];
     return versBarres(
@@ -62,9 +75,9 @@ export class StatistiquesPage {
   });
 
   protected readonly barresTechnologies = computed<Barre[]>(() =>
-    this.stats.hasValue()
+    this.offres.hasValue()
       ? versBarres(
-          this.stats
+          this.offres
             .value()
             .topTechnologies.map((t) => ({ libelle: t.technologie, valeur: t.nombreOffres })),
           'offre(s)',

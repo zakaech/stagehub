@@ -1,39 +1,53 @@
 <header class="entete-page">
   <h1>Statistiques</h1>
-  <button mat-stroked-button (click)="stats.reload()" [disabled]="stats.isLoading()">
+  <button mat-stroked-button (click)="actualiser()" [disabled]="chargement()">
     <mat-icon>refresh</mat-icon> Actualiser
   </button>
 </header>
 
-@if (stats.isLoading()) {
+@if (chargement()) {
   <mat-progress-bar mode="indeterminate" />
 }
 
-@if (stats.hasValue()) {
-  @let s = stats.value();
-
-  <section class="tuiles" aria-label="Chiffres clés">
-    <mat-card appearance="outlined" class="tuile">
-      <span class="tuile-libelle">Offres publiées</span>
-      <span class="tuile-valeur">{{ s.nombreOffres }}</span>
-      <span class="tuile-detail">dont {{ s.nombreOffresOuvertes }} ouvertes</span>
-    </mat-card>
-    <mat-card appearance="outlined" class="tuile">
-      <span class="tuile-libelle">Candidatures</span>
-      <span class="tuile-valeur">{{ s.nombreCandidatures }}</span>
+<!-- Offres et entreprises (offre-service) et candidatures (autre service) : chaque partie s'affiche, ou signale
+     son erreur, indépendamment de l'autre -->
+<section class="tuiles" aria-label="Chiffres clés">
+  <mat-card appearance="outlined" class="tuile">
+    <span class="tuile-libelle">Offres publiées</span>
+    @if (offres.hasValue()) {
+      <span class="tuile-valeur">{{ offres.value().nombreOffres }}</span>
+      <span class="tuile-detail">dont {{ offres.value().nombreOffresOuvertes }} ouvertes</span>
+    } @else if (offres.error()) {
+      <span class="tuile-indisponible">Indisponible pour le moment</span>
+    }
+  </mat-card>
+  <mat-card appearance="outlined" class="tuile">
+    <span class="tuile-libelle">Candidatures</span>
+    @if (candidatures.hasValue()) {
+      <span class="tuile-valeur">{{ candidatures.value().nombreCandidatures }}</span>
       <span class="tuile-detail">toutes offres confondues</span>
-    </mat-card>
-    <mat-card appearance="outlined" class="tuile">
-      <span class="tuile-libelle">Entreprises en attente</span>
-      <span class="tuile-valeur">{{ s.entreprisesEnAttente }}</span>
+    } @else if (candidatures.error()) {
+      <span class="tuile-indisponible">Indisponible pour le moment</span>
+    }
+  </mat-card>
+  <mat-card appearance="outlined" class="tuile">
+    <span class="tuile-libelle">Entreprises en attente</span>
+    @if (offres.hasValue()) {
+      <span class="tuile-valeur">{{ offres.value().entreprisesEnAttente }}</span>
       <span class="tuile-detail">à valider</span>
-    </mat-card>
-  </section>
+    } @else if (offres.error()) {
+      <span class="tuile-indisponible">Indisponible pour le moment</span>
+    }
+  </mat-card>
+</section>
 
-  <div class="graphiques">
-    <mat-card appearance="outlined">
-      <mat-card-header><mat-card-title>Candidatures par statut</mat-card-title></mat-card-header>
-      <mat-card-content>
+<div class="graphiques">
+  <mat-card appearance="outlined">
+    <mat-card-header><mat-card-title>Candidatures par statut</mat-card-title></mat-card-header>
+    <mat-card-content>
+      @if (candidatures.error()) {
+        <p class="vide">Statistiques des candidatures indisponibles pour le moment.</p>
+      } @else {
         <ul class="barres">
           @for (b of barresStatuts(); track b.libelle) {
             <li [matTooltip]="b.infobulle">
@@ -45,30 +59,32 @@
             </li>
           }
         </ul>
-      </mat-card-content>
-    </mat-card>
+      }
+    </mat-card-content>
+  </mat-card>
 
-    <mat-card appearance="outlined">
-      <mat-card-header
-        ><mat-card-title>Technologies les plus demandées</mat-card-title></mat-card-header
-      >
-      <mat-card-content>
-        @if (barresTechnologies().length === 0) {
-          <p class="vide">Aucune offre publiée pour le moment.</p>
-        } @else {
-          <ul class="barres">
-            @for (b of barresTechnologies(); track b.libelle) {
-              <li [matTooltip]="b.infobulle">
-                <span class="barre-libelle">{{ b.libelle }}</span>
-                <span class="barre-piste"
-                  ><span class="barre-remplissage" [style.width.%]="b.largeur"></span
-                ></span>
-                <span class="barre-valeur">{{ b.valeur }}</span>
-              </li>
-            }
-          </ul>
-        }
-      </mat-card-content>
-    </mat-card>
-  </div>
-}
+  <mat-card appearance="outlined">
+    <mat-card-header
+      ><mat-card-title>Technologies les plus demandées</mat-card-title></mat-card-header
+    >
+    <mat-card-content>
+      @if (offres.error()) {
+        <p class="vide">Statistiques des offres indisponibles pour le moment.</p>
+      } @else if (offres.hasValue() && barresTechnologies().length === 0) {
+        <p class="vide">Aucune offre publiée pour le moment.</p>
+      } @else {
+        <ul class="barres">
+          @for (b of barresTechnologies(); track b.libelle) {
+            <li [matTooltip]="b.infobulle">
+              <span class="barre-libelle">{{ b.libelle }}</span>
+              <span class="barre-piste"
+                ><span class="barre-remplissage" [style.width.%]="b.largeur"></span
+              ></span>
+              <span class="barre-valeur">{{ b.valeur }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>

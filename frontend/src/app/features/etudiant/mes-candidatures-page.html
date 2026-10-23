@@ -23,9 +23,19 @@
             <!-- Une offre fermée n'est plus consultable publiquement : pas de lien -->
             @if (c.offre.statut === 'OUVERTE') {
               <a [routerLink]="['/offres', c.offre.id]">{{ c.offre.titre }}</a>
-            } @else {
+            } @else if (c.offre.statut === 'FERMEE') {
               <span class="ferme">{{ c.offre.titre }}</span>
               <app-statut-chip [statut]="c.offre.statut" />
+            } @else {
+              <!-- Statut inconnu : le service des offres ne répond pas, titre tel qu'au moment de postuler -->
+              <span>{{ c.offre.titre }}</span>
+              <mat-icon
+                inline
+                class="statut-inconnu"
+                matTooltip="État actuel de l'offre momentanément indisponible"
+                aria-label="État actuel de l'offre momentanément indisponible"
+                >cloud_off</mat-icon
+              >
             }
           </td>
         </ng-container>

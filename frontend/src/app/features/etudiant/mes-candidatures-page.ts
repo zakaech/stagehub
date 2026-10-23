@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 
 import { CandidatureApi } from '../../core/api/candidature.api';
@@ -24,6 +25,7 @@ import { valeurConservee } from '../../shared/valeur-conservee';
     MatPaginatorModule,
     MatProgressBarModule,
     MatTableModule,
+    MatTooltipModule,
     StatutChip,
   ],
   providers: [PAGINATOR_FR],
@@ -31,6 +33,12 @@ import { valeurConservee } from '../../shared/valeur-conservee';
   styles: `
     .ferme {
       color: var(--mat-sys-on-surface-variant);
+    }
+
+    .statut-inconnu {
+      margin-left: 4px;
+      color: var(--mat-sys-on-surface-variant);
+      vertical-align: middle;
     }
   `,
 })

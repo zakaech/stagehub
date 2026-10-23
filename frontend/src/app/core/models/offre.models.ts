@@ -40,10 +40,14 @@ export interface FiltresDisponibles {
   technologies: string[];
 }
 
+/**
+ * Résumé d'une offre dans « mes candidatures ». Phase 7 (c) : lu dans offre-service ; s'il ne répond pas, le titre,
+ * l'entreprise et la ville viennent de l'instantané pris au moment de postuler, et le statut est inconnu (null).
+ */
 export interface OffreResumeResponse {
   id: number;
   titre: string;
   entrepriseNom: string;
   ville: string;
-  statut: StatutOffre;
+  statut: StatutOffre | null;
 }

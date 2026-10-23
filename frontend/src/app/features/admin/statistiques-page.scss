@@ -22,6 +22,11 @@
   color: var(--mat-sys-on-surface);
 }
 
+.tuile-indisponible {
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-error);
+}
+
 .tuile-detail {
   font: var(--mat-sys-body-small);
   color: var(--mat-sys-on-surface-variant);
