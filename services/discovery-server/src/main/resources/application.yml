@@ -1,0 +1,33 @@
+server:
+  port: ${SERVER_PORT:8761}
+
+spring:
+  application:
+    name: discovery-server
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOSTNAME:localhost}
+  client:
+    # Serveur seul (pas de réplication avec d'autres serveurs Eureka) : il ne s'enregistre pas auprès de lui-même
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    # L'« auto-préservation » garde les instances qui ne donnent plus signe de vie quand beaucoup disparaissent
+    # d'un coup (elle suppose une panne réseau plutôt qu'un arrêt). Avec une poignée d'instances, elle
+    # garderait surtout des instances arrêtées : désactivée, une instance morte disparaît en ~30 s.
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 10000
+    # Serveur seul : rien à attendre d'un pair avant de répondre aux clients
+    wait-time-in-ms-when-sync-empty: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true

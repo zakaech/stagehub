@@ -4,6 +4,7 @@
 # Maven
 backend/target/
 !backend/.mvn/wrapper/maven-wrapper.jar
+services/*/target/
 
 # Angular / Node (phase 2)
 frontend/node_modules/
