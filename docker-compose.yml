@@ -71,7 +71,9 @@ services:
       SERVER_PORT: 8761
       EUREKA_HOSTNAME: discovery-server
     ports:
+      # Boucle locale seulement, en IPv4 ET en IPv6 : sous Windows, « localhost » est d'abord résolu en ::1
       - "127.0.0.1:${EUREKA_PORT:-8761}:8761"
+      - "[::1]:${EUREKA_PORT:-8761}:8761"
     deploy:
       resources:
         limits:
