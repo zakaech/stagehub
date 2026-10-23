@@ -47,8 +47,8 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * La gateway devant deux faux services (WireMock) : le monolithe, et auth-service qui publie aussi la clé publique
- * (JWKS). On vérifie ce qu'elle laisse passer, ce qu'elle bloque elle-même (le service ne reçoit alors rien), où elle
+ * La gateway devant trois faux services (WireMock) : le monolithe, offre-service, et auth-service qui publie aussi la
+ * clé publique (JWKS). On vérifie ce qu'elle laisse passer, ce qu'elle bloque elle-même (le service ne reçoit alors rien), où elle
  * envoie chaque requête et ce qu'elle transmet.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -60,6 +60,7 @@ class GatewayRoutesTest {
 
     private static final WireMockServer monolithe = new WireMockServer(options().dynamicPort());
     private static final WireMockServer auth = new WireMockServer(options().dynamicPort());
+    private static final WireMockServer offres = new WireMockServer(options().dynamicPort());
 
     /** Clé d'auth-service (sa partie publique est servie en JWKS) et clé d'un faussaire (inconnue de la gateway). */
     private static final RSAKey CLE_AUTH = cleRsa("cle-auth");
@@ -71,12 +72,14 @@ class GatewayRoutesTest {
     static {
         monolithe.start();
         auth.start();
+        offres.start();
     }
 
     @DynamicPropertySource
     static void routesVersLesFauxServices(DynamicPropertyRegistry registry) {
         registry.add("BACKEND_URI", () -> "http://localhost:" + monolithe.port());
         registry.add("AUTH_SERVICE_URI", () -> "http://localhost:" + auth.port());
+        registry.add("OFFRE_SERVICE_URI", () -> "http://localhost:" + offres.port());
         registry.add("stagehub.jwt.jwk-set-uri", () -> "http://localhost:" + auth.port() + "/.well-known/jwks.json");
     }
 
@@ -84,6 +87,7 @@ class GatewayRoutesTest {
     static void arreterLesFauxServices() {
         monolithe.stop();
         auth.stop();
+        offres.stop();
     }
 
     @LocalServerPort
@@ -96,6 +100,7 @@ class GatewayRoutesTest {
     void reinitialiser() throws Exception {
         monolithe.resetAll();
         auth.resetAll();
+        offres.resetAll();
         auth.stubFor(get(urlEqualTo("/.well-known/jwks.json")).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json")
                 .withBody(new JWKSet(CLE_AUTH.toPublicJWK()).toString())));
@@ -103,22 +108,58 @@ class GatewayRoutesTest {
             // Premier appel à froid (chargement des classes du client HTTP et de WireMock) : il peut dépasser
             // le délai de lecture du test ; on le fait une fois, hors assertions
             echauffee = true;
-            monolithe.stubFor(get(urlEqualTo("/api/v1/offres/echauffement")).willReturn(aResponse().withStatus(200)));
+            offres.stubFor(get(urlEqualTo("/api/v1/offres/echauffement")).willReturn(aResponse().withStatus(200)));
             envoyer(requete("/api/v1/offres/echauffement").GET());
-            monolithe.resetAll();
+            offres.resetAll();
         }
     }
 
     @Test
-    void offresPubliques_relayeesAuMonolitheSansJeton() throws Exception {
-        monolithe.stubFor(get(urlPathEqualTo("/api/v1/offres")).willReturn(aResponse()
+    void offresPubliques_relayeesAOffreServiceSansJeton() throws Exception {
+        offres.stubFor(get(urlPathEqualTo("/api/v1/offres")).willReturn(aResponse()
                 .withHeader("Content-Type", "application/json").withBody("{\"content\":[]}")));
 
         HttpResponse<String> reponse = envoyer(requete("/api/v1/offres?page=0").GET());
 
         assertThat(reponse.statusCode()).isEqualTo(200);
         assertThat(reponse.body()).isEqualTo("{\"content\":[]}");
-        monolithe.verify(getRequestedFor(urlEqualTo("/api/v1/offres?page=0")));
+        offres.verify(getRequestedFor(urlEqualTo("/api/v1/offres?page=0")));
+        monolithe.verify(0, APPEL_D_API);
+    }
+
+    /**
+     * Strangler fig (phase 7 c) : les routes d'offres et d'entreprises vont à offre-service, sauf les candidatures
+     * d'une offre, restées au monolithe ; le journal d'audit va au service qui tient l'entité demandée.
+     */
+    @Test
+    void routes_reparties_entreOffreServiceEtLeMonolithe() throws Exception {
+        offres.stubFor(get(urlMatching("/api/.*")).willReturn(aResponse().withStatus(200)));
+        monolithe.stubFor(get(urlMatching("/api/.*")).willReturn(aResponse().withStatus(200)));
+        String entreprise = "Bearer " + jetonRs256("ENTREPRISE", Instant.now().plusSeconds(3600), CLE_AUTH);
+        String admin = "Bearer " + jetonRs256("ADMIN", Instant.now().plusSeconds(3600), CLE_AUTH);
+
+        String[][] versOffreService = {
+                {"/api/v1/offres/filtres", null},
+                {"/api/v1/entreprise/offres", entreprise},
+                {"/api/v1/entreprise/offres/5", entreprise},
+                {"/api/v1/admin/entreprises?statut=EN_ATTENTE", admin},
+                {"/api/v1/admin/stats/offres", admin},
+                {"/api/v1/admin/audit?entite=ENTREPRISE&page=0", admin}};
+        String[][] versLeMonolithe = {
+                {"/api/v1/entreprise/offres/5/candidatures", entreprise},
+                {"/api/v1/admin/stats/candidatures", admin},
+                {"/api/v1/admin/audit?entite=CANDIDATURE", admin}};
+
+        for (String[] appel : versOffreService) {
+            assertThat(envoyer(avecJeton(requete(appel[0]), appel[1]).GET()).statusCode()).as(appel[0]).isEqualTo(200);
+            offres.verify(getRequestedFor(urlEqualTo(appel[0])));
+        }
+        for (String[] appel : versLeMonolithe) {
+            assertThat(envoyer(avecJeton(requete(appel[0]), appel[1]).GET()).statusCode()).as(appel[0]).isEqualTo(200);
+            monolithe.verify(getRequestedFor(urlEqualTo(appel[0])));
+        }
+        offres.verify(versOffreService.length, APPEL_D_API);
+        monolithe.verify(versLeMonolithe.length, APPEL_D_API);
     }
 
     @Test
@@ -179,7 +220,7 @@ class GatewayRoutesTest {
         String hs256 = jetonHs256("ADMIN", "un-secret-quelconque-mais-assez-long-pour-hs256!");
 
         for (String jeton : new String[]{expire, faussaire, hs256}) {
-            HttpResponse<String> reponse = envoyer(requete("/api/v1/admin/stats")
+            HttpResponse<String> reponse = envoyer(requete("/api/v1/admin/stats/candidatures")
                     .header("Authorization", "Bearer " + jeton).GET());
             assertThat(reponse.statusCode()).isEqualTo(401);
         }
@@ -202,6 +243,7 @@ class GatewayRoutesTest {
         assertThat(sansJeton.statusCode()).isEqualTo(401);
         monolithe.verify(0, APPEL_D_API);
         auth.verify(0, APPEL_D_API);
+        offres.verify(0, APPEL_D_API);
     }
 
     @Test
@@ -238,7 +280,7 @@ class GatewayRoutesTest {
 
     @Test
     void enTetesXForwarded_dOrigineTransmisAuService() throws Exception {
-        monolithe.stubFor(get(urlPathEqualTo("/api/v1/offres")).willReturn(aResponse().withStatus(200)));
+        offres.stubFor(get(urlPathEqualTo("/api/v1/offres")).willReturn(aResponse().withStatus(200)));
 
         // Ce que Nginx ajoute : l'hôte vu par le navigateur et le protocole d'origine (https derrière Caddy)
         envoyer(requete("/api/v1/offres")
@@ -248,7 +290,7 @@ class GatewayRoutesTest {
 
         // Le service (forward-headers-strategy=framework) retient la première valeur de chaque en-tête :
         // il construit donc ses URL (en-tête Location) avec l'adresse publique
-        monolithe.verify(getRequestedFor(urlPathEqualTo("/api/v1/offres"))
+        offres.verify(getRequestedFor(urlPathEqualTo("/api/v1/offres"))
                 .withHeader("X-Forwarded-Host", matching("^localhost:8090.*"))
                 .withHeader("X-Forwarded-Proto", matching("^https.*")));
     }
@@ -270,7 +312,7 @@ class GatewayRoutesTest {
     @Test
     void erreurDuService_relayeeTelleQuelle() throws Exception {
         String probleme = "{\"status\":409,\"code\":\"CandidatureDejaExistante\"}";
-        monolithe.stubFor(get(urlEqualTo("/api/v1/offres/7")).willReturn(aResponse().withStatus(409)
+        offres.stubFor(get(urlEqualTo("/api/v1/offres/7")).willReturn(aResponse().withStatus(409)
                 .withHeader("Content-Type", "application/problem+json").withBody(probleme)));
 
         HttpResponse<String> reponse = envoyer(requete("/api/v1/offres/7").GET());
@@ -281,7 +323,7 @@ class GatewayRoutesTest {
 
     @Test
     void serviceQuiCoupeLaConnexion_502() throws Exception {
-        monolithe.stubFor(get(urlEqualTo("/api/v1/offres/1"))
+        offres.stubFor(get(urlEqualTo("/api/v1/offres/1"))
                 .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
 
         HttpResponse<String> reponse = envoyer(requete("/api/v1/offres/1").GET());
@@ -292,7 +334,7 @@ class GatewayRoutesTest {
 
     @Test
     void serviceTropLent_504() throws Exception {
-        monolithe.stubFor(get(urlEqualTo("/api/v1/offres/2"))
+        offres.stubFor(get(urlEqualTo("/api/v1/offres/2"))
                 .willReturn(aResponse().withStatus(200).withFixedDelay(5000)));
 
         HttpResponse<String> reponse = envoyer(requete("/api/v1/offres/2").GET());
@@ -303,6 +345,10 @@ class GatewayRoutesTest {
 
     private HttpRequest.Builder requete(String chemin) {
         return HttpRequest.newBuilder(URI.create("http://localhost:" + port + chemin));
+    }
+
+    private static HttpRequest.Builder avecJeton(HttpRequest.Builder requete, String authorization) {
+        return authorization == null ? requete : requete.header("Authorization", authorization);
     }
 
     private HttpResponse<String> envoyer(HttpRequest.Builder requete) throws Exception {

@@ -33,6 +33,28 @@ spring:
                 - Path=/api/v1/auth/**
               filters:
                 - RemoveRequestHeader=Origin
+            # Phase 7 (c) : offres, entreprises et leurs statistiques sont dans offre-service... sauf les candidatures
+            # d'une offre, restées au monolithe : cette route, plus précise, passe donc avant celle d'offre-service
+            - id: monolithe-candidatures-offre
+              uri: ${BACKEND_URI:lb://stagehub-backend}
+              predicates:
+                - Path=/api/v1/entreprise/offres/*/candidatures
+              filters:
+                - RemoveRequestHeader=Origin
+            - id: offre-service
+              uri: ${OFFRE_SERVICE_URI:lb://offre-service}
+              predicates:
+                - Path=/api/v1/offres/**,/api/v1/entreprise/offres/**,/api/v1/admin/entreprises/**,/api/v1/admin/stats/offres
+              filters:
+                - RemoveRequestHeader=Origin
+            # Chaque service tient le journal d'audit de ses entités : la gateway aiguille selon ?entite=
+            - id: offre-service-audit
+              uri: ${OFFRE_SERVICE_URI:lb://offre-service}
+              predicates:
+                - Path=/api/v1/admin/audit
+                - Query=entite, ENTREPRISE
+              filters:
+                - RemoveRequestHeader=Origin
             - id: monolithe-api
               uri: ${BACKEND_URI:lb://stagehub-backend}
               predicates:
@@ -44,6 +66,12 @@ spring:
               uri: ${AUTH_SERVICE_URI:lb://auth-service}
               predicates:
                 - Path=/v3/api-docs/auth-service
+              filters:
+                - SetPath=/v3/api-docs
+            - id: offre-service-api-docs
+              uri: ${OFFRE_SERVICE_URI:lb://offre-service}
+              predicates:
+                - Path=/v3/api-docs/offre-service
               filters:
                 - SetPath=/v3/api-docs
             - id: monolithe-api-docs
@@ -104,6 +132,8 @@ springdoc:
         url: /v3/api-docs/monolithe
       - name: auth-service
         url: /v3/api-docs/auth-service
+      - name: offre-service
+        url: /v3/api-docs/offre-service
 
 logging:
   level:
