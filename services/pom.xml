@@ -24,8 +24,11 @@
     <description>StageHub — microservices (phase 7)</description>
 
     <modules>
+        <module>commons</module>
         <module>discovery-server</module>
         <module>api-gateway</module>
+        <module>auth-service</module>
+        <module>demo-seeder</module>
     </modules>
 
     <properties>
@@ -34,6 +37,7 @@
         <spring-cloud.version>2025.1.4</spring-cloud.version>
         <jacoco.version>0.8.15</jacoco.version>
         <wiremock.version>3.13.2</wiremock.version>
+        <springdoc.version>3.1.1</springdoc.version>
     </properties>
 
     <dependencyManagement>

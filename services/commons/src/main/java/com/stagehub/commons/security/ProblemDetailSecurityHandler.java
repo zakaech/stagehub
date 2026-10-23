@@ -1,4 +1,4 @@
-package com.stagehub.gateway.security;
+package com.stagehub.commons.security;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,8 +16,7 @@ import java.io.IOException;
 
 /**
  * Les erreurs 401/403 des filtres de sécurité surviennent avant Spring MVC : on les confie au
- * {@code @RestControllerAdvice} via le HandlerExceptionResolver, pour le même format ProblemDetail
- * (avec le champ {@code code}) que les services. Le frontend réagit donc de la même façon qu'avant.
+ * {@code @RestControllerAdvice} via le HandlerExceptionResolver, pour le même format ProblemDetail que le reste.
  */
 @Component
 public class ProblemDetailSecurityHandler implements AuthenticationEntryPoint, AccessDeniedHandler {
