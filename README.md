@@ -128,7 +128,9 @@ flowchart LR
         gateway["api-gateway<br/>Spring Cloud Gateway<br/>JWT, CORS, routage"]
         eureka["discovery-server<br/>Eureka"]
         auth["auth-service<br/>comptes, JWT RS256"]
-        backend["Monolithe Spring Boot 4<br/>offres, candidatures, CV"]
+        backend["Monolithe Spring Boot 4<br/>offres, candidatures, CV<br/>+ outbox"]
+        kafka[["Kafka (KRaft)"]]
+        notif["notification-service<br/>emails, idempotent"]
         postgres[("PostgreSQL 17<br/>une base par service")]
         cv[("Volume<br/>CV (PDF)")]
         mailpit["Mailpit<br/>SMTP de démo"]
@@ -143,7 +145,9 @@ flowchart LR
     nginx -- "/mail/" --> mailpit
     backend -- "JPA" --> postgres
     backend -- "fichiers" --> cv
-    backend -- "SMTP, après commit, @Async" --> mailpit
+    backend -- "événements (outbox → relais)" --> kafka
+    kafka -- "consommés" --> notif
+    notif -- "SMTP" --> mailpit
 ```
 
 Points de conception :
@@ -155,6 +159,10 @@ Points de conception :
   avec sa clé publique (JWKS). La gateway vérifie et traite CORS, chaque service revérifie (défense en profondeur).
 - **Inscription = saga** : le compte (base d'auth-service) et le profil (autre service) sont créés par deux transactions
   locales ; si la seconde échoue, une compensation supprime le compte (pas de transaction distribuée).
+- **Événements par Kafka + transactional outbox** : un changement de statut écrit son événement dans une table `outbox`,
+  dans la même transaction ; un relais le publie ensuite dans Kafka. Kafka arrêté : l'action réussit quand même et
+  l'email part au retour de Kafka (vérifié). notification-service ignore les doublons (id d'événement) et range les
+  messages en échec dans un topic d'erreurs (`.DLT`).
 - **Monolithe modulaire** : packages par fonctionnalité (`offre`, `candidature`, `cv`, `audit`, `notification`…), chacun
   avec ses couches. Le découpage prépare le passage aux microservices.
 - **Sécurité** : JWT sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
@@ -163,8 +171,8 @@ Points de conception :
 - **CV figé** : la candidature garde le fichier en vigueur au moment où l'étudiant postule ; un CV remplacé n'est supprimé
   que si aucune candidature ne le référence.
 - **Audit par AOP** : annotation `@Audite`, écriture dans la transaction de l'action (un rollback annule aussi l'audit).
-- **Emails** : événements publiés par les services, envoyés **après le commit** (`@TransactionalEventListener`) par un
-  pool de threads dédié (`@Async`) ; modèles dans `backend/src/main/resources/emails`.
+- **Emails** : envoyés par **notification-service** à partir des événements Kafka ; modèles dans
+  `services/notification-service/src/main/resources/emails`.
 
 ---
 
@@ -180,8 +188,8 @@ Points de conception :
 | Tests | JUnit 5, Mockito, Spring Boot Test, `@WebMvcTest`, Testcontainers, Vitest, JaCoCo |
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
 | CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
-| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign ; JWT RS256 + JWKS — en cours (phase 7) |
-| À venir | Resilience4j, Kafka, Spring AI + Ollama |
+| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign ; JWT RS256 + JWKS ; Kafka 4.3 (KRaft), Spring Kafka, transactional outbox — en cours (phase 7) |
+| À venir | Resilience4j, ShedLock, Spring AI + Ollama |
 
 ---
 
@@ -271,18 +279,19 @@ Guide complet (Oracle Cloud Always Free, ou Hetzner en alternative) : [docs/DEPL
 
 ```
 StageHub/
-├── backend/                  Spring Boot (Dockerfile multi-stage)
+├── backend/                  monolithe Spring Boot, en cours de découpage (supprimé à la fin de la phase 7 d)
 │   └── src/main/java/com/stagehub/
-│       ├── auth/  offre/  candidature/  cv/  entreprise/  etudiant/  admin/
+│       ├── offre/  candidature/  cv/  entreprise/  etudiant/  admin/
 │       ├── audit/            audit AOP (@Audite) et journal
-│       ├── notification/     emails asynchrones après commit
-│       ├── security/         JWT, CORS, erreurs 401/403
+│       ├── outbox/           événements à publier dans Kafka (table outbox + relais)
+│       ├── security/         vérification des JWT (clé publique d'auth-service), erreurs 401/403
 │       └── common/           exceptions, configuration, stockage, aspects
 ├── services/                 microservices (POM parent multi-module, Dockerfile commun)
 │   ├── commons/              code technique partagé (format des erreurs, vérification des JWT)
 │   ├── discovery-server/     annuaire Eureka
 │   ├── api-gateway/          Spring Cloud Gateway : JWT, CORS, routage
 │   ├── auth-service/         comptes, connexion, JWT RS256, saga d'inscription
+│   ├── notification-service/ emails à partir des événements Kafka (idempotent, topic d'erreurs)
 │   └── demo-seeder/          données de démo créées par l'API
 ├── frontend/                 Angular (Dockerfile + configuration Nginx)
 ├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code

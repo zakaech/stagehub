@@ -105,7 +105,7 @@ volume `stagehub-ci_jenkins-home`.
 
 1. Copier `ci/recette.env.example` en `ci/recette.env` (fichier ignoré par git) et remplacer les valeurs `change-me`
    (`JWT_PRIVATE_KEY` : clé RSA d'auth-service, commande dans le fichier).
-   **À refaire quand de nouvelles variables apparaissent** (phase 7 : `AUTH_DB_PASSWORD`, `JWT_PRIVATE_KEY`) :
+   **À refaire quand de nouvelles variables apparaissent** (phase 7 : `AUTH_DB_PASSWORD`, `JWT_PRIVATE_KEY`, puis `NOTIFICATION_DB_PASSWORD`) :
    compléter le fichier puis **Credentials → stagehub-env-recette → Update** pour téléverser la nouvelle version.
 2. **Add Credentials** : *Kind* **Secret file**, *File* `ci/recette.env`, *ID* `stagehub-env-recette`.
 
