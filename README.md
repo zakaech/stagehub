@@ -128,7 +128,8 @@ flowchart LR
         gateway["api-gateway<br/>Spring Cloud Gateway<br/>JWT, CORS, routage"]
         eureka["discovery-server<br/>Eureka"]
         auth["auth-service<br/>comptes, JWT RS256"]
-        backend["Monolithe Spring Boot 4<br/>offres, candidatures, CV<br/>+ outbox"]
+        offres["offre-service<br/>offres, entreprises<br/>+ outbox, ShedLock"]
+        backend["Monolithe Spring Boot 4<br/>candidatures, CV<br/>+ outbox"]
         kafka[["Kafka (KRaft)"]]
         notif["notification-service<br/>emails, idempotent"]
         postgres[("PostgreSQL 17<br/>une base par service")]
@@ -138,13 +139,18 @@ flowchart LR
     navigateur -- "HTTP(S)" --> nginx
     nginx -- "/api, /swagger-ui" --> gateway
     gateway -- "/api/v1/auth" --> auth
+    gateway -- "offres, entreprises" --> offres
     gateway -- "/api (reste)" --> backend
     auth -- "OpenFeign : profils (saga)" --> backend
+    auth -- "OpenFeign : profils (saga)" --> offres
+    backend -- "OpenFeign + circuit breaker" --> offres
     gateway -. "annuaire" .-> eureka
     auth -- "JPA" --> postgres
     nginx -- "/mail/" --> mailpit
     backend -- "JPA" --> postgres
     backend -- "fichiers" --> cv
+    offres -- "JPA" --> postgres
+    offres -- "événements (outbox)" --> kafka
     backend -- "événements (outbox → relais)" --> kafka
     kafka -- "consommés" --> notif
     notif -- "SMTP" --> mailpit
@@ -154,7 +160,8 @@ Points de conception :
 
 - **Passage aux microservices en cours** (phase 7, pattern *strangler fig*) : une gateway (Spring Cloud Gateway) et un
   annuaire (Eureka) sont placés devant le monolithe ; les services sont extraits un par un derrière la gateway, sans
-  interrompre l'application. Premier extrait : **auth-service** (comptes, connexion).
+  interrompre l'application. Extraits : **auth-service** (comptes, connexion), **notification-service** (emails),
+  **offre-service** (offres, entreprises).
 - **JWT RS256** : seul auth-service détient la clé privée et signe les jetons ; la gateway et les services les vérifient
   avec sa clé publique (JWKS). La gateway vérifie et traite CORS, chaque service revérifie (défense en profondeur).
 - **Inscription = saga** : le compte (base d'auth-service) et le profil (autre service) sont créés par deux transactions
@@ -163,6 +170,11 @@ Points de conception :
   dans la même transaction ; un relais le publie ensuite dans Kafka. Kafka arrêté : l'action réussit quand même et
   l'email part au retour de Kafka (vérifié). notification-service ignore les doublons (id d'événement) et range les
   messages en échec dans un topic d'erreurs (`.DLT`).
+- **Appels entre services protégés** : pour postuler, le monolithe lit l'offre dans offre-service (OpenFeign) à travers
+  un **circuit breaker** Resilience4j. offre-service en panne : la candidature est refusée (503) plutôt qu'acceptée sans
+  vérification, mais « mes candidatures » reste consultable avec les données recopiées au moment de postuler (vérifié).
+- **Tâche planifiée sur plusieurs instances** : la fermeture nocturne des offres expirées est protégée par **ShedLock**
+  (verrou en base) ; avec `--scale offre-service=2`, une seule instance l'exécute (vérifié).
 - **Monolithe modulaire** : packages par fonctionnalité (`offre`, `candidature`, `cv`, `audit`, `notification`…), chacun
   avec ses couches. Le découpage prépare le passage aux microservices.
 - **Sécurité** : JWT sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
@@ -188,8 +200,8 @@ Points de conception :
 | Tests | JUnit 5, Mockito, Spring Boot Test, `@WebMvcTest`, Testcontainers, Vitest, JaCoCo |
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
 | CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
-| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign ; JWT RS256 + JWKS ; Kafka 4.3 (KRaft), Spring Kafka, transactional outbox — en cours (phase 7) |
-| À venir | Resilience4j, ShedLock, Spring AI + Ollama |
+| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign, Resilience4j (circuit breaker) ; JWT RS256 + JWKS ; Kafka 4.3 (KRaft), Spring Kafka, transactional outbox ; ShedLock — en cours (phase 7) |
+| À venir | Spring AI + Ollama |
 
 ---
 
@@ -281,17 +293,20 @@ Guide complet (Oracle Cloud Always Free, ou Hetzner en alternative) : [docs/DEPL
 StageHub/
 ├── backend/                  monolithe Spring Boot, en cours de découpage (supprimé à la fin de la phase 7 d)
 │   └── src/main/java/com/stagehub/
-│       ├── offre/  candidature/  cv/  entreprise/  etudiant/  admin/
+│       ├── candidature/  cv/  etudiant/  admin/   (offres lues dans offre-service : candidature/client)
 │       ├── audit/            audit AOP (@Audite) et journal
 │       ├── outbox/           événements à publier dans Kafka (table outbox + relais)
 │       ├── security/         vérification des JWT (clé publique d'auth-service), erreurs 401/403
 │       └── common/           exceptions, configuration, stockage, aspects
 ├── services/                 microservices (POM parent multi-module, Dockerfile commun)
-│   ├── commons/              code technique partagé (format des erreurs, vérification des JWT)
+│   ├── commons/              code technique partagé (format des erreurs, vérification des JWT, pagination)
+│   ├── outbox/               bibliothèque : transactional outbox (table + relais vers Kafka)
+│   ├── audit/                bibliothèque : audit AOP (@Audite) et journal par service
 │   ├── discovery-server/     annuaire Eureka
 │   ├── api-gateway/          Spring Cloud Gateway : JWT, CORS, routage
 │   ├── auth-service/         comptes, connexion, JWT RS256, saga d'inscription
 │   ├── notification-service/ emails à partir des événements Kafka (idempotent, topic d'erreurs)
+│   ├── offre-service/        offres, entreprises, statistiques des offres, fermeture nocturne (ShedLock)
 │   └── demo-seeder/          données de démo créées par l'API
 ├── frontend/                 Angular (Dockerfile + configuration Nginx)
 ├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code
