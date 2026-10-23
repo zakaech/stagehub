@@ -6,6 +6,8 @@ import com.stagehub.entreprise.dto.EntrepriseResponse;
 import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.entreprise.entity.StatutValidation;
 import com.stagehub.entreprise.event.EntrepriseValidationEvent;
+import com.stagehub.outbox.Topics;
+import com.stagehub.outbox.service.OutboxService;
 import com.stagehub.entreprise.mapper.EntrepriseMapper;
 import com.stagehub.entreprise.repository.EntrepriseRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,7 +16,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
@@ -33,13 +34,13 @@ class EntrepriseServiceTest {
     @Mock
     private EntrepriseRepository entrepriseRepository;
     @Mock
-    private ApplicationEventPublisher evenements;
+    private OutboxService outbox;
 
     private EntrepriseService service;
 
     @BeforeEach
     void setUp() {
-        service = new EntrepriseService(entrepriseRepository, Mappers.getMapper(EntrepriseMapper.class), evenements);
+        service = new EntrepriseService(entrepriseRepository, Mappers.getMapper(EntrepriseMapper.class), outbox);
     }
 
     @Test
@@ -62,7 +63,8 @@ class EntrepriseServiceTest {
         EntrepriseResponse reponse = service.statuer(2L, StatutValidation.VALIDEE);
 
         assertThat(reponse.statutValidation()).isEqualTo(StatutValidation.VALIDEE);
-        verify(evenements).publishEvent(new EntrepriseValidationEvent(2L, "rh@acme.ma", "Acme", StatutValidation.VALIDEE));
+        verify(outbox).enregistrer(Topics.ENTREPRISE_VALIDATION, "2",
+                new EntrepriseValidationEvent(2L, "rh@acme.ma", "Acme", StatutValidation.VALIDEE));
     }
 
     @Test
@@ -71,7 +73,7 @@ class EntrepriseServiceTest {
 
         assertThatThrownBy(() -> service.statuer(2L, StatutValidation.REFUSEE))
                 .isInstanceOf(TransitionStatutInvalideException.class);
-        verifyNoInteractions(evenements);
+        verifyNoInteractions(outbox);
     }
 
     @Test

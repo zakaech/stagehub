@@ -6,6 +6,8 @@ import com.stagehub.candidature.dto.CandidatureRequest;
 import com.stagehub.candidature.entity.Candidature;
 import com.stagehub.candidature.entity.StatutCandidature;
 import com.stagehub.candidature.event.CandidatureStatutChangeEvent;
+import com.stagehub.outbox.Topics;
+import com.stagehub.outbox.service.OutboxService;
 import com.stagehub.candidature.mapper.CandidatureMapper;
 import com.stagehub.candidature.repository.CandidatureRepository;
 import com.stagehub.common.exception.AccesNonAutoriseException;
@@ -30,7 +32,6 @@ import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 
@@ -64,7 +65,7 @@ class CandidatureServiceTest {
     @Mock
     private EtudiantRepository etudiantRepository;
     @Mock
-    private ApplicationEventPublisher evenements;
+    private OutboxService outbox;
 
     private CandidatureService service;
     private Etudiant etudiant;
@@ -77,7 +78,7 @@ class CandidatureServiceTest {
         // Vrai mapper généré par MapStruct : on teste aussi le contenu des réponses
         CandidatureMapper mapper = Mappers.getMapper(CandidatureMapper.class);
         service = new CandidatureService(candidatureRepository, offreRepository, etudiantRepository, mapper,
-                evenements, clock);
+                outbox, clock);
 
         etudiant = etudiant(ETUDIANT_ID, "sara@etu.ma");
         entreprise = entreprise(ENTREPRISE_ID, "Acme");
@@ -216,8 +217,9 @@ class CandidatureServiceTest {
             assertThat(candidature.getStatut()).isEqualTo(StatutCandidature.ENTRETIEN);
             assertThat(reponse.statut()).isEqualTo(StatutCandidature.ENTRETIEN);
             assertThat(reponse.etudiantEmail()).isEqualTo("sara@etu.ma");
-            // L'événement porte tout ce qu'il faut pour l'email (envoyé après le commit)
-            verify(evenements).publishEvent(new CandidatureStatutChangeEvent(CANDIDATURE_ID, "sara@etu.ma", "Sara",
+            // L'événement (écrit dans l'outbox, clé = id de la candidature) porte tout ce qu'il faut pour l'email
+            verify(outbox).enregistrer(Topics.CANDIDATURE_STATUT_CHANGE, CANDIDATURE_ID.toString(),
+                    new CandidatureStatutChangeEvent(CANDIDATURE_ID, "sara@etu.ma", "Sara",
                     "Stage PFE Java", "Acme", StatutCandidature.EN_ATTENTE, StatutCandidature.ENTRETIEN));
         }
 
@@ -239,7 +241,7 @@ class CandidatureServiceTest {
             assertThatThrownBy(() -> service.changerStatut(ENTREPRISE_ID, CANDIDATURE_ID, StatutCandidature.ACCEPTEE))
                     .isInstanceOf(TransitionStatutInvalideException.class);
             assertThat(candidature.getStatut()).isEqualTo(StatutCandidature.EN_ATTENTE);
-            verifyNoInteractions(evenements);
+            verifyNoInteractions(outbox);
         }
 
         @Test

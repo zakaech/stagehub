@@ -3,10 +3,11 @@ package com.stagehub.candidature.event;
 import com.stagehub.candidature.entity.StatutCandidature;
 
 /**
- * Publié quand une entreprise change le statut d'une candidature. L'événement contient déjà tout ce dont
- * l'email a besoin : le listener, exécuté dans un autre thread après le commit, n'a ni session Hibernate
- * (pas de lazy loading possible) ni SecurityContext (propre au thread de la requête).
- * En phase 7, ce sera le message Kafka CandidatureStatutChange.
+ * Publié quand une entreprise change le statut d'une candidature : message Kafka du topic
+ * {@code stagehub.candidature.statut-change} (JSON, écrit dans l'outbox puis relayé). Il contient tout ce dont
+ * l'email a besoin : notification-service n'a pas accès à la base du monolithe et ne la rappelle pas.
+ * Contrat partagé : ajouter un champ est sans risque (les consommateurs ignorent ce qu'ils ne connaissent pas),
+ * en retirer ou en renommer un casse notification-service.
  */
 public record CandidatureStatutChangeEvent(
         Long candidatureId,

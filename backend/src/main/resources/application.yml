@@ -30,21 +30,22 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  mail:
-    # Par défaut : Mailpit (docker compose), sans authentification.
-    # Vrai SMTP (ex. Brevo : smtp-relay.brevo.com:587) : MAIL_USERNAME, MAIL_PASSWORD,
-    # MAIL_SMTP_AUTH=true et MAIL_STARTTLS=true, sans toucher au code.
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
-      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
-      mail.smtp.starttls.required: ${MAIL_STARTTLS:false}
-      mail.smtp.connectiontimeout: 5000
-      mail.smtp.timeout: 5000
-      mail.smtp.writetimeout: 5000
+  kafka:
+    # Phase 7 (e) : événements publiés par le relais de l'outbox ; les emails partent de notification-service
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Le JSON est produit par OutboxService (et stocké tel quel dans l'outbox) : le producteur envoie du texte
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # Accusé de réception seulement quand le message est enregistré ; producteur idempotent (pas de doublon
+      # créé par les nouvelles tentatives du client lui-même)
+      acks: all
+      properties:
+        enable.idempotence: true
+        # Kafka arrêté : échouer vite (le relais réessaie à chaque passage) au lieu de bloquer 60 s
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
   servlet:
     multipart:
       # Première barrière : Spring refuse les fichiers trop gros avant le contrôleur (le service revérifie)
@@ -54,10 +55,11 @@ spring:
 stagehub:
   # Fuseau de référence pour toutes les règles de date (postuler, rouvrir, fermeture nocturne)
   fuseau: Africa/Casablanca
-  mail:
-    expediteur: ${MAIL_FROM:no-reply@stagehub.local}
-    # Base des liens insérés dans les emails (front Angular)
-    url-frontend: ${FRONTEND_URL:http://localhost:4200}
+  outbox:
+    relais:
+      # Publication des événements de l'outbox dans Kafka (false dans les tests sans Kafka)
+      actif: ${OUTBOX_RELAIS_ACTIF:true}
+      intervalle: 1s
   perf:
     # Au-delà, MesureTempsAspect logue un WARN ; en dessous, un DEBUG
     seuil-lent: 500ms
@@ -98,10 +100,6 @@ management:
       # /actuator/health/liveness et /actuator/health/readiness
       probes:
         enabled: true
-  health:
-    # L'envoi d'emails n'est pas indispensable : un SMTP en panne ne doit pas rendre l'application "DOWN"
-    mail:
-      enabled: false
 
 springdoc:
   swagger-ui:

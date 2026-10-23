@@ -17,11 +17,12 @@ import com.stagehub.common.exception.CandidatureNotFoundException;
 import com.stagehub.common.exception.OffreNonDisponibleException;
 import com.stagehub.common.exception.OffreNotFoundException;
 import com.stagehub.common.exception.UtilisateurNotFoundException;
+import com.stagehub.outbox.Topics;
+import com.stagehub.outbox.service.OutboxService;
 import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.repository.EtudiantRepository;
 import com.stagehub.offre.entity.Offre;
 import com.stagehub.offre.repository.OffreRepository;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -38,17 +39,17 @@ public class CandidatureService {
     private final OffreRepository offreRepository;
     private final EtudiantRepository etudiantRepository;
     private final CandidatureMapper candidatureMapper;
-    private final ApplicationEventPublisher evenements;
+    private final OutboxService outbox;
     private final Clock clock;
 
     public CandidatureService(CandidatureRepository candidatureRepository, OffreRepository offreRepository,
                               EtudiantRepository etudiantRepository, CandidatureMapper candidatureMapper,
-                              ApplicationEventPublisher evenements, Clock clock) {
+                              OutboxService outbox, Clock clock) {
         this.candidatureRepository = candidatureRepository;
         this.offreRepository = offreRepository;
         this.etudiantRepository = etudiantRepository;
         this.candidatureMapper = candidatureMapper;
-        this.evenements = evenements;
+        this.outbox = outbox;
         this.clock = clock;
     }
 
@@ -113,9 +114,10 @@ public class CandidatureService {
         StatutCandidature ancienStatut = candidature.getStatut();
         candidature.changerStatut(nouveauStatut);
 
-        // Publié maintenant, traité après le commit (NotificationListener) : rien n'est envoyé si la transaction échoue
+        // Écrit dans l'outbox, dans cette transaction : publié dans Kafka (puis email par notification-service)
+        // seulement si le changement est enregistré, et jamais perdu s'il l'est
         Etudiant etudiant = candidature.getEtudiant();
-        evenements.publishEvent(new CandidatureStatutChangeEvent(
+        outbox.enregistrer(Topics.CANDIDATURE_STATUT_CHANGE, candidature.getId().toString(), new CandidatureStatutChangeEvent(
                 candidature.getId(),
                 etudiant.getEmail(),
                 etudiant.getPrenom(),

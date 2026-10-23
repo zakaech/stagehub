@@ -11,7 +11,8 @@ import com.stagehub.entreprise.entity.StatutValidation;
 import com.stagehub.entreprise.event.EntrepriseValidationEvent;
 import com.stagehub.entreprise.mapper.EntrepriseMapper;
 import com.stagehub.entreprise.repository.EntrepriseRepository;
-import org.springframework.context.ApplicationEventPublisher;
+import com.stagehub.outbox.Topics;
+import com.stagehub.outbox.service.OutboxService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,13 +24,13 @@ public class EntrepriseService {
 
     private final EntrepriseRepository entrepriseRepository;
     private final EntrepriseMapper entrepriseMapper;
-    private final ApplicationEventPublisher evenements;
+    private final OutboxService outbox;
 
     public EntrepriseService(EntrepriseRepository entrepriseRepository, EntrepriseMapper entrepriseMapper,
-                             ApplicationEventPublisher evenements) {
+                             OutboxService outbox) {
         this.entrepriseRepository = entrepriseRepository;
         this.entrepriseMapper = entrepriseMapper;
-        this.evenements = evenements;
+        this.outbox = outbox;
     }
 
     /** Sans filtre de statut, renvoie toutes les entreprises. */
@@ -53,8 +54,8 @@ public class EntrepriseService {
         }
 
         entreprise.setStatutValidation(decision);
-        // Email envoyé après le commit (NotificationListener), jamais pour une décision annulée
-        evenements.publishEvent(new EntrepriseValidationEvent(
+        // Outbox, dans cette transaction : email (notification-service) seulement si la décision est enregistrée
+        outbox.enregistrer(Topics.ENTREPRISE_VALIDATION, entreprise.getId().toString(), new EntrepriseValidationEvent(
                 entreprise.getId(), entreprise.getEmail(), entreprise.getNom(), decision));
         return entrepriseMapper.toResponse(entreprise);
     }
