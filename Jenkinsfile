@@ -1,8 +1,8 @@
 // Pipeline CI/CD de StageHub (phase 6), exécuté par le job multibranche « StageHub » de Jenkins pour
 // chaque branche du dépôt. Guide : docs/CI.md.
 //
-//   Préparation → Tests (backend ∥ frontend) → Images → Déploiement recette (main)
-//                                                     → Publication GHCR + déploiement distant (main, désactivés)
+//   Préparation → Tests ((backend → services) ∥ frontend) → Images → Déploiement recette (main)
+//                                                                  → Publication GHCR + déploiement distant (main, désactivés)
 //
 // Toute étape en échec arrête le pipeline : les étapes suivantes sont sautées (« skipped »).
 
@@ -25,6 +25,8 @@ pipeline {
 
     environment {
         REGISTRE = 'ghcr.io/zakaech'
+        // Microservices construits depuis services/ (phase 7) ; la liste s'allonge à chaque service extrait
+        SERVICES = 'discovery-server api-gateway'
     }
 
     stages {
@@ -43,22 +45,47 @@ pipeline {
 
         stage('Tests') {
             parallel {
-                stage('Backend') {
-                    steps {
-                        dir('backend') {
-                            // Tests unitaires + tests d'intégration (Testcontainers, sur DinD) + rapport JaCoCo
-                            // + contrôle des seuils : un test rouge OU une couverture insuffisante → échec
-                            sh './mvnw -B -ntp verify'
+                // Backend puis services, l'un après l'autre : deux builds Maven avec Testcontainers en même temps
+                // dépasseraient la mémoire du conteneur Jenkins (3 Go)
+                stage('Java') {
+                    stages {
+                        stage('Backend') {
+                            steps {
+                                dir('backend') {
+                                    // Tests unitaires + tests d'intégration (Testcontainers, sur DinD) + rapport JaCoCo
+                                    // + contrôle des seuils : un test rouge OU une couverture insuffisante → échec
+                                    sh './mvnw -B -ntp verify'
+                                }
+                            }
+                            post {
+                                always {
+                                    junit testResults: 'backend/target/surefire-reports/TEST-*.xml, backend/target/failsafe-reports/TEST-*.xml',
+                                          allowEmptyResults: true
+                                    recordCoverage tools: [[parser: 'JACOCO', pattern: 'backend/target/site/jacoco/jacoco.xml']],
+                                                   id: 'jacoco', name: 'Couverture backend (JaCoCo)',
+                                                   sourceDirectories: [[path: 'backend/src/main/java']],
+                                                   sourceCodeRetention: 'LAST_BUILD'
+                                }
+                            }
                         }
-                    }
-                    post {
-                        always {
-                            junit testResults: 'backend/target/surefire-reports/TEST-*.xml, backend/target/failsafe-reports/TEST-*.xml',
-                                  allowEmptyResults: true
-                            recordCoverage tools: [[parser: 'JACOCO', pattern: 'backend/target/site/jacoco/jacoco.xml']],
-                                           id: 'jacoco', name: 'Couverture backend (JaCoCo)',
-                                           sourceDirectories: [[path: 'backend/src/main/java']],
-                                           sourceCodeRetention: 'LAST_BUILD'
+                        stage('Services') {
+                            steps {
+                                dir('services') {
+                                    // Tous les microservices (POM parent multi-module) : tests + seuils JaCoCo
+                                    sh './mvnw -B -ntp verify'
+                                }
+                            }
+                            post {
+                                always {
+                                    junit testResults: 'services/*/target/surefire-reports/TEST-*.xml, services/*/target/failsafe-reports/TEST-*.xml',
+                                          allowEmptyResults: true
+                                    recordCoverage tools: [[parser: 'JACOCO', pattern: 'services/*/target/site/jacoco/jacoco.xml']],
+                                                   id: 'jacoco-services', name: 'Couverture services (JaCoCo)',
+                                                   sourceDirectories: [[path: 'services/discovery-server/src/main/java'],
+                                                                       [path: 'services/api-gateway/src/main/java']],
+                                                   sourceCodeRetention: 'LAST_BUILD'
+                                }
+                            }
                         }
                     }
                 }
@@ -88,6 +115,11 @@ pipeline {
                     for app in backend frontend; do
                         docker buildx build --platform "$PLATEFORMES" --tag "stagehub-$app:$IMAGE_TAG" --load "$app"
                     done
+                    # Microservices : un seul Dockerfile (services/), le module est choisi par SERVICE
+                    for service in $SERVICES; do
+                        docker buildx build --platform "$PLATEFORMES" --build-arg SERVICE="$service" \
+                            --tag "stagehub-$service:$IMAGE_TAG" --load services
+                    done
                     docker image ls --tree "stagehub-*:$IMAGE_TAG"
                 '''
             }
@@ -102,8 +134,10 @@ pipeline {
                     // (backend « healthy »), sinon l'étape échoue
                     sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" up -d --no-build --wait --wait-timeout 300'
                 }
-                // Test de fumée à travers Nginx (le nom « docker » désigne le conteneur DinD)
-                sh 'curl -fsS "http://docker:8090/api/v1/offres?size=1" > /dev/null && echo "Recette OK : http://localhost:8095"'
+                // Test de fumée à travers Nginx et la gateway (le nom « docker » désigne le conteneur DinD).
+                // Nouvelles tentatives : la gateway peut répondre 503 quelques secondes, le temps de trouver le
+                // backend dans l'annuaire Eureka
+                sh 'curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "http://docker:8090/api/v1/offres?size=1" > /dev/null && echo "Recette OK : http://localhost:8095"'
             }
         }
 
@@ -123,7 +157,7 @@ pipeline {
                                                   usernameVariable: 'GHCR_UTILISATEUR', passwordVariable: 'GHCR_TOKEN')]) {
                     sh '''
                         echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_UTILISATEUR" --password-stdin
-                        for app in backend frontend; do
+                        for app in backend frontend $SERVICES; do
                             docker tag "stagehub-$app:$IMAGE_TAG" "$REGISTRE/stagehub-$app:$IMAGE_TAG"
                             docker push "$REGISTRE/stagehub-$app:$IMAGE_TAG"
                         done
@@ -158,7 +192,7 @@ pipeline {
                             "$UTILISATEUR_SSH@$HOTE_SSH" \
                             "cd ~/stagehub && git pull --ff-only \
                              && export IMAGE_REGISTRY=$REGISTRE/ IMAGE_TAG=$IMAGE_TAG \
-                             && docker compose -f docker-compose.yml -f docker-compose.prod.yml pull backend frontend \
+                             && docker compose -f docker-compose.yml -f docker-compose.prod.yml pull \
                              && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --wait"
                     '''
                 }
