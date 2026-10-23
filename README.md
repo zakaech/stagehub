@@ -121,13 +121,18 @@ flowchart LR
     navigateur["Navigateur<br/>Angular 22"]
     subgraph docker["docker compose"]
         nginx["Nginx<br/>fichiers Angular<br/>+ relais /api"]
+        gateway["api-gateway<br/>Spring Cloud Gateway<br/>JWT, CORS, routage"]
+        eureka["discovery-server<br/>Eureka"]
         backend["Spring Boot 4<br/>API REST /api/v1"]
         postgres[("PostgreSQL 17<br/>Flyway")]
         cv[("Volume<br/>CV (PDF)")]
         mailpit["Mailpit<br/>SMTP de démo"]
     end
     navigateur -- "HTTP(S)" --> nginx
-    nginx -- "/api, /swagger-ui" --> backend
+    nginx -- "/api, /swagger-ui" --> gateway
+    gateway -- "lb://stagehub-backend" --> backend
+    gateway -. "annuaire" .-> eureka
+    backend -. "enregistrement" .-> eureka
     nginx -- "/mail/" --> mailpit
     backend -- "JPA" --> postgres
     backend -- "fichiers" --> cv
@@ -136,6 +141,9 @@ flowchart LR
 
 Points de conception :
 
+- **Passage aux microservices en cours** (phase 7, pattern *strangler fig*) : une gateway (Spring Cloud Gateway) et un
+  annuaire (Eureka) sont placés devant le monolithe ; les services seront extraits un par un derrière la gateway, sans
+  interrompre l'application. La gateway vérifie le JWT et traite CORS ; le monolithe revérifie le jeton.
 - **Monolithe modulaire** : packages par fonctionnalité (`offre`, `candidature`, `cv`, `audit`, `notification`…), chacun
   avec ses couches. Le découpage prépare le passage aux microservices.
 - **Sécurité** : JWT HS256 sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
@@ -161,7 +169,8 @@ Points de conception :
 | Tests | JUnit 5, Mockito, Spring Boot Test, `@WebMvcTest`, Testcontainers, Vitest, JaCoCo |
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
 | CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
-| À venir | Spring Cloud + Kafka (microservices), Spring AI + Ollama |
+| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka — en cours (phase 7) |
+| À venir | OpenFeign, Resilience4j, Kafka, Spring AI + Ollama |
 
 ---
 
@@ -194,12 +203,16 @@ cd backend
 ./mvnw verify      # + tests d'intégration sur un vrai PostgreSQL (Testcontainers, Docker requis)
                    #   + rapport de couverture JaCoCo et contrôle des seuils
 
+cd services
+./mvnw verify      # microservices (gateway, annuaire...) : tests + couverture, module par module
+
 cd frontend
 npm test -- --watch=false     # tests Vitest
 npm run format:check          # formatage Prettier
 ```
 
-- Rapport de couverture : `backend/target/site/jacoco/index.html` (après `verify`).
+- Rapport de couverture : `backend/target/site/jacoco/index.html` (après `verify`) ; pour un service :
+  `services/<service>/target/site/jacoco/index.html`.
 - **Seuil** : chaque package de services doit couvrir au moins 80 % des lignes et 70 % des branches, sinon le build échoue.
 
 ---
@@ -254,6 +267,9 @@ StageHub/
 │       ├── notification/     emails asynchrones après commit
 │       ├── security/         JWT, CORS, erreurs 401/403
 │       └── common/           exceptions, configuration, stockage, aspects
+├── services/                 microservices (POM parent multi-module, Dockerfile commun)
+│   ├── discovery-server/     annuaire Eureka
+│   └── api-gateway/          Spring Cloud Gateway : JWT, CORS, routage
 ├── frontend/                 Angular (Dockerfile + configuration Nginx)
 ├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code
 ├── deploiement/              Caddyfile (HTTPS sur serveur)
