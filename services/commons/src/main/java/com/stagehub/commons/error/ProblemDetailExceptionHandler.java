@@ -15,6 +15,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.util.List;
@@ -57,6 +58,14 @@ public abstract class ProblemDetailExceptionHandler extends ResponseEntityExcept
                                                                   HttpStatusCode status, WebRequest request) {
         ProblemDetail body = probleme(HttpStatus.BAD_REQUEST,
                 "Corps de requête illisible : JSON mal formé ou valeur incompatible (ex. statut inconnu)", "CorpsIllisible");
+        return handleExceptionInternal(ex, body, headers, status, request);
+    }
+
+    /** Adresse inconnue (aucune route ni aucun contrôleur) : même format, sans le message technique de Spring. */
+    @Override
+    protected ResponseEntity<Object> handleNoResourceFoundException(NoResourceFoundException ex, HttpHeaders headers,
+                                                                    HttpStatusCode status, WebRequest request) {
+        ProblemDetail body = probleme(HttpStatus.NOT_FOUND, "Aucune ressource à cette adresse", "RessourceIntrouvable");
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 

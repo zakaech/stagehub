@@ -259,6 +259,7 @@ class GatewayRoutesTest {
 
         assertThat(reponse.statusCode()).isEqualTo(404);
         assertThat(reponse.headers().firstValue("Content-Type")).hasValue("application/problem+json");
+        assertThat(reponse.body()).contains("\"code\":\"RessourceIntrouvable\"").doesNotContain("static resource");
         candidatures.verify(0, APPEL_D_API);
         offres.verify(0, APPEL_D_API);
         auth.verify(0, APPEL_D_API);
