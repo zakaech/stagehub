@@ -3,7 +3,6 @@ package com.stagehub;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -23,20 +22,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Parcours complet de la phase 1, sur un vrai PostgreSQL lancé par Testcontainers :
  * inscription → validation admin → offre → candidature → changements de statut.
+ * Phase 7 : l'inscription et la connexion sont dans auth-service ; ici, les profils sont créés par l'API interne
+ * et les jetons signés par {@link JetonsDeTest}.
  * Exécuté par Failsafe ({@code mvn verify}) grâce au suffixe IT.
  */
 class ParcoursCompletIT extends IntegrationTestBase {
 
     @Test
     void inscriptionValidationOffreCandidatureEtChangementsDeStatut() throws Exception {
-        // 1. Une entreprise s'inscrit : son compte est en attente
-        Long entrepriseId = idDe(appeler(post("/api/v1/auth/register/entreprise"), null, """
-                {"email": "rh@acme.ma", "motDePasse": "motdepasse1", "nom": "Acme",
-                 "secteur": "Informatique", "ville": "Casablanca"}
-                """)
+        // 1. Une entreprise s'inscrit : auth-service crée son compte puis son profil ici (API interne), en attente
+        Long entrepriseId = ApiDeTest.nouvelId();
+        appeler(post("/internal/entreprises"), JetonsDeTest.service(), """
+                {"id": %d, "email": "rh@acme.ma", "nom": "Acme", "secteur": "Informatique", "ville": "Casablanca"}
+                """.formatted(entrepriseId))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.entreprise.statutValidation").value("EN_ATTENTE")));
-        String tokenEntreprise = connecter("rh@acme.ma", "motdepasse1");
+                .andExpect(jsonPath("$.statutValidation").value("EN_ATTENTE"));
+        String tokenEntreprise = JetonsDeTest.utilisateur(entrepriseId, "rh@acme.ma", "ENTREPRISE");
 
         // 2. Tant qu'elle n'est pas validée, elle ne peut pas publier
         String offre = """
@@ -49,7 +50,7 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.code").value("EntrepriseNonValidee"));
 
         // 3. L'admin la voit dans les comptes en attente et la valide
-        String tokenAdmin = connecter("admin@test.local", "admin-test-1234");
+        String tokenAdmin = new ApiDeTest(mockMvc).tokenAdmin();
         appeler(get("/api/v1/admin/entreprises").param("statut", "EN_ATTENTE"), tokenAdmin, null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[*].id", hasItem(entrepriseId.intValue())));
@@ -69,12 +70,13 @@ class ParcoursCompletIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.content[*].id", hasItem(offreId.intValue())));
 
         // 5. Un étudiant s'inscrit et postule ; un second essai est refusé
-        appeler(post("/api/v1/auth/register/etudiant"), null, """
-                {"email": "sara@etu.ma", "motDePasse": "motdepasse1", "nom": "Alaoui", "prenom": "Sara",
+        Long etudiantId = ApiDeTest.nouvelId();
+        appeler(post("/internal/etudiants"), JetonsDeTest.service(), """
+                {"id": %d, "email": "sara@etu.ma", "nom": "Alaoui", "prenom": "Sara",
                  "ecole": "ENSIAS", "filiere": "Génie logiciel", "ville": "Rabat"}
-                """)
+                """.formatted(etudiantId))
                 .andExpect(status().isCreated());
-        String tokenEtudiant = connecter("sara@etu.ma", "motdepasse1");
+        String tokenEtudiant = JetonsDeTest.utilisateur(etudiantId, "sara@etu.ma", "ETUDIANT");
 
         String lettre = """
                 {"lettreMotivation": "Très motivée par ce stage"}
@@ -116,7 +118,7 @@ class ParcoursCompletIT extends IntegrationTestBase {
 
         // 8. Contrôle d'accès : rôle insuffisant → 403, pas de jeton → 401
         appeler(get("/api/v1/admin/stats"), tokenEtudiant, null).andExpect(status().isForbidden());
-        appeler(get("/api/v1/auth/me"), null, null).andExpect(status().isUnauthorized());
+        appeler(get("/api/v1/etudiant/candidatures"), null, null).andExpect(status().isUnauthorized());
 
         // 9. L'entreprise ferme l'offre (elle disparaît du public), puis la rouvre : sa date limite est future
         changerStatutOffre(offreId, tokenEntreprise, "FERMEE")
@@ -153,14 +155,6 @@ class ParcoursCompletIT extends IntegrationTestBase {
     private ResultActions changerStatutOffre(Long offreId, String token, String statut) throws Exception {
         return appeler(patch("/api/v1/entreprise/offres/{id}/statut", offreId), token,
                 "{\"statut\": \"%s\"}".formatted(statut));
-    }
-
-    private String connecter(String email, String motDePasse) throws Exception {
-        MvcResult resultat = appeler(post("/api/v1/auth/login"), null,
-                "{\"email\": \"%s\", \"motDePasse\": \"%s\"}".formatted(email, motDePasse))
-                .andExpect(status().isOk())
-                .andReturn();
-        return JsonPath.read(resultat.getResponse().getContentAsString(StandardCharsets.UTF_8), "$.accessToken");
     }
 
     private static Long idDe(ResultActions resultat) throws Exception {

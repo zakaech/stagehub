@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -15,15 +16,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * par Testcontainers en fin de JVM ; la configuration étant identique, Spring réutilise aussi le même contexte.
  */
 @SpringBootTest(properties = {
-        "stagehub.jwt.secret=secret-de-test-pour-le-parcours-complet-0123456789",
-        "stagehub.admin.email=admin@test.local",
-        "stagehub.admin.password=admin-test-1234",
-        "stagehub.cors.allowed-origins=http://localhost:4200",
         "stagehub.cv.dossier=target/test-uploads/cv",
         // Tâche nocturne désactivée : les tests appellent directement OffreService.fermerOffresExpirees
         "stagehub.offres.cron-fermeture=-"
 })
 @AutoConfigureMockMvc
+// Jetons signés par une clé de test à la place d'auth-service (phase 7)
+@Import(JetonsDeTest.Config.class)
 public abstract class IntegrationTestBase {
 
     // @ServiceConnection : Spring Boot lit l'URL, l'utilisateur et le mot de passe du conteneur

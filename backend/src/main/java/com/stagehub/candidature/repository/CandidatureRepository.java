@@ -20,7 +20,7 @@ public interface CandidatureRepository extends JpaRepository<Candidature, Long> 
     @EntityGraph(attributePaths = {"offre", "offre.entreprise"})
     Page<Candidature> findByEtudiantId(Long etudiantId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"offre", "etudiant", "etudiant.utilisateur"})
+    @EntityGraph(attributePaths = {"offre", "etudiant"})
     Page<Candidature> findByOffreId(Long offreId, Pageable pageable);
 
     @Query("""

@@ -1,15 +1,10 @@
 package com.stagehub.entreprise.entity;
 
-import com.stagehub.auth.entity.Utilisateur;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,10 +18,9 @@ public class Entreprise {
     @Id
     private Long id;
 
-    @MapsId
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id")
-    private Utilisateur utilisateur;
+    /** Copie de l'email du compte (auth-service), pour les notifications. */
+    @Column(nullable = false)
+    private String email;
 
     @Column(nullable = false)
     private String nom;

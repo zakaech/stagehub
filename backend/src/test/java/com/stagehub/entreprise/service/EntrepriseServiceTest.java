@@ -1,6 +1,5 @@
 package com.stagehub.entreprise.service;
 
-import com.stagehub.auth.entity.Utilisateur;
 import com.stagehub.common.exception.EntrepriseNotFoundException;
 import com.stagehub.common.exception.TransitionStatutInvalideException;
 import com.stagehub.entreprise.dto.EntrepriseResponse;
@@ -84,11 +83,9 @@ class EntrepriseServiceTest {
     }
 
     private static Entreprise entreprise(StatutValidation statut) {
-        Utilisateur utilisateur = new Utilisateur();
-        utilisateur.setEmail("rh@acme.ma");
         Entreprise entreprise = new Entreprise();
         entreprise.setId(2L);
-        entreprise.setUtilisateur(utilisateur);
+        entreprise.setEmail("rh@acme.ma");
         entreprise.setNom("Acme");
         entreprise.setStatutValidation(statut);
         return entreprise;

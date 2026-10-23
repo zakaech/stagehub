@@ -55,7 +55,7 @@ public class EntrepriseService {
         entreprise.setStatutValidation(decision);
         // Email envoyé après le commit (NotificationListener), jamais pour une décision annulée
         evenements.publishEvent(new EntrepriseValidationEvent(
-                entreprise.getId(), entreprise.getUtilisateur().getEmail(), entreprise.getNom(), decision));
+                entreprise.getId(), entreprise.getEmail(), entreprise.getNom(), decision));
         return entrepriseMapper.toResponse(entreprise);
     }
 }

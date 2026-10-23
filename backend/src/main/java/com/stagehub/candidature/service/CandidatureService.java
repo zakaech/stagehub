@@ -117,7 +117,7 @@ public class CandidatureService {
         Etudiant etudiant = candidature.getEtudiant();
         evenements.publishEvent(new CandidatureStatutChangeEvent(
                 candidature.getId(),
-                etudiant.getUtilisateur().getEmail(),
+                etudiant.getEmail(),
                 etudiant.getPrenom(),
                 candidature.getOffre().getTitre(),
                 candidature.getOffre().getEntreprise().getNom(),

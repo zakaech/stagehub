@@ -1,6 +1,7 @@
 package com.stagehub.cv;
 
 import com.jayway.jsonpath.JsonPath;
+import com.stagehub.ApiDeTest;
 import com.stagehub.IntegrationTestBase;
 import com.stagehub.candidature.repository.CandidatureRepository;
 import com.stagehub.cv.config.CvProperties;
@@ -65,7 +66,7 @@ class CvAccesIT extends IntegrationTestBase {
 
     @Test
     void etudiantSansCv_recoit404() throws Exception {
-        String token = inscrireEtudiant("sans-cv-" + suffixe());
+        String token = inscrireEtudiant();
 
         appeler(get("/api/v1/etudiant/cv"), token)
                 .andExpect(status().isNotFound())
@@ -84,7 +85,7 @@ class CvAccesIT extends IntegrationTestBase {
     @Test
     void autreEntreprise_recoit403() throws Exception {
         Scenario s = scenario();
-        String autreEntreprise = inscrireEntreprise("autre-" + suffixe());
+        String autreEntreprise = inscrireEntreprise();
 
         appeler(get("/api/v1/entreprise/candidatures/{id}/cv", s.candidatureId()), autreEntreprise)
                 .andExpect(status().isForbidden())
@@ -122,7 +123,7 @@ class CvAccesIT extends IntegrationTestBase {
 
     @Test
     void cvRemplaceJamaisUtilise_lAncienFichierEstSupprime() throws Exception {
-        String token = inscrireEtudiant("remplace-" + suffixe());
+        String token = inscrireEtudiant();
         Long etudiantId = idDe(deposer(token, CV_1).andExpect(status().isOk()));
         String ancien = etudiantRepository.findById(etudiantId).orElseThrow().getCheminCv();
 
@@ -137,7 +138,7 @@ class CvAccesIT extends IntegrationTestBase {
 
     @Test
     void depot_refuseFauxPdf_fichierTropGros_etFichierVide() throws Exception {
-        String token = inscrireEtudiant("depot-" + suffixe());
+        String token = inscrireEtudiant();
         byte[] png = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'};
         byte[] sixMo = new byte[6 * 1024 * 1024];
         System.arraycopy(CV_1, 0, sixMo, 0, CV_1.length);
@@ -154,39 +155,29 @@ class CvAccesIT extends IntegrationTestBase {
     // --- Mise en place ---
 
     private Scenario scenario() throws Exception {
-        String s = suffixe();
-        String tokenEntreprise = inscrireEntreprise("rh-" + s);
-        Long entrepriseId = idDe(appeler(get("/api/v1/auth/me"), tokenEntreprise));
-        String tokenAdmin = connecter("admin@test.local", "admin-test-1234");
-        appeler(patch("/api/v1/admin/entreprises/{id}/validation", entrepriseId), tokenAdmin, "{\"decision\": \"VALIDEE\"}")
-                .andExpect(status().isOk());
+        ApiDeTest api = new ApiDeTest(mockMvc);
+        ApiDeTest.Compte entreprise = api.inscrireEntreprise();
+        api.validerEntreprise(entreprise.id());
+        String tokenEntreprise = entreprise.token();
         Long offreId = idDe(appeler(post("/api/v1/entreprise/offres"), tokenEntreprise, """
                 {"titre": "Stage CV", "description": "Test", "ville": "Rabat", "domaine": "Dev",
                  "technologies": ["Java"], "dureeMois": 4, "dateLimite": "%s"}
                 """.formatted(LocalDate.now().plusDays(30))).andExpect(status().isCreated()));
 
-        String tokenEtudiant = inscrireEtudiant("etu-" + s);
+        String tokenEtudiant = inscrireEtudiant();
         Long etudiantId = idDe(deposer(tokenEtudiant, CV_1).andExpect(status().isOk()));
         Long candidatureId = idDe(appeler(post("/api/v1/etudiant/offres/{id}/candidatures", offreId), tokenEtudiant)
                 .andExpect(status().isCreated()));
         return new Scenario(tokenEntreprise, tokenEtudiant, etudiantId, candidatureId);
     }
 
-    private String inscrireEtudiant(String identifiant) throws Exception {
-        String email = identifiant + "@cv.test";
-        appeler(post("/api/v1/auth/register/etudiant"), null, """
-                {"email": "%s", "motDePasse": "motdepasse1", "nom": "Alaoui", "prenom": "Sara",
-                 "ecole": "ENSIAS", "filiere": "GL", "ville": "Rabat"}
-                """.formatted(email)).andExpect(status().isCreated());
-        return connecter(email, "motdepasse1");
+    /** Profils créés comme le fait auth-service à l'inscription (voir ApiDeTest). */
+    private String inscrireEtudiant() throws Exception {
+        return new ApiDeTest(mockMvc).inscrireEtudiant().token();
     }
 
-    private String inscrireEntreprise(String identifiant) throws Exception {
-        String email = identifiant + "@cv.test";
-        appeler(post("/api/v1/auth/register/entreprise"), null, """
-                {"email": "%s", "motDePasse": "motdepasse1", "nom": "Entreprise %s", "secteur": "IT", "ville": "Rabat"}
-                """.formatted(email, identifiant)).andExpect(status().isCreated());
-        return connecter(email, "motdepasse1");
+    private String inscrireEntreprise() throws Exception {
+        return new ApiDeTest(mockMvc).inscrireEntreprise().token();
     }
 
     private ResultActions deposer(String token, byte[] contenu) throws Exception {
@@ -208,14 +199,6 @@ class CvAccesIT extends IntegrationTestBase {
             requete.contentType(MediaType.APPLICATION_JSON).content(corps);
         }
         return mockMvc.perform(requete);
-    }
-
-    private String connecter(String email, String motDePasse) throws Exception {
-        String json = appeler(post("/api/v1/auth/login"), null,
-                "{\"email\": \"%s\", \"motDePasse\": \"%s\"}".formatted(email, motDePasse))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
-        return JsonPath.read(json, "$.accessToken");
     }
 
     private static Long idDe(ResultActions resultat) throws Exception {

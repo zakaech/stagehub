@@ -9,6 +9,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -16,13 +17,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Raccourcis HTTP pour mettre en place les scénarios des tests d'intégration (inscription, validation,
- * offre, candidature). Chaque compte reçoit un suffixe aléatoire : les tests restent indépendants.
+ * Raccourcis HTTP pour mettre en place les scénarios des tests d'intégration (profils, validation, offre,
+ * candidature). Chaque compte reçoit un id et un suffixe propres : les tests restent indépendants.
+ * Phase 7 : les comptes sont dans auth-service. Ici, les profils sont créés par l'API interne (comme le fait
+ * auth-service à l'inscription) et les jetons sont signés par {@link JetonsDeTest}.
  */
 public class ApiDeTest {
 
     public static final String ADMIN_EMAIL = "admin@test.local";
-    public static final String ADMIN_MOT_DE_PASSE = "admin-test-1234";
+    private static final long ADMIN_ID = 999_999L;
+
+    /** Ids de comptes « attribués par auth-service » : uniques pour toute l'exécution des tests. */
+    private static final AtomicLong IDS = new AtomicLong(1_000_000L);
 
     private final MockMvc mockMvc;
 
@@ -47,21 +53,28 @@ public class ApiDeTest {
         return new Scenario(entreprise, etudiant, offreId, candidatureId);
     }
 
-    public Compte inscrireEtudiant() throws Exception {
-        String email = "etu-" + suffixe() + "@it.test";
-        Long id = idDe(appeler(post("/api/v1/auth/register/etudiant"), null, """
-                {"email": "%s", "motDePasse": "motdepasse1", "nom": "Alaoui", "prenom": "Sara",
-                 "ecole": "ENSIAS", "filiere": "GL", "ville": "Rabat"}
-                """.formatted(email)).andExpect(status().isCreated()));
-        return new Compte(id, email, connecter(email, "motdepasse1"));
+    public static long nouvelId() {
+        return IDS.incrementAndGet();
     }
 
+    public Compte inscrireEtudiant() throws Exception {
+        long id = nouvelId();
+        String email = "etu-" + suffixe() + "@it.test";
+        appeler(post("/internal/etudiants"), JetonsDeTest.service(), """
+                {"id": %d, "email": "%s", "nom": "Alaoui", "prenom": "Sara",
+                 "ecole": "ENSIAS", "filiere": "GL", "ville": "Rabat"}
+                """.formatted(id, email)).andExpect(status().isCreated());
+        return new Compte(id, email, JetonsDeTest.utilisateur(id, email, "ETUDIANT"));
+    }
+
+    /** Entreprise EN_ATTENTE de validation, comme après une inscription. */
     public Compte inscrireEntreprise() throws Exception {
+        long id = nouvelId();
         String email = "rh-" + suffixe() + "@it.test";
-        Long id = idDe(appeler(post("/api/v1/auth/register/entreprise"), null, """
-                {"email": "%s", "motDePasse": "motdepasse1", "nom": "Acme", "secteur": "IT", "ville": "Rabat"}
-                """.formatted(email)).andExpect(status().isCreated()));
-        return new Compte(id, email, connecter(email, "motdepasse1"));
+        appeler(post("/internal/entreprises"), JetonsDeTest.service(), """
+                {"id": %d, "email": "%s", "nom": "Acme", "secteur": "IT", "ville": "Rabat"}
+                """.formatted(id, email)).andExpect(status().isCreated());
+        return new Compte(id, email, JetonsDeTest.utilisateur(id, email, "ENTREPRISE"));
     }
 
     public ResultActions validerEntreprise(Long entrepriseId) throws Exception {
@@ -81,16 +94,8 @@ public class ApiDeTest {
                 "{\"statut\": \"%s\"}".formatted(statut));
     }
 
-    public String tokenAdmin() throws Exception {
-        return connecter(ADMIN_EMAIL, ADMIN_MOT_DE_PASSE);
-    }
-
-    public String connecter(String email, String motDePasse) throws Exception {
-        String json = appeler(post("/api/v1/auth/login"), null,
-                "{\"email\": \"%s\", \"motDePasse\": \"%s\"}".formatted(email, motDePasse))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
-        return JsonPath.read(json, "$.accessToken");
+    public String tokenAdmin() {
+        return JetonsDeTest.utilisateur(ADMIN_ID, ADMIN_EMAIL, "ADMIN");
     }
 
     public ResultActions appeler(MockHttpServletRequestBuilder requete, String token, String corps) throws Exception {

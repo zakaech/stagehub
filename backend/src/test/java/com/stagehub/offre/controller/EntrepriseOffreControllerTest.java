@@ -6,18 +6,14 @@ import com.stagehub.offre.dto.OffreRequest;
 import com.stagehub.offre.dto.OffreResponse;
 import com.stagehub.offre.entity.StatutOffre;
 import com.stagehub.offre.service.OffreService;
-import com.stagehub.security.CorsProperties;
 import com.stagehub.security.ProblemDetailSecurityHandler;
 import com.stagehub.security.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -49,12 +45,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, ProblemDetailSecurityHandler.class})
 class EntrepriseOffreControllerTest {
 
-    /** La tranche web ne scanne pas les @ConfigurationProperties : on active celle dont SecurityConfig a besoin. */
-    @TestConfiguration
-    @EnableConfigurationProperties(CorsProperties.class)
-    static class ConfigurationCors {
-    }
-
     private static final long ENTREPRISE_ID = 42L;
     private static final String OFFRE_VALIDE = """
             {"titre": "Stage PFE Java", "description": "API Spring", "ville": "Rabat", "domaine": "Dev",
@@ -66,9 +56,7 @@ class EntrepriseOffreControllerTest {
 
     @MockitoBean
     private OffreService offreService;
-    // Requis par SecurityConfig (login) et par le resource server ; non utilisés grâce à jwt()
-    @MockitoBean
-    private UserDetailsService userDetailsService;
+    // Requis par le resource server (SecurityConfig) ; non utilisé grâce à jwt()
     @MockitoBean
     private JwtDecoder jwtDecoder;
 

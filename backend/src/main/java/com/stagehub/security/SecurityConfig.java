@@ -1,29 +1,26 @@
 package com.stagehub.security;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.time.Duration;
-import java.util.List;
-
+/**
+ * Phase 7 : le monolithe ne connecte plus personne (auth-service s'en charge) ; il vérifie les jetons avec la clé
+ * publique d'auth-service. Il est derrière la gateway, qui a déjà vérifié le jeton et traité CORS : il le revérifie
+ * quand même (défense en profondeur) et applique les règles fines (rôles, propriété).
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -31,8 +28,6 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, ProblemDetailSecurityHandler problemDetailHandler) throws Exception {
         http
-                // Utilise le bean CorsConfigurationSource ci-dessous (répond aux requêtes preflight OPTIONS)
-                .cors(Customizer.withDefaults())
                 // API sans état authentifiée par en-tête Authorization : pas de cookie de session, donc pas de CSRF
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -41,7 +36,8 @@ public class SecurityConfig {
                         // Healthchecks Docker : seule la santé est exposée par Actuator (voir application.yml)
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register/**", "/api/v1/auth/login").permitAll()
+                        // Appels d'autres services (création des profils par auth-service) : jeton de service seulement
+                        .requestMatchers("/internal/**").hasRole(JwtClaims.ROLE_SERVICE)
                         .requestMatchers(HttpMethod.GET, "/api/v1/offres", "/api/v1/offres/**").permitAll()
                         .requestMatchers("/api/v1/etudiant/**").hasRole("ETUDIANT")
                         .requestMatchers("/api/v1/entreprise/**").hasRole("ENTREPRISE")
@@ -57,45 +53,26 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Clés publiques d'auth-service (JWKS), téléchargées au premier jeton puis gardées en cache. Seul RS256 est
+     * accepté ; expiration et émetteur vérifiés.
+     */
+    @Bean
+    JwtDecoder jwtDecoder(@Value("${stagehub.jwt.jwk-set-uri}") String jwkSetUri) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
+                .jwsAlgorithm(SignatureAlgorithm.RS256)
+                .build();
+        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(JwtClaims.EMETTEUR));
+        return decoder;
+    }
+
     /** Transforme le claim "role" (ex. "ENTREPRISE") en autorité "ROLE_ENTREPRISE", utilisée par hasRole(...). */
     private JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName(JwtClaims.ROLE);
         authorities.setAuthorityPrefix("ROLE_");
-
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(authorities);
         return converter;
-    }
-
-    /**
-     * CORS : le navigateur n'autorise un appel JavaScript vers une autre origine que si l'API le permet
-     * explicitement. Pas de allowCredentials : le JWT voyage dans l'en-tête Authorization, pas dans un cookie.
-     */
-    @Bean
-    CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(properties.allowedOrigins());
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        config.setExposedHeaders(List.of("Location", "Content-Disposition"));
-        config.setMaxAge(Duration.ofHours(1));
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", config);
-        return source;
-    }
-
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    /** Utilisé par le login : vérifie email + mot de passe contre le hash BCrypt en base. */
-    @Bean
-    AuthenticationManager authenticationManager(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder);
-        return new ProviderManager(provider);
     }
 }

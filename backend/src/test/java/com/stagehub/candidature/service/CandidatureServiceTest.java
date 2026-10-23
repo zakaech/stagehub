@@ -1,6 +1,5 @@
 package com.stagehub.candidature.service;
 
-import com.stagehub.auth.entity.Utilisateur;
 import com.stagehub.candidature.dto.CandidatureEntrepriseResponse;
 import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
 import com.stagehub.candidature.dto.CandidatureRequest;
@@ -281,12 +280,9 @@ class CandidatureServiceTest {
     // --- Fabriques de données de test ---
 
     private static Etudiant etudiant(Long id, String email) {
-        Utilisateur utilisateur = new Utilisateur();
-        utilisateur.setId(id);
-        utilisateur.setEmail(email);
         Etudiant etudiant = new Etudiant();
         etudiant.setId(id);
-        etudiant.setUtilisateur(utilisateur);
+        etudiant.setEmail(email);
         etudiant.setNom("Alaoui");
         etudiant.setPrenom("Sara");
         return etudiant;

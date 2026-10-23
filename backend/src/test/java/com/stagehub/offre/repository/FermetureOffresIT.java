@@ -1,9 +1,7 @@
 package com.stagehub.offre.repository;
 
+import com.stagehub.ApiDeTest;
 import com.stagehub.IntegrationTestBase;
-import com.stagehub.auth.entity.Role;
-import com.stagehub.auth.entity.Utilisateur;
-import com.stagehub.auth.repository.UtilisateurRepository;
 import com.stagehub.entreprise.entity.Entreprise;
 import com.stagehub.entreprise.entity.StatutValidation;
 import com.stagehub.entreprise.repository.EntrepriseRepository;
@@ -28,9 +26,6 @@ class FermetureOffresIT extends IntegrationTestBase {
     private OffreRepository offreRepository;
     @Autowired
     private EntrepriseRepository entrepriseRepository;
-    @Autowired
-    private UtilisateurRepository utilisateurRepository;
-
     @Test
     void fermeUniquementLesOffresOuvertesDontLaDateLimiteEstStrictementPassee() {
         Entreprise entreprise = entreprise();
@@ -55,12 +50,10 @@ class FermetureOffresIT extends IntegrationTestBase {
     }
 
     private Entreprise entreprise() {
-        Utilisateur utilisateur = new Utilisateur();
-        utilisateur.setEmail("zz-fermeture@test.ma");
-        utilisateur.setMotDePasse("hash-non-utilise");
-        utilisateur.setRole(Role.ENTREPRISE);
+        // Phase 7 : l'id du profil est celui d'un compte d'auth-service (ici un id libre, sans compte)
         Entreprise entreprise = new Entreprise();
-        entreprise.setUtilisateur(utilisateurRepository.save(utilisateur));
+        entreprise.setId(ApiDeTest.nouvelId());
+        entreprise.setEmail("zz-fermeture@test.ma");
         entreprise.setNom("ZZ Fermeture");
         entreprise.setSecteur("Test");
         entreprise.setVille("Rabat");
