@@ -1,0 +1,87 @@
+server:
+  # Hors Docker ; dans un conteneur, la variable SERVER_PORT (Dockerfile) a priorité
+  port: 8082
+
+spring:
+  application:
+    name: auth-service
+  config:
+    # En local, lit le fichier .env à la racine du dépôt s'il existe (ignoré sinon)
+    import: optional:file:../../.env[.properties]
+  datasource:
+    # Base propre au service (une base et un rôle PostgreSQL par service, même instance)
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${AUTH_DB_NAME:stagehub_auth}
+    username: ${AUTH_DB_USERNAME:stagehub_auth}
+    password: ${AUTH_DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  web:
+    locale: fr
+    locale-resolver: fixed
+  cloud:
+    loadbalancer:
+      cache:
+        ttl: 5s
+    openfeign:
+      client:
+        config:
+          default:
+            # Appels vers le service des profils : on n'attend pas indéfiniment (saga : compensation sinon)
+            connect-timeout: 2000
+            read-timeout: 5000
+
+eureka:
+  client:
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+stagehub:
+  jwt:
+    private-key: ${JWT_PRIVATE_KEY:}
+    # Sans JWT_PRIVATE_KEY : clé générée au premier démarrage dans ce fichier, puis relue (volume Docker en local)
+    fichier-cle: ${JWT_KEY_FILE:}
+    key-id: ${JWT_KEY_ID:}
+    expiration: ${JWT_EXPIRATION:PT1H}
+    duree-jeton-service: PT5M
+  admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+  inscription:
+    # Un compte resté EN_ATTENTE plus longtemps est une saga interrompue : profil et compte supprimés
+    delai-abandon: PT15M
+    intervalle-nettoyage: PT5M
+  services:
+    # Nom (dans Eureka) du service qui détient chaque type de profil : le monolithe jusqu'aux sous-étapes c et d
+    profils-etudiant: ${PROFILS_ETUDIANT_SERVICE:stagehub-backend}
+    profils-entreprise: ${PROFILS_ENTREPRISE_SERVICE:stagehub-backend}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+
+logging:
+  level:
+    com.netflix.discovery: WARN
