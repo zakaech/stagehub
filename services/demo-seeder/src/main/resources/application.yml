@@ -14,3 +14,6 @@ stagehub:
     admin-email: ${ADMIN_EMAIL:}
     admin-password: ${ADMIN_PASSWORD:}
     attente-max: PT3M
+    # Chaque service a sa propre copie de l'annuaire Eureka (relue toutes les 5 s, plus 5 s de cache du
+    # LoadBalancer) : la gateway peut voir candidature-service ~10 s avant auth-service
+    propagation: PT10S

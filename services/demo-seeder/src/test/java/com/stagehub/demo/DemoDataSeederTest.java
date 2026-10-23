@@ -33,7 +33,7 @@ class DemoDataSeederTest {
     private ApiStageHub api;
 
     private final DemoProperties properties =
-            new DemoProperties("http://gateway", "demo1234", "admin@test.local", "admin-1234", Duration.ZERO);
+            new DemoProperties("http://gateway", "demo1234", "admin@test.local", "admin-1234", Duration.ZERO, Duration.ZERO);
 
     @Test
     void donneesDejaPresentes_rienNEstCree() throws Exception {
@@ -52,6 +52,7 @@ class DemoDataSeederTest {
         // Le compte témoin n'existe pas encore au premier essai, puis toutes les connexions réussissent
         when(api.connecter(anyString(), anyString())).thenReturn(Optional.of("jeton"));
         when(api.connecter(DemoDataSeeder.COMPTE_TEMOIN, "demo1234")).thenReturn(Optional.empty(), Optional.of("jeton-tn"));
+        when(api.servicesPrets("jeton")).thenReturn(true);
         lenient().when(api.postuler(anyString(), anyLong(), any())).thenReturn(10L);
 
         new DemoDataSeeder(api, properties, HORLOGE).run(null);
@@ -77,6 +78,19 @@ class DemoDataSeederTest {
         assertThatThrownBy(() -> new DemoDataSeeder(api, properties, HORLOGE).run(null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ADMIN_EMAIL");
+    }
+
+    @Test
+    void servicesMetierJamaisJoignables_arretSansRienCreer() {
+        when(api.prete()).thenReturn(true);
+        when(api.connecter(anyString(), anyString())).thenReturn(Optional.of("jeton"));
+        when(api.connecter(DemoDataSeeder.COMPTE_TEMOIN, "demo1234")).thenReturn(Optional.empty());
+        when(api.servicesPrets("jeton")).thenReturn(false);
+
+        assertThatThrownBy(() -> new DemoDataSeeder(api, properties, HORLOGE).run(null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Services injoignables");
+        verify(api, never()).inscrireEntreprise(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test

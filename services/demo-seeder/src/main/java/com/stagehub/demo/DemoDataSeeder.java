@@ -44,6 +44,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         }
         String admin = api.connecter(properties.adminEmail(), properties.adminPassword())
                 .orElseThrow(() -> new IllegalStateException("Connexion admin impossible : vérifier ADMIN_EMAIL / ADMIN_PASSWORD"));
+        attendreLesServices(admin);
         LocalDate aujourdhui = LocalDate.now(clock.withZone(ZoneId.of("Africa/Casablanca")));
 
         // Entreprises : deux validées par l'admin, une laissée en attente
@@ -108,6 +109,24 @@ public class DemoDataSeeder implements ApplicationRunner {
             log.info("API pas encore prête (services en cours de démarrage ou d'enregistrement dans Eureka)...");
             Thread.sleep(3000);
         }
+    }
+
+    /**
+     * Inscrire un étudiant fait appeler candidature-service par auth-service (saga). Si auth-service ne le trouve pas
+     * encore dans l'annuaire, la création du profil ET sa compensation échouent : le compte reste EN_ATTENTE (nettoyé
+     * après 15 min) et l'email est bloqué entre-temps. On attend donc que les services répondent à travers la
+     * gateway, puis le temps de propagation de l'annuaire vers les autres services.
+     */
+    private void attendreLesServices(String jetonAdmin) throws InterruptedException {
+        Instant limite = clock.instant().plus(properties.attenteMax());
+        while (!api.servicesPrets(jetonAdmin)) {
+            if (!clock.instant().isBefore(limite)) {
+                throw new IllegalStateException("Services injoignables après " + properties.attenteMax());
+            }
+            log.info("Services métier pas encore joignables à travers la gateway...");
+            Thread.sleep(3000);
+        }
+        Thread.sleep(properties.propagation());
     }
 
     private String jeton(String email) {
