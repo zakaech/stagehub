@@ -61,9 +61,9 @@ stagehub:
     delai-abandon: PT15M
     intervalle-nettoyage: PT5M
   services:
-    # Nom (dans Eureka) du service qui détient chaque type de profil : le monolithe jusqu'aux sous-étapes c et d
-    profils-etudiant: ${PROFILS_ETUDIANT_SERVICE:stagehub-backend}
-    profils-entreprise: ${PROFILS_ENTREPRISE_SERVICE:stagehub-backend}
+    # Nom (dans Eureka) du service qui détient chaque type de profil
+    profils-etudiant: ${PROFILS_ETUDIANT_SERVICE:candidature-service}
+    profils-entreprise: ${PROFILS_ENTREPRISE_SERVICE:offre-service}
 
 management:
   endpoints:

@@ -3,7 +3,6 @@
 
 # Maven
 backend/target/
-!backend/.mvn/wrapper/maven-wrapper.jar
 services/*/target/
 
 # Angular / Node (phase 2)

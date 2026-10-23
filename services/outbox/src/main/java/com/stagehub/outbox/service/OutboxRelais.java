@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
  *   <li>si le service s'arrête entre l'envoi et le marquage, l'événement repartira : livraison « au moins une
  *       fois », d'où l'en-tête d'id qui permet au consommateur d'ignorer un doublon ;</li>
  *   <li>Kafka indisponible : on s'arrête au premier échec, les suivants restent dans la table (dans l'ordre) et
- *       repartent au prochain passage. Le monolithe continue de fonctionner sans Kafka.</li>
+ *       repartent au prochain passage. Le service continue de fonctionner sans Kafka.</li>
  * </ul>
  * Désactivable ({@code stagehub.outbox.relais.actif=false}) : la plupart des tests n'ont pas de Kafka.
  * Bibliothèque partagée (phase 7) : chaque service qui publie des événements a sa table outbox (migration

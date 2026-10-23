@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 /**
  * Client HTTP déclaratif (OpenFeign) vers le service qui détient les profils étudiants : Spring génère
  * l'implémentation, résout le nom du service dans Eureka et répartit les appels entre ses instances.
- * Nom configurable : le monolithe aujourd'hui, candidature-service après la sous-étape (d), sans changer ce code.
+ * Nom configurable (candidature-service) : il a changé au fil de l'extraction du monolithe sans toucher ce code.
  */
 @FeignClient(name = "${stagehub.services.profils-etudiant}", contextId = "profilsEtudiant", path = "/internal/etudiants")
 public interface ProfilEtudiantClient {

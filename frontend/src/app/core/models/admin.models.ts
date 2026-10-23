@@ -15,7 +15,7 @@ export interface StatistiquesOffresResponse {
   entreprisesEnAttente: number;
 }
 
-/** Partie « candidatures » des statistiques (monolithe, puis candidature-service). */
+/** Partie « candidatures » des statistiques (candidature-service). */
 export interface StatistiquesCandidaturesResponse {
   nombreCandidatures: number;
   candidaturesParStatut: Record<StatutCandidature, number>;

@@ -1,7 +1,7 @@
 // Pipeline CI/CD de StageHub (phase 6), exécuté par le job multibranche « StageHub » de Jenkins pour
 // chaque branche du dépôt. Guide : docs/CI.md.
 //
-//   Préparation → Tests ((backend → services) ∥ frontend) → Images → Déploiement recette (main)
+//   Préparation → Tests (services ∥ frontend) → Images → Déploiement recette (main)
 //                                                                  → Publication GHCR + déploiement distant (main, désactivés)
 //
 // Toute étape en échec arrête le pipeline : les étapes suivantes sont sautées (« skipped »).
@@ -25,8 +25,8 @@ pipeline {
 
     environment {
         REGISTRE = 'ghcr.io/zakaech'
-        // Microservices construits depuis services/ (phase 7) ; la liste s'allonge à chaque service extrait
-        SERVICES = 'discovery-server api-gateway auth-service notification-service offre-service demo-seeder'
+        // Microservices construits depuis services/ (phase 7 ; le monolithe a été supprimé en sous-étape d)
+        SERVICES = 'discovery-server api-gateway auth-service notification-service offre-service candidature-service demo-seeder'
     }
 
     stages {
@@ -45,54 +45,32 @@ pipeline {
 
         stage('Tests') {
             parallel {
-                // Backend puis services, l'un après l'autre : deux builds Maven avec Testcontainers en même temps
-                // dépasseraient la mémoire du conteneur Jenkins (3 Go)
-                stage('Java') {
-                    stages {
-                        stage('Backend') {
-                            steps {
-                                dir('backend') {
-                                    // Tests unitaires + tests d'intégration (Testcontainers, sur DinD) + rapport JaCoCo
-                                    // + contrôle des seuils : un test rouge OU une couverture insuffisante → échec
-                                    sh './mvnw -B -ntp verify'
-                                }
-                            }
-                            post {
-                                always {
-                                    junit testResults: 'backend/target/surefire-reports/TEST-*.xml, backend/target/failsafe-reports/TEST-*.xml',
-                                          allowEmptyResults: true
-                                    recordCoverage tools: [[parser: 'JACOCO', pattern: 'backend/target/site/jacoco/jacoco.xml']],
-                                                   id: 'jacoco', name: 'Couverture backend (JaCoCo)',
-                                                   sourceDirectories: [[path: 'backend/src/main/java']],
-                                                   sourceCodeRetention: 'LAST_BUILD'
-                                }
-                            }
+                stage('Services') {
+                    steps {
+                        dir('services') {
+                            // Tous les microservices (POM parent multi-module) : tests unitaires + tests d'intégration
+                            // (Testcontainers, sur DinD) + rapport JaCoCo + contrôle des seuils : un test rouge OU une
+                            // couverture insuffisante → échec
+                            sh './mvnw -B -ntp verify'
                         }
-                        stage('Services') {
-                            steps {
-                                dir('services') {
-                                    // Tous les microservices (POM parent multi-module) : tests + seuils JaCoCo
-                                    sh './mvnw -B -ntp verify'
-                                }
-                            }
-                            post {
-                                always {
-                                    junit testResults: 'services/*/target/surefire-reports/TEST-*.xml, services/*/target/failsafe-reports/TEST-*.xml',
-                                          allowEmptyResults: true
-                                    recordCoverage tools: [[parser: 'JACOCO', pattern: 'services/*/target/site/jacoco/jacoco.xml']],
-                                                   id: 'jacoco-services', name: 'Couverture services (JaCoCo)',
-                                                   sourceDirectories: [[path: 'services/commons/src/main/java'],
-                                                                       [path: 'services/outbox/src/main/java'],
-                                                                       [path: 'services/audit/src/main/java'],
-                                                                       [path: 'services/discovery-server/src/main/java'],
-                                                                       [path: 'services/api-gateway/src/main/java'],
-                                                                       [path: 'services/auth-service/src/main/java'],
-                                                                       [path: 'services/notification-service/src/main/java'],
-                                                                       [path: 'services/offre-service/src/main/java'],
-                                                                       [path: 'services/demo-seeder/src/main/java']],
-                                                   sourceCodeRetention: 'LAST_BUILD'
-                                }
-                            }
+                    }
+                    post {
+                        always {
+                            junit testResults: 'services/*/target/surefire-reports/TEST-*.xml, services/*/target/failsafe-reports/TEST-*.xml',
+                                  allowEmptyResults: true
+                            recordCoverage tools: [[parser: 'JACOCO', pattern: 'services/*/target/site/jacoco/jacoco.xml']],
+                                           id: 'jacoco-services', name: 'Couverture services (JaCoCo)',
+                                           sourceDirectories: [[path: 'services/commons/src/main/java'],
+                                                               [path: 'services/outbox/src/main/java'],
+                                                               [path: 'services/audit/src/main/java'],
+                                                               [path: 'services/discovery-server/src/main/java'],
+                                                               [path: 'services/api-gateway/src/main/java'],
+                                                               [path: 'services/auth-service/src/main/java'],
+                                                               [path: 'services/notification-service/src/main/java'],
+                                                               [path: 'services/offre-service/src/main/java'],
+                                                               [path: 'services/candidature-service/src/main/java'],
+                                                               [path: 'services/demo-seeder/src/main/java']],
+                                           sourceCodeRetention: 'LAST_BUILD'
                         }
                     }
                 }
@@ -119,9 +97,7 @@ pipeline {
                 // buildx (BuildKit) : une variante par plateforme, réunies sous un même tag (manifest list).
                 // --load les range dans le magasin d'images de DinD (containerd, qui accepte le multi-architecture).
                 sh '''
-                    for app in backend frontend; do
-                        docker buildx build --platform "$PLATEFORMES" --tag "stagehub-$app:$IMAGE_TAG" --load "$app"
-                    done
+                    docker buildx build --platform "$PLATEFORMES" --tag "stagehub-frontend:$IMAGE_TAG" --load frontend
                     # Microservices : un seul Dockerfile (services/), le module est choisi par SERVICE
                     for service in $SERVICES; do
                         docker buildx build --platform "$PLATEFORMES" --build-arg SERVICE="$service" \
@@ -138,7 +114,7 @@ pipeline {
                 // .env de recette : credential « Secret file », copié dans un fichier temporaire le temps de l'étape
                 withCredentials([file(credentialsId: 'stagehub-env-recette', variable: 'ENV_RECETTE')]) {
                     // --no-build : les images de l'étape précédente ; --wait : attend les healthchecks
-                    // (backend « healthy »), sinon l'étape échoue
+                    // (tous les services « healthy »), sinon l'étape échoue
                     sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" up -d --no-build --wait --wait-timeout 300'
                     // Données de démo créées par l'API (ne fait rien si elles existent déjà) ; ses logs restent dans
                     // la console du build. Un échec ici signale aussi un parcours cassé à travers la gateway.
@@ -146,7 +122,7 @@ pipeline {
                 }
                 // Test de fumée à travers Nginx et la gateway (le nom « docker » désigne le conteneur DinD).
                 // Nouvelles tentatives : la gateway peut répondre 503 quelques secondes, le temps de trouver le
-                // backend dans l'annuaire Eureka
+                // service dans l'annuaire Eureka
                 sh 'curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "http://docker:8090/api/v1/offres?size=1" > /dev/null && echo "Recette OK : http://localhost:8095"'
             }
         }
@@ -167,7 +143,7 @@ pipeline {
                                                   usernameVariable: 'GHCR_UTILISATEUR', passwordVariable: 'GHCR_TOKEN')]) {
                     sh '''
                         echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_UTILISATEUR" --password-stdin
-                        for app in backend frontend $SERVICES; do
+                        for app in frontend $SERVICES; do
                             docker tag "stagehub-$app:$IMAGE_TAG" "$REGISTRE/stagehub-$app:$IMAGE_TAG"
                             docker push "$REGISTRE/stagehub-$app:$IMAGE_TAG"
                         done

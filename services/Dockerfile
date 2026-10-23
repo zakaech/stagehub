@@ -2,10 +2,11 @@
 
 # Image d'un microservice StageHub. Un seul Dockerfile pour tous : l'argument SERVICE choisit le module.
 #   docker build --build-arg SERVICE=api-gateway -t stagehub-api-gateway services
-# Même principe que backend/Dockerfile (phase 5) : compilation en natif, JRE seul à l'exécution, non-root.
+# Multi-stage (phase 5) : compilation en natif, JRE seul à l'exécution, utilisateur non-root.
 
 # =============================================================================
-# Étape 1 — compilation (architecture de la machine qui construit, voir backend/Dockerfile)
+# Étape 1 — compilation, sur l'architecture de la machine qui construit ($BUILDPLATFORM) : le jar est le même
+# pour amd64 et arm64, seule l'étape 2 est construite (sous émulation) pour chaque plateforme
 # =============================================================================
 FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk-alpine AS build
 ARG SERVICE

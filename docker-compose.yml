@@ -51,6 +51,7 @@ services:
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD doit être défini dans .env}
       NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD doit être défini dans .env}
       OFFRE_DB_PASSWORD: ${OFFRE_DB_PASSWORD:?OFFRE_DB_PASSWORD doit être défini dans .env}
+      CANDIDATURE_DB_PASSWORD: ${CANDIDATURE_DB_PASSWORD:?CANDIDATURE_DB_PASSWORD doit être défini dans .env}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -67,8 +68,9 @@ services:
         creer stagehub_auth "$$AUTH_DB_PASSWORD"
         creer stagehub_notification "$$NOTIFICATION_DB_PASSWORD"
         creer stagehub_offre "$$OFFRE_DB_PASSWORD"
-        # Base du monolithe (créée par l'image postgres) : PostgreSQL y autorise la connexion de tous les rôles par
-        # défaut ; on la réserve à son propriétaire
+        creer stagehub_candidature "$$CANDIDATURE_DB_PASSWORD"
+        # Base par défaut du compte administrateur (créée par l'image postgres, sans données d'application) :
+        # PostgreSQL y autorise la connexion de tous les rôles ; on la réserve à son propriétaire
         printf '%s\n' "SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'base') \gexec" \
           | psql -q -v ON_ERROR_STOP=1 -v base="$$PGDATABASE"
     logging: *logs-limites
@@ -188,7 +190,9 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 60s
+      # Délai de grâce des services Java : au démarrage à froid de toute la pile, ils se partagent le processeur et
+      # mettent jusqu'à ~105 s (mesuré) ; avec 60 s, un service lent était déclaré « unhealthy » et bloquait le reste
+      start_period: 120s
     logging: *logs-limites
 
   # Gateway : seule porte d'entrée de l'API (Nginx → gateway → services). Vérifie le JWT avec la clé publique
@@ -224,7 +228,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 60s
+      start_period: 120s
     logging: *logs-limites
 
   # ---- Microservices ---------------------------------------------------------------------------------------------
@@ -254,7 +258,8 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-PT1H}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # Services qui détiennent les profils créés à l'inscription (saga) : étudiants au monolithe jusqu'à (d)
+      # Services qui détiennent les profils créés à l'inscription (saga)
+      PROFILS_ETUDIANT_SERVICE: candidature-service
       PROFILS_ENTREPRISE_SERVICE: offre-service
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
@@ -271,7 +276,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 60s
+      start_period: 120s
     logging: *logs-limites
 
   # Emails : consomme les événements Kafka (candidatures, entreprises), idempotent, topic d'erreurs en cas d'échec
@@ -318,7 +323,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 60s
+      start_period: 120s
     logging: *logs-limites
 
   # Offres et entreprises (profils, validation par l'admin, statistiques des offres), fermeture nocturne des offres
@@ -358,60 +363,48 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 60s
+      start_period: 120s
     logging: *logs-limites
 
-  # ---- Monolithe (rétrécit à chaque sous-étape de la phase 7, supprimé à la fin de la sous-étape d) ------------
-
-  backend:
-    build: ./backend
-    # Tag "local" (build sur la machine) ou SHA du commit (Jenkins) ; IMAGE_REGISTRY=ghcr.io/zakaech/ pour
-    # tirer l'image du registre sur le serveur (voir docs/CI.md)
-    image: ${IMAGE_REGISTRY:-}stagehub-backend:${IMAGE_TAG:-local}
-    container_name: stagehub-backend
+  # Profils étudiants, CV et candidatures (dernier morceau du monolithe, phase 7 d). Lit les offres dans offre-service
+  # (OpenFeign + circuit breaker) ; publie les changements de statut dans Kafka (outbox).
+  candidature-service:
+    build:
+      context: ./services
+      args:
+        SERVICE: candidature-service
+    image: ${IMAGE_REGISTRY:-}stagehub-candidature-service:${IMAGE_TAG:-local}
+    container_name: stagehub-candidature-service
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
       discovery-server:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      # Enregistrement dans l'annuaire : la gateway le trouve sous le nom « stagehub-backend »
-      EUREKA_ENABLED: "true"
       EUREKA_URL: http://discovery-server:8761/eureka
-      # Jetons vérifiés avec la clé publique d'auth-service
       JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
-      # Dans le réseau Docker, les services se joignent par leur nom (et leur port interne)
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-stagehub}
-      DB_USERNAME: ${DB_USERNAME:-stagehub}
-      DB_PASSWORD: ${DB_PASSWORD}
-      # Lecture des offres dans offre-service (OpenFeign, instances trouvées dans Eureka)
-      # Événements publiés dans Kafka par le relais de l'outbox (les emails partent de notification-service).
-      # Pas de depends_on sur Kafka : sans lui, le monolithe fonctionne et les événements attendent dans l'outbox.
+      CANDIDATURE_DB_PASSWORD: ${CANDIDATURE_DB_PASSWORD}
+      # Changements de statut publiés par l'outbox (pas de depends_on : sans Kafka, les événements attendent)
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       CV_STORAGE_DIR: /data/cv
-      # Format des logs : vide = texte lisible ; "ecs" = JSON structuré (serveur)
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
     volumes:
-      - cv-data:/data/cv
-    # Pas de port publié : le backend n'est joignable que par la gateway (réseau Docker interne)
+      # CV déposés par les étudiants ; monté sur /data, qui appartient à l'utilisateur du service (cf. Dockerfile)
+      - cv-data:/data
     deploy:
       resources:
         limits:
-          # La JVM en prend 75 % pour le tas (MaxRAMPercentage, cf. Dockerfile)
-          memory: 768m
+          memory: 512m
     healthcheck:
-      # readiness : l'application a démarré et accepte du trafic (BusyBox wget, présent dans l'image)
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5
-      # Laisse le temps à Spring de démarrer avant de compter les échecs
-      start_period: 60s
+      start_period: 120s
     logging: *logs-limites
 
   frontend:
@@ -424,7 +417,7 @@ services:
         condition: service_healthy
       auth-service:
         condition: service_healthy
-      backend:
+      candidature-service:
         condition: service_healthy
       notification-service:
         condition: service_healthy

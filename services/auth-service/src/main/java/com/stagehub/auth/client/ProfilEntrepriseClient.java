@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-/** Client vers le service qui détient les profils entreprises (le monolithe, puis offre-service en sous-étape c). */
+/** Client vers le service qui détient les profils entreprises (offre-service, nom configurable). */
 @FeignClient(name = "${stagehub.services.profils-entreprise}", contextId = "profilsEntreprise", path = "/internal/entreprises")
 public interface ProfilEntrepriseClient {
 
