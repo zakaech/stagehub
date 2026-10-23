@@ -1,0 +1,89 @@
+server:
+  # Hors Docker ; dans un conteneur, la variable SERVER_PORT (Dockerfile) a priorité
+  port: 8084
+  # Derrière la gateway : X-Forwarded-* donnent l'adresse publique (en-tête Location des offres créées)
+  forward-headers-strategy: framework
+  shutdown: graceful
+
+spring:
+  application:
+    name: offre-service
+  config:
+    import: optional:file:../../.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${OFFRE_DB_NAME:stagehub_offre}
+    username: ${OFFRE_DB_USERNAME:stagehub_offre}
+    password: ${OFFRE_DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 32
+  flyway:
+    # Migrations du service + tables des bibliothèques (outbox : V1000, audit : V1001)
+    locations: classpath:db/migration,classpath:db/outbox,classpath:db/audit
+  data:
+    web:
+      pageable:
+        max-page-size: 50
+  web:
+    locale: fr
+    locale-resolver: fixed
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+
+eureka:
+  client:
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+stagehub:
+  fuseau: Africa/Casablanca
+  offres:
+    # Fermeture des offres expirées : chaque jour à 00:05 ; "-" pour désactiver (tests) ; démonstration ShedLock :
+    # OFFRES_CRON_FERMETURE="0 * * * * *" (chaque minute)
+    cron-fermeture: ${OFFRES_CRON_FERMETURE:0 5 0 * * *}
+  outbox:
+    relais:
+      actif: ${OUTBOX_RELAIS_ACTIF:true}
+      intervalle: 1s
+  jwt:
+    jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8082/.well-known/jwks.json}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+
+logging:
+  level:
+    com.netflix.discovery: WARN

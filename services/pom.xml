@@ -31,6 +31,7 @@
         <module>api-gateway</module>
         <module>auth-service</module>
         <module>notification-service</module>
+        <module>offre-service</module>
         <module>demo-seeder</module>
     </modules>
 
