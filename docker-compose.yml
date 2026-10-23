@@ -50,6 +50,7 @@ services:
       PGDATABASE: ${DB_NAME:-stagehub}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD doit être défini dans .env}
       NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD doit être défini dans .env}
+      OFFRE_DB_PASSWORD: ${OFFRE_DB_PASSWORD:?OFFRE_DB_PASSWORD doit être défini dans .env}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -65,6 +66,7 @@ services:
         }
         creer stagehub_auth "$$AUTH_DB_PASSWORD"
         creer stagehub_notification "$$NOTIFICATION_DB_PASSWORD"
+        creer stagehub_offre "$$OFFRE_DB_PASSWORD"
         # Base du monolithe (créée par l'image postgres) : PostgreSQL y autorise la connexion de tous les rôles par
         # défaut ; on la réserve à son propriétaire
         printf '%s\n' "SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'base') \gexec" \
@@ -252,6 +254,8 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-PT1H}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Services qui détiennent les profils créés à l'inscription (saga) : étudiants au monolithe jusqu'à (d)
+      PROFILS_ENTREPRISE_SERVICE: offre-service
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
@@ -317,6 +321,46 @@ services:
       start_period: 60s
     logging: *logs-limites
 
+  # Offres et entreprises (profils, validation par l'admin, statistiques des offres), fermeture nocturne des offres
+  # expirées. Pas de container_name : plusieurs instances possibles (docker compose up -d --scale offre-service=2),
+  # trouvées par la gateway dans Eureka ; ShedLock garantit qu'une seule exécute la tâche nocturne.
+  offre-service:
+    build:
+      context: ./services
+      args:
+        SERVICE: offre-service
+    image: ${IMAGE_REGISTRY:-}stagehub-offre-service:${IMAGE_TAG:-local}
+    restart: unless-stopped
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      discovery-server:
+        condition: service_healthy
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      JWT_JWK_SET_URI: http://auth-service:8080/.well-known/jwks.json
+      DB_HOST: postgres
+      DB_PORT: 5432
+      OFFRE_DB_PASSWORD: ${OFFRE_DB_PASSWORD}
+      # Validation des entreprises publiée par l'outbox (pas de depends_on : sans Kafka, les événements attendent)
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Fermeture des offres expirées (cron Spring, 6 champs) ; ex. "0 * * * * *" pour la démonstration ShedLock
+      OFFRES_CRON_FERMETURE: ${OFFRES_CRON_FERMETURE:-0 5 0 * * *}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
+    deploy:
+      resources:
+        limits:
+          memory: 448m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+    logging: *logs-limites
+
   # ---- Monolithe (rétrécit à chaque sous-étape de la phase 7, supprimé à la fin de la sous-étape d) ------------
 
   backend:
@@ -344,6 +388,7 @@ services:
       DB_NAME: ${DB_NAME:-stagehub}
       DB_USERNAME: ${DB_USERNAME:-stagehub}
       DB_PASSWORD: ${DB_PASSWORD}
+      # Lecture des offres dans offre-service (OpenFeign, instances trouvées dans Eureka)
       # Événements publiés dans Kafka par le relais de l'outbox (les emails partent de notification-service).
       # Pas de depends_on sur Kafka : sans lui, le monolithe fonctionne et les événements attendent dans l'outbox.
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -382,6 +427,8 @@ services:
       backend:
         condition: service_healthy
       notification-service:
+        condition: service_healthy
+      offre-service:
         condition: service_healthy
     ports:
       - "${APP_PORT:-8090}:8080"

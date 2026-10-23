@@ -26,7 +26,7 @@ pipeline {
     environment {
         REGISTRE = 'ghcr.io/zakaech'
         // Microservices construits depuis services/ (phase 7) ; la liste s'allonge à chaque service extrait
-        SERVICES = 'discovery-server api-gateway auth-service notification-service demo-seeder'
+        SERVICES = 'discovery-server api-gateway auth-service notification-service offre-service demo-seeder'
     }
 
     stages {
@@ -82,10 +82,13 @@ pipeline {
                                     recordCoverage tools: [[parser: 'JACOCO', pattern: 'services/*/target/site/jacoco/jacoco.xml']],
                                                    id: 'jacoco-services', name: 'Couverture services (JaCoCo)',
                                                    sourceDirectories: [[path: 'services/commons/src/main/java'],
+                                                                       [path: 'services/outbox/src/main/java'],
+                                                                       [path: 'services/audit/src/main/java'],
                                                                        [path: 'services/discovery-server/src/main/java'],
                                                                        [path: 'services/api-gateway/src/main/java'],
                                                                        [path: 'services/auth-service/src/main/java'],
                                                                        [path: 'services/notification-service/src/main/java'],
+                                                                       [path: 'services/offre-service/src/main/java'],
                                                                        [path: 'services/demo-seeder/src/main/java']],
                                                    sourceCodeRetention: 'LAST_BUILD'
                                 }
