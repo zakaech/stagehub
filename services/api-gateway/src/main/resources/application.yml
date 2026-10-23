@@ -1,5 +1,6 @@
 server:
-  port: ${SERVER_PORT:8080}
+  # Hors Docker (8080 est pris par Apache sur le poste) ; dans un conteneur, SERVER_PORT (Dockerfile) a priorité
+  port: 8088
 
 spring:
   application:
@@ -22,22 +23,35 @@ spring:
           # En-têtes X-Forwarded-* reçus d'Nginx : acceptés seulement si la requête vient d'une adresse
           # privée (réseau Docker). Sinon un client pourrait se faire passer pour un autre hôte ou une autre IP.
           trusted-proxies: '${GATEWAY_TRUSTED_PROXIES:(127\..*|10\..*|172\.(1[6-9]|2[0-9]|3[01])\..*|192\.168\..*)}'
+          # Les routes sont essayées dans l'ordre : les plus précises (services extraits) avant /api/** (monolithe).
+          # RemoveRequestHeader=Origin : CORS est traité ici, une seule fois ; les services ne reçoivent plus
+          # d'Origin et n'ont pas à refaire (ni à contredire) la décision. Cf. SecurityConfig.
           routes:
-            # API du monolithe (sous-étape a) : tout /api/** ; les services extraits auront leurs routes, plus
-            # précises, déclarées avant celle-ci
+            - id: auth-service
+              uri: ${AUTH_SERVICE_URI:lb://auth-service}
+              predicates:
+                - Path=/api/v1/auth/**
+              filters:
+                - RemoveRequestHeader=Origin
             - id: monolithe-api
               uri: ${BACKEND_URI:lb://stagehub-backend}
               predicates:
                 - Path=/api/**
               filters:
-                # CORS est traité ici, une seule fois : les services ne reçoivent plus d'Origin et n'ont pas à
-                # refaire (ni à contredire) la décision. Cf. SecurityConfig.
                 - RemoveRequestHeader=Origin
-            # Swagger du monolithe (présent seulement si SWAGGER_ENABLED=true côté monolithe)
-            - id: monolithe-swagger
+            # Documentation OpenAPI de chaque service, affichée par le Swagger UI de la gateway
+            - id: auth-service-api-docs
+              uri: ${AUTH_SERVICE_URI:lb://auth-service}
+              predicates:
+                - Path=/v3/api-docs/auth-service
+              filters:
+                - SetPath=/v3/api-docs
+            - id: monolithe-api-docs
               uri: ${BACKEND_URI:lb://stagehub-backend}
               predicates:
-                - Path=/swagger-ui.html,/swagger-ui/**,/v3/api-docs/**
+                - Path=/v3/api-docs/monolithe
+              filters:
+                - SetPath=/v3/api-docs
   http:
     clients:
       # Appels de la gateway vers les services : on n'attend pas indéfiniment une instance bloquée
@@ -57,9 +71,8 @@ eureka:
 
 stagehub:
   jwt:
-    # Sous-étape (a) : même secret HS256 que le monolithe ; RS256 + clé publique à partir de la sous-étape (b)
-    secret: ${JWT_SECRET:}
-    issuer: stagehub
+    # Clé publique d'auth-service (RS256) : de quoi vérifier les jetons, jamais en signer
+    jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8082/.well-known/jwks.json}
   cors:
     # Origines autorisées à appeler l'API depuis un navigateur (liste séparée par des virgules)
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
@@ -74,6 +87,23 @@ management:
       show-details: never
       probes:
         enabled: true
+
+# Swagger UI unique (http://.../swagger-ui.html) : une liste déroulante pour la documentation de chaque service.
+# La gateway n'a pas d'API à elle : sa propre documentation est rangée sous un autre chemin, hors des routes.
+springdoc:
+  api-docs:
+    path: /v3/api-docs-gateway
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    urls:
+      - name: monolithe
+        url: /v3/api-docs/monolithe
+      - name: auth-service
+        url: /v3/api-docs/auth-service
 
 logging:
   level:

@@ -8,8 +8,9 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
  * Point d'entrée unique de l'API (Nginx → gateway → services). Elle vérifie le JWT et les grands droits
  * par préfixe d'URL, traite CORS, puis relaie la requête vers l'instance trouvée dans Eureka.
  * Les routes sont déclarées dans application.yml ; les services revalident le jeton (défense en profondeur).
+ * scanBasePackages : inclut aussi com.stagehub.commons (gestion des erreurs de sécurité).
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = "com.stagehub")
 @ConfigurationPropertiesScan
 public class ApiGatewayApplication {
 

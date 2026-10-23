@@ -1,5 +1,8 @@
 package com.stagehub.gateway.security;
 
+import com.stagehub.commons.security.JwtVerification;
+import com.stagehub.commons.security.ProblemDetailSecurityHandler;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -8,18 +11,12 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import javax.crypto.spec.SecretKeySpec;
 import java.time.Duration;
 import java.util.List;
 
@@ -49,7 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         // Appels entre services : jamais par la porte d'entrée publique (même avec un jeton admin)
                         .requestMatchers("/internal/**", "/api/*/internal/**").denyAll()
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs-gateway/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register/**", "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/offres", "/api/v1/offres/**").permitAll()
                         .requestMatchers("/api/v1/etudiant/**").hasRole("ETUDIANT")
@@ -59,7 +56,7 @@ public class SecurityConfig {
                         // Tout ce qui n'est pas une route connue est refusé (pas de proxy ouvert)
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(resourceServer -> resourceServer
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(JwtVerification.convertisseurDeRoles()))
                         .authenticationEntryPoint(problemDetailHandler)
                         .accessDeniedHandler(problemDetailHandler))
                 .exceptionHandling(exceptions -> exceptions
@@ -68,25 +65,13 @@ public class SecurityConfig {
         return http.build();
     }
 
-    /** Vérifie la signature HS256, la date d'expiration (exp) et l'émetteur (iss). */
+    /**
+     * Vérifie les jetons avec la clé publique d'auth-service (JWKS, RS256 seulement) : la gateway peut vérifier un
+     * jeton, pas en fabriquer.
+     */
     @Bean
-    JwtDecoder jwtDecoder(JwtProperties properties) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder
-                .withSecretKey(new SecretKeySpec(properties.secretEnOctets(), "HmacSHA256"))
-                .macAlgorithm(MacAlgorithm.HS256)
-                .build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
-        return decoder;
-    }
-
-    /** Claim "role" (ex. "ENTREPRISE") → autorité "ROLE_ENTREPRISE", utilisée par hasRole(...). */
-    private JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-        authorities.setAuthoritiesClaimName("role");
-        authorities.setAuthorityPrefix("ROLE_");
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(authorities);
-        return converter;
+    JwtDecoder jwtDecoder(@Value("${stagehub.jwt.jwk-set-uri}") String jwkSetUri) {
+        return JwtVerification.decodeurJwks(jwkSetUri);
     }
 
     /**

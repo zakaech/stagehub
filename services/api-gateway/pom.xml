@@ -14,6 +14,12 @@
     <description>Point d'entrée unique de l'API : validation du JWT, CORS, routage vers les services</description>
 
     <dependencies>
+        <!-- Format des erreurs, vérification des JWT (RS256 via JWKS) -->
+        <dependency>
+            <groupId>com.stagehub</groupId>
+            <artifactId>commons</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- Spring Cloud Gateway, variante Web MVC (servlet) : même modèle que les services -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -41,6 +47,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- Swagger UI unique : affiche la documentation de chaque service (relayée par les routes /v3/api-docs/...) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
         </dependency>
 
         <dependency>

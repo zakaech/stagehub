@@ -1,5 +1,6 @@
 package com.stagehub.gateway.error;
 
+import com.stagehub.commons.error.ProblemDetailExceptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -7,36 +8,23 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.context.request.WebRequest;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
 
 /**
- * Erreurs produites par la gateway elle-même, au format ProblemDetail (RFC 9457) avec un champ {@code code}
- * stable, comme dans les services. Les erreurs renvoyées par un service sont relayées telles quelles.
+ * Erreurs produites par la gateway elle-même : format commun (commons : 401, 403, 500...) + pannes propres à une
+ * passerelle (service injoignable, trop lent, absent de l'annuaire). Les erreurs d'un service sont relayées telles quelles.
  */
 @RestControllerAdvice
-public class GatewayExceptionHandler extends ResponseEntityExceptionHandler {
+public class GatewayExceptionHandler extends ProblemDetailExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayExceptionHandler.class);
-
-    @ExceptionHandler(AuthenticationException.class)
-    ProblemDetail handleAuthentication(AuthenticationException ex) {
-        return probleme(HttpStatus.UNAUTHORIZED, "Authentification requise ou jeton invalide", "NonAuthentifie");
-    }
-
-    @ExceptionHandler(AccessDeniedException.class)
-    ProblemDetail handleAccessDenied(AccessDeniedException ex) {
-        return probleme(HttpStatus.FORBIDDEN, "Vous n'avez pas les droits pour accéder à cette ressource", "AccesRefuse");
-    }
 
     /** Le service n'a pas répondu : connexion refusée (502) ou délai dépassé (504). */
     @ExceptionHandler(ResourceAccessException.class)
@@ -61,11 +49,5 @@ public class GatewayExceptionHandler extends ResponseEntityExceptionHandler {
             return handleExceptionInternal(ex, body, headers, status, request);
         }
         return super.handleErrorResponseException(ex, headers, status, request);
-    }
-
-    private static ProblemDetail probleme(HttpStatus status, String detail, String code) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setProperty("code", code);
-        return problem;
     }
 }
