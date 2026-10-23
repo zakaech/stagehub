@@ -26,7 +26,7 @@ pipeline {
     environment {
         REGISTRE = 'ghcr.io/zakaech'
         // Microservices construits depuis services/ (phase 7) ; la liste s'allonge à chaque service extrait
-        SERVICES = 'discovery-server api-gateway'
+        SERVICES = 'discovery-server api-gateway auth-service demo-seeder'
     }
 
     stages {
@@ -81,8 +81,11 @@ pipeline {
                                           allowEmptyResults: true
                                     recordCoverage tools: [[parser: 'JACOCO', pattern: 'services/*/target/site/jacoco/jacoco.xml']],
                                                    id: 'jacoco-services', name: 'Couverture services (JaCoCo)',
-                                                   sourceDirectories: [[path: 'services/discovery-server/src/main/java'],
-                                                                       [path: 'services/api-gateway/src/main/java']],
+                                                   sourceDirectories: [[path: 'services/commons/src/main/java'],
+                                                                       [path: 'services/discovery-server/src/main/java'],
+                                                                       [path: 'services/api-gateway/src/main/java'],
+                                                                       [path: 'services/auth-service/src/main/java'],
+                                                                       [path: 'services/demo-seeder/src/main/java']],
                                                    sourceCodeRetention: 'LAST_BUILD'
                                 }
                             }
@@ -133,6 +136,9 @@ pipeline {
                     // --no-build : les images de l'étape précédente ; --wait : attend les healthchecks
                     // (backend « healthy »), sinon l'étape échoue
                     sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" up -d --no-build --wait --wait-timeout 300'
+                    // Données de démo créées par l'API (ne fait rien si elles existent déjà) ; ses logs restent dans
+                    // la console du build. Un échec ici signale aussi un parcours cassé à travers la gateway.
+                    sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" run --rm demo-seeder'
                 }
                 // Test de fumée à travers Nginx et la gateway (le nom « docker » désigne le conteneur DinD).
                 // Nouvelles tentatives : la gateway peut répondre 503 quelques secondes, le temps de trouver le
