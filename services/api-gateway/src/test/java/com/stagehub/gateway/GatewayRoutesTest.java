@@ -322,6 +322,22 @@ class GatewayRoutesTest {
     }
 
     @Test
+    void serviceIndisponible503_relayeSansRejouerLaRequete() throws Exception {
+        String probleme = "{\"status\":503,\"code\":\"ServiceIndisponible\"}";
+        monolithe.stubFor(post(urlEqualTo("/api/v1/etudiant/offres/3/candidatures")).willReturn(aResponse()
+                .withStatus(503).withHeader("Content-Type", "application/problem+json").withBody(probleme)));
+        String jeton = jetonRs256("ETUDIANT", Instant.now().plusSeconds(3600), CLE_AUTH);
+
+        HttpResponse<String> reponse = envoyer(requete("/api/v1/etudiant/offres/3/candidatures")
+                .header("Authorization", "Bearer " + jeton).POST(HttpRequest.BodyPublishers.noBody()));
+
+        assertThat(reponse.statusCode()).isEqualTo(503);
+        assertThat(reponse.body()).isEqualTo(probleme);
+        // Une écriture n'est jamais rejouée par la gateway (HttpClient le ferait par défaut sur un 503)
+        monolithe.verify(1, postRequestedFor(urlEqualTo("/api/v1/etudiant/offres/3/candidatures")));
+    }
+
+    @Test
     void serviceQuiCoupeLaConnexion_502() throws Exception {
         offres.stubFor(get(urlEqualTo("/api/v1/offres/1"))
                 .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
@@ -330,6 +346,8 @@ class GatewayRoutesTest {
 
         assertThat(reponse.statusCode()).isEqualTo(502);
         assertThat(reponse.body()).contains("\"code\":\"ServiceIndisponible\"");
+        // GET (idempotent) coupé avant toute réponse : une seule nouvelle tentative
+        offres.verify(2, getRequestedFor(urlEqualTo("/api/v1/offres/1")));
     }
 
     @Test
