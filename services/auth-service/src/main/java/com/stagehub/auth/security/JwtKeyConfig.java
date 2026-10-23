@@ -23,11 +23,13 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.Base64;
@@ -83,7 +85,8 @@ public class JwtKeyConfig {
     /**
      * Sans clé fournie (essai local en une commande) : la clé est générée au premier démarrage dans un fichier (volume
      * Docker), puis relue aux démarrages suivants — les jetons restent valides après un redémarrage, et aucune clé
-     * n'est jamais dans le dépôt. CREATE_NEW : si deux instances démarrent ensemble, une seule écrit, l'autre relit.
+     * n'est jamais dans le dépôt. Création exclusive : si deux instances démarrent ensemble, une seule écrit, l'autre
+     * relit (prévu pour l'essai local à une instance ; sur un serveur, la clé est fournie par JWT_PRIVATE_KEY).
      */
     static String lireOuGenerer(Path fichier) throws GeneralSecurityException, IOException {
         if (Files.exists(fichier)) {
@@ -96,13 +99,23 @@ public class JwtKeyConfig {
             Files.createDirectories(fichier.getParent());
         }
         try {
-            Files.writeString(fichier, base64, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            creerLisibleParLeProprietaireSeul(fichier);
         } catch (FileAlreadyExistsException e) {
             return Files.readString(fichier).trim();
         }
+        Files.writeString(fichier, base64, StandardOpenOption.WRITE);
         log.warn("Aucune clé JWT fournie (JWT_PRIVATE_KEY) : clé RSA générée et enregistrée dans {}. "
                 + "Sur un serveur, fournir la clé par JWT_PRIVATE_KEY (sauvegarde, plusieurs instances).", fichier);
         return base64;
+    }
+
+    /** Clé privée : droits rw------- (Linux, conteneur) ; sous Windows (tests), les droits POSIX n'existent pas. */
+    private static void creerLisibleParLeProprietaireSeul(Path fichier) throws IOException {
+        try {
+            Files.createFile(fichier, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+        } catch (UnsupportedOperationException e) {
+            Files.createFile(fichier);
+        }
     }
 
     static RSAPrivateCrtKey lireClePrivee(String valeur) throws GeneralSecurityException {
@@ -114,6 +127,12 @@ public class JwtKeyConfig {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("JWT_PRIVATE_KEY n'est pas du Base64 valide", e);
         }
-        return (RSAPrivateCrtKey) KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(der));
+        try {
+            return (RSAPrivateCrtKey) KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(der));
+        } catch (InvalidKeySpecException e) {
+            // Piège courant : « openssl genpkey -outform DER » (OpenSSL 3) et les « RSA PRIVATE KEY » sont en PKCS#1
+            throw new IllegalArgumentException("JWT_PRIVATE_KEY n'est pas une clé RSA au format PKCS#8 (clé PKCS#1 ?). "
+                    + "Conversion : openssl pkcs8 -topk8 -nocrypt -outform DER | base64 -w0", e);
+        }
     }
 }

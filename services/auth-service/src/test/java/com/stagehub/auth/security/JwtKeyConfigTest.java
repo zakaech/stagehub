@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -76,7 +77,21 @@ class JwtKeyConfigTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Base64");
         assertThatThrownBy(() -> config.cleDeSignature(proprietes(Base64.getEncoder().encodeToString(new byte[]{1, 2, 3}), null)))
-                .isInstanceOf(Exception.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PKCS#8");
+    }
+
+    /** Ce que produit « openssl genpkey -outform DER » avec OpenSSL 3 : la clé RSA nue (PKCS#1), sans l'en-tête PKCS#8. */
+    @Test
+    void clePkcs1_messageQuiDonneLaConversion() {
+        byte[] pkcs8 = Base64.getDecoder().decode(ClesDeTest.clePriveeBase64());
+        // En-tête PKCS#8 d'une clé RSA 2048 : SEQUENCE, version, identifiant d'algorithme, en-tête de l'OCTET STRING
+        byte[] pkcs1 = Arrays.copyOfRange(pkcs8, 26, pkcs8.length);
+
+        assertThatThrownBy(() -> config.cleDeSignature(proprietes(Base64.getEncoder().encodeToString(pkcs1), null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PKCS#1")
+                .hasMessageContaining("openssl pkcs8 -topk8");
     }
 
     private static JwtProperties proprietes(String clePrivee, String kid) {
