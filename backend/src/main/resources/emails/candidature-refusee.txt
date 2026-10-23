@@ -1,0 +1,10 @@
+Objet : Réponse à votre candidature pour « ${offreTitre} »
+
+Bonjour ${prenom},
+
+${entrepriseNom} a étudié votre candidature pour l'offre « ${offreTitre} » et ne lui a pas donné suite.
+D'autres offres vous attendent peut-être : ${lienOffres}
+
+Bon courage pour la suite de vos recherches.
+
+L'équipe StageHub
