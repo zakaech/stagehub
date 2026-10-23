@@ -47,8 +47,8 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * La gateway devant trois faux services (WireMock) : le monolithe, offre-service, et auth-service qui publie aussi la
- * clé publique (JWKS). On vérifie ce qu'elle laisse passer, ce qu'elle bloque elle-même (le service ne reçoit alors rien), où elle
+ * La gateway devant trois faux services (WireMock) : candidature-service, offre-service, et auth-service qui publie
+ * aussi la clé publique (JWKS). On vérifie ce qu'elle laisse passer, ce qu'elle bloque elle-même (le service ne reçoit alors rien), où elle
  * envoie chaque requête et ce qu'elle transmet.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -58,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 class GatewayRoutesTest {
 
-    private static final WireMockServer monolithe = new WireMockServer(options().dynamicPort());
+    private static final WireMockServer candidatures = new WireMockServer(options().dynamicPort());
     private static final WireMockServer auth = new WireMockServer(options().dynamicPort());
     private static final WireMockServer offres = new WireMockServer(options().dynamicPort());
 
@@ -70,14 +70,14 @@ class GatewayRoutesTest {
     private static final RequestPatternBuilder APPEL_D_API = anyRequestedFor(urlMatching("/(api|internal).*"));
 
     static {
-        monolithe.start();
+        candidatures.start();
         auth.start();
         offres.start();
     }
 
     @DynamicPropertySource
     static void routesVersLesFauxServices(DynamicPropertyRegistry registry) {
-        registry.add("BACKEND_URI", () -> "http://localhost:" + monolithe.port());
+        registry.add("CANDIDATURE_SERVICE_URI", () -> "http://localhost:" + candidatures.port());
         registry.add("AUTH_SERVICE_URI", () -> "http://localhost:" + auth.port());
         registry.add("OFFRE_SERVICE_URI", () -> "http://localhost:" + offres.port());
         registry.add("stagehub.jwt.jwk-set-uri", () -> "http://localhost:" + auth.port() + "/.well-known/jwks.json");
@@ -85,7 +85,7 @@ class GatewayRoutesTest {
 
     @AfterAll
     static void arreterLesFauxServices() {
-        monolithe.stop();
+        candidatures.stop();
         auth.stop();
         offres.stop();
     }
@@ -98,7 +98,7 @@ class GatewayRoutesTest {
 
     @BeforeEach
     void reinitialiser() throws Exception {
-        monolithe.resetAll();
+        candidatures.resetAll();
         auth.resetAll();
         offres.resetAll();
         auth.stubFor(get(urlEqualTo("/.well-known/jwks.json")).willReturn(aResponse()
@@ -124,17 +124,17 @@ class GatewayRoutesTest {
         assertThat(reponse.statusCode()).isEqualTo(200);
         assertThat(reponse.body()).isEqualTo("{\"content\":[]}");
         offres.verify(getRequestedFor(urlEqualTo("/api/v1/offres?page=0")));
-        monolithe.verify(0, APPEL_D_API);
+        candidatures.verify(0, APPEL_D_API);
     }
 
     /**
-     * Strangler fig (phase 7 c) : les routes d'offres et d'entreprises vont à offre-service, sauf les candidatures
-     * d'une offre, restées au monolithe ; le journal d'audit va au service qui tient l'entité demandée.
+     * Les routes d'offres et d'entreprises vont à offre-service, sauf les candidatures d'une offre (candidature-service) ;
+     * le journal d'audit va au service qui tient l'entité demandée (candidature-service par défaut, qui répond 400).
      */
     @Test
-    void routes_reparties_entreOffreServiceEtLeMonolithe() throws Exception {
+    void routes_reparties_entreOffreServiceEtCandidatureService() throws Exception {
         offres.stubFor(get(urlMatching("/api/.*")).willReturn(aResponse().withStatus(200)));
-        monolithe.stubFor(get(urlMatching("/api/.*")).willReturn(aResponse().withStatus(200)));
+        candidatures.stubFor(get(urlMatching("/api/.*")).willReturn(aResponse().withStatus(200)));
         String entreprise = "Bearer " + jetonRs256("ENTREPRISE", Instant.now().plusSeconds(3600), CLE_AUTH);
         String admin = "Bearer " + jetonRs256("ADMIN", Instant.now().plusSeconds(3600), CLE_AUTH);
 
@@ -145,21 +145,26 @@ class GatewayRoutesTest {
                 {"/api/v1/admin/entreprises?statut=EN_ATTENTE", admin},
                 {"/api/v1/admin/stats/offres", admin},
                 {"/api/v1/admin/audit?entite=ENTREPRISE&page=0", admin}};
-        String[][] versLeMonolithe = {
+        String etudiant = "Bearer " + jetonRs256("ETUDIANT", Instant.now().plusSeconds(3600), CLE_AUTH);
+        String[][] versCandidatureService = {
+                {"/api/v1/etudiant/candidatures?page=0", etudiant},
+                {"/api/v1/etudiant/cv", etudiant},
                 {"/api/v1/entreprise/offres/5/candidatures", entreprise},
+                {"/api/v1/entreprise/candidatures/9/cv", entreprise},
                 {"/api/v1/admin/stats/candidatures", admin},
-                {"/api/v1/admin/audit?entite=CANDIDATURE", admin}};
+                {"/api/v1/admin/audit?entite=CANDIDATURE", admin},
+                {"/api/v1/admin/audit", admin}};
 
         for (String[] appel : versOffreService) {
             assertThat(envoyer(avecJeton(requete(appel[0]), appel[1]).GET()).statusCode()).as(appel[0]).isEqualTo(200);
             offres.verify(getRequestedFor(urlEqualTo(appel[0])));
         }
-        for (String[] appel : versLeMonolithe) {
+        for (String[] appel : versCandidatureService) {
             assertThat(envoyer(avecJeton(requete(appel[0]), appel[1]).GET()).statusCode()).as(appel[0]).isEqualTo(200);
-            monolithe.verify(getRequestedFor(urlEqualTo(appel[0])));
+            candidatures.verify(getRequestedFor(urlEqualTo(appel[0])));
         }
         offres.verify(versOffreService.length, APPEL_D_API);
-        monolithe.verify(versLeMonolithe.length, APPEL_D_API);
+        candidatures.verify(versCandidatureService.length, APPEL_D_API);
     }
 
     @Test
@@ -172,7 +177,7 @@ class GatewayRoutesTest {
 
         assertThat(reponse.statusCode()).isEqualTo(200);
         auth.verify(postRequestedFor(urlEqualTo("/api/v1/auth/login")));
-        monolithe.verify(0, APPEL_D_API);
+        candidatures.verify(0, APPEL_D_API);
     }
 
     @Test
@@ -183,19 +188,19 @@ class GatewayRoutesTest {
         assertThat(reponse.headers().firstValue("Content-Type")).hasValue("application/problem+json");
         assertThat(reponse.headers().firstValue("WWW-Authenticate")).get().asString().startsWith("Bearer");
         assertThat(reponse.body()).contains("\"code\":\"NonAuthentifie\"");
-        monolithe.verify(0, APPEL_D_API);
+        candidatures.verify(0, APPEL_D_API);
     }
 
     @Test
     void jetonSigneParAuthService_requeteRelayeeAvecSonEnTeteAuthorization() throws Exception {
-        monolithe.stubFor(get(urlEqualTo("/api/v1/etudiant/candidatures")).willReturn(aResponse().withStatus(200)));
+        candidatures.stubFor(get(urlEqualTo("/api/v1/etudiant/candidatures")).willReturn(aResponse().withStatus(200)));
         String jeton = jetonRs256("ETUDIANT", Instant.now().plusSeconds(3600), CLE_AUTH);
 
         HttpResponse<String> reponse = envoyer(requete("/api/v1/etudiant/candidatures")
                 .header("Authorization", "Bearer " + jeton).GET());
 
         assertThat(reponse.statusCode()).isEqualTo(200);
-        monolithe.verify(getRequestedFor(urlEqualTo("/api/v1/etudiant/candidatures"))
+        candidatures.verify(getRequestedFor(urlEqualTo("/api/v1/etudiant/candidatures"))
                 .withHeader("Authorization", equalTo("Bearer " + jeton)));
     }
 
@@ -208,7 +213,7 @@ class GatewayRoutesTest {
 
         assertThat(reponse.statusCode()).isEqualTo(403);
         assertThat(reponse.body()).contains("\"code\":\"AccesRefuse\"");
-        monolithe.verify(0, APPEL_D_API);
+        candidatures.verify(0, APPEL_D_API);
     }
 
     @Test
@@ -224,7 +229,7 @@ class GatewayRoutesTest {
                     .header("Authorization", "Bearer " + jeton).GET());
             assertThat(reponse.statusCode()).isEqualTo(401);
         }
-        monolithe.verify(0, APPEL_D_API);
+        candidatures.verify(0, APPEL_D_API);
     }
 
     @Test
@@ -241,9 +246,22 @@ class GatewayRoutesTest {
         assertThat(avecJetonAdmin.statusCode()).isEqualTo(403);
         assertThat(avecJetonService.statusCode()).isEqualTo(403);
         assertThat(sansJeton.statusCode()).isEqualTo(401);
-        monolithe.verify(0, APPEL_D_API);
+        candidatures.verify(0, APPEL_D_API);
         auth.verify(0, APPEL_D_API);
         offres.verify(0, APPEL_D_API);
+    }
+
+    @Test
+    void cheminDApiInconnu_404SansAppelerAucunService() throws Exception {
+        String jeton = jetonRs256("ADMIN", Instant.now().plusSeconds(3600), CLE_AUTH);
+
+        HttpResponse<String> reponse = envoyer(requete("/api/v1/inconnu").header("Authorization", "Bearer " + jeton).GET());
+
+        assertThat(reponse.statusCode()).isEqualTo(404);
+        assertThat(reponse.headers().firstValue("Content-Type")).hasValue("application/problem+json");
+        candidatures.verify(0, APPEL_D_API);
+        offres.verify(0, APPEL_D_API);
+        auth.verify(0, APPEL_D_API);
     }
 
     @Test
@@ -324,7 +342,7 @@ class GatewayRoutesTest {
     @Test
     void serviceIndisponible503_relayeSansRejouerLaRequete() throws Exception {
         String probleme = "{\"status\":503,\"code\":\"ServiceIndisponible\"}";
-        monolithe.stubFor(post(urlEqualTo("/api/v1/etudiant/offres/3/candidatures")).willReturn(aResponse()
+        candidatures.stubFor(post(urlEqualTo("/api/v1/etudiant/offres/3/candidatures")).willReturn(aResponse()
                 .withStatus(503).withHeader("Content-Type", "application/problem+json").withBody(probleme)));
         String jeton = jetonRs256("ETUDIANT", Instant.now().plusSeconds(3600), CLE_AUTH);
 
@@ -334,7 +352,7 @@ class GatewayRoutesTest {
         assertThat(reponse.statusCode()).isEqualTo(503);
         assertThat(reponse.body()).isEqualTo(probleme);
         // Une écriture n'est jamais rejouée par la gateway (HttpClient le ferait par défaut sur un 503)
-        monolithe.verify(1, postRequestedFor(urlEqualTo("/api/v1/etudiant/offres/3/candidatures")));
+        candidatures.verify(1, postRequestedFor(urlEqualTo("/api/v1/etudiant/offres/3/candidatures")));
     }
 
     @Test

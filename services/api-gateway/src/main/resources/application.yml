@@ -23,7 +23,7 @@ spring:
           # En-têtes X-Forwarded-* reçus d'Nginx : acceptés seulement si la requête vient d'une adresse
           # privée (réseau Docker). Sinon un client pourrait se faire passer pour un autre hôte ou une autre IP.
           trusted-proxies: '${GATEWAY_TRUSTED_PROXIES:(127\..*|10\..*|172\.(1[6-9]|2[0-9]|3[01])\..*|192\.168\..*)}'
-          # Les routes sont essayées dans l'ordre : les plus précises (services extraits) avant /api/** (monolithe).
+          # Les routes sont essayées dans l'ordre : la première dont les prédicats correspondent l'emporte.
           # RemoveRequestHeader=Origin : CORS est traité ici, une seule fois ; les services ne reçoivent plus
           # d'Origin et n'ont pas à refaire (ni à contredire) la décision. Cf. SecurityConfig.
           routes:
@@ -33,12 +33,12 @@ spring:
                 - Path=/api/v1/auth/**
               filters:
                 - RemoveRequestHeader=Origin
-            # Phase 7 (c) : offres, entreprises et leurs statistiques sont dans offre-service... sauf les candidatures
-            # d'une offre, restées au monolithe : cette route, plus précise, passe donc avant celle d'offre-service
-            - id: monolithe-candidatures-offre
-              uri: ${BACKEND_URI:lb://stagehub-backend}
+            # Les candidatures d'une offre (/entreprise/offres/{id}/candidatures) sont à candidature-service : cette
+            # route, plus précise, passe donc avant celle d'offre-service (/entreprise/offres/**)
+            - id: candidature-service
+              uri: ${CANDIDATURE_SERVICE_URI:lb://candidature-service}
               predicates:
-                - Path=/api/v1/entreprise/offres/*/candidatures
+                - Path=/api/v1/etudiant/**,/api/v1/entreprise/offres/*/candidatures,/api/v1/entreprise/candidatures/**,/api/v1/admin/stats/candidatures
               filters:
                 - RemoveRequestHeader=Origin
             - id: offre-service
@@ -47,7 +47,8 @@ spring:
                 - Path=/api/v1/offres/**,/api/v1/entreprise/offres/**,/api/v1/admin/entreprises/**,/api/v1/admin/stats/offres
               filters:
                 - RemoveRequestHeader=Origin
-            # Chaque service tient le journal d'audit de ses entités : la gateway aiguille selon ?entite=
+            # Chaque service tient le journal d'audit de ses entités : la gateway aiguille selon ?entite=. Sans entité
+            # (ou inconnue), candidature-service répond 400 : le paramètre est obligatoire
             - id: offre-service-audit
               uri: ${OFFRE_SERVICE_URI:lb://offre-service}
               predicates:
@@ -55,12 +56,14 @@ spring:
                 - Query=entite, ENTREPRISE
               filters:
                 - RemoveRequestHeader=Origin
-            - id: monolithe-api
-              uri: ${BACKEND_URI:lb://stagehub-backend}
+            - id: candidature-service-audit
+              uri: ${CANDIDATURE_SERVICE_URI:lb://candidature-service}
               predicates:
-                - Path=/api/**
+                - Path=/api/v1/admin/audit
               filters:
                 - RemoveRequestHeader=Origin
+            # Pas de route « tout le reste » : un chemin d'API inconnu reçoit un 404 de la gateway, sans atteindre
+            # aucun service
             # Documentation OpenAPI de chaque service, affichée par le Swagger UI de la gateway
             - id: auth-service-api-docs
               uri: ${AUTH_SERVICE_URI:lb://auth-service}
@@ -74,10 +77,10 @@ spring:
                 - Path=/v3/api-docs/offre-service
               filters:
                 - SetPath=/v3/api-docs
-            - id: monolithe-api-docs
-              uri: ${BACKEND_URI:lb://stagehub-backend}
+            - id: candidature-service-api-docs
+              uri: ${CANDIDATURE_SERVICE_URI:lb://candidature-service}
               predicates:
-                - Path=/v3/api-docs/monolithe
+                - Path=/v3/api-docs/candidature-service
               filters:
                 - SetPath=/v3/api-docs
   http:
@@ -128,12 +131,12 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
     urls:
-      - name: monolithe
-        url: /v3/api-docs/monolithe
       - name: auth-service
         url: /v3/api-docs/auth-service
       - name: offre-service
         url: /v3/api-docs/offre-service
+      - name: candidature-service
+        url: /v3/api-docs/candidature-service
 
 logging:
   level:
