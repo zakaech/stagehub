@@ -1,0 +1,8 @@
+# Seuls les POM, mvnw, .mvn/ et les sources des modules sont utiles au build des images
+**/target/
+.idea/
+.vscode/
+**/*.iml
+*.log
+Dockerfile
+.dockerignore

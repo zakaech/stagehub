@@ -1,5 +1,8 @@
 # StageHub — toute l'application en une commande :  docker compose up -d --build
 #   Application : http://localhost:8090   ·   Emails (Mailpit) : http://localhost:8090/mail/
+#   Annuaire Eureka : http://localhost:8761
+#
+# Chemin d'une requête : navigateur → Nginx (frontend) → api-gateway → service (trouvé dans Eureka)
 #
 # En développement (backend et Angular lancés hors Docker), ne démarrer que les services d'appui :
 #   docker compose up -d postgres mailpit
@@ -53,6 +56,67 @@ services:
       retries: 10
     logging: *logs-limites
 
+  # ---- Phase 7 : annuaire des services et point d'entrée de l'API --------------------------------------------
+
+  # Annuaire Eureka : chaque service s'y enregistre. Tableau de bord : http://localhost:8761 (local uniquement)
+  discovery-server:
+    build:
+      context: ./services
+      args:
+        SERVICE: discovery-server
+    image: ${IMAGE_REGISTRY:-}stagehub-discovery-server:${IMAGE_TAG:-local}
+    container_name: stagehub-discovery-server
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8761
+      EUREKA_HOSTNAME: discovery-server
+    ports:
+      - "127.0.0.1:${EUREKA_PORT:-8761}:8761"
+    deploy:
+      resources:
+        limits:
+          # 256 Mo prévus au plan, mais ~240 Mo mesurés au repos (serveur Eureka : Jersey, XStream) : trop juste
+          memory: 320m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8761/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+    logging: *logs-limites
+
+  # Gateway : seule porte d'entrée de l'API (Nginx → gateway → services). Vérifie le JWT, traite CORS,
+  # relaie vers les instances trouvées dans Eureka. Pas de port publié : joignable seulement par Nginx.
+  api-gateway:
+    build:
+      context: ./services
+      args:
+        SERVICE: api-gateway
+    image: ${IMAGE_REGISTRY:-}stagehub-api-gateway:${IMAGE_TAG:-local}
+    container_name: stagehub-api-gateway
+    restart: unless-stopped
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:-http://localhost:8090}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
+    deploy:
+      resources:
+        limits:
+          memory: 320m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+    logging: *logs-limites
+
+  # ---- Monolithe (rétrécit à chaque sous-étape de la phase 7, supprimé à la fin de la sous-étape d) ------------
+
   backend:
     build: ./backend
     # Tag "local" (build sur la machine) ou SHA du commit (Jenkins) ; IMAGE_REGISTRY=ghcr.io/zakaech/ pour
@@ -65,9 +129,14 @@ services:
         condition: service_healthy
       mailpit:
         condition: service_healthy
+      discovery-server:
+        condition: service_healthy
     environment:
       # prod,demo : configuration de production + comptes de démo ; une vraie production : "prod"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod,demo}
+      # Enregistrement dans l'annuaire : la gateway le trouve sous le nom « stagehub-backend »
+      EUREKA_ENABLED: "true"
+      EUREKA_URL: http://discovery-server:8761/eureka
       # Dans le réseau Docker, les services se joignent par leur nom (et leur port interne)
       DB_HOST: postgres
       DB_PORT: 5432
@@ -95,7 +164,7 @@ services:
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
     volumes:
       - cv-data:/data/cv
-    # Pas de port publié : le backend n'est joignable que par Nginx (réseau Docker interne)
+    # Pas de port publié : le backend n'est joignable que par la gateway (réseau Docker interne)
     deploy:
       resources:
         limits:
@@ -117,6 +186,8 @@ services:
     container_name: stagehub-frontend
     restart: unless-stopped
     depends_on:
+      api-gateway:
+        condition: service_healthy
       backend:
         condition: service_healthy
     ports:

@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1
+
+# Image d'un microservice StageHub. Un seul Dockerfile pour tous : l'argument SERVICE choisit le module.
+#   docker build --build-arg SERVICE=api-gateway -t stagehub-api-gateway services
+# Même principe que backend/Dockerfile (phase 5) : compilation en natif, JRE seul à l'exécution, non-root.
+
+# =============================================================================
+# Étape 1 — compilation (architecture de la machine qui construit, voir backend/Dockerfile)
+# =============================================================================
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk-alpine AS build
+ARG SERVICE
+WORKDIR /build
+
+# Tout le projet multi-module est copié (POM parent + modules) ; le dépôt Maven est un cache BuildKit
+# partagé entre les services et entre les builds : les dépendances communes ne sont téléchargées qu'une fois.
+COPY . .
+# -pl : seulement ce module ; -am (also make) : et les modules dont il dépend.
+# sharing=locked : quand plusieurs services se construisent en parallèle (docker compose build), un seul Maven
+# à la fois écrit dans le cache partagé (deux écritures simultanées pourraient corrompre un téléchargement).
+RUN --mount=type=cache,target=/root/.m2,sharing=locked chmod +x mvnw \
+    && ./mvnw -B -q -ntp -pl "$SERVICE" -am package -DskipTests -Djacoco.skip=true \
+    && cp "$SERVICE"/target/"$SERVICE"-*.jar application.jar \
+    && java -Djarmode=tools -jar application.jar extract --layers --destination extrait
+
+# =============================================================================
+# Étape 2 — exécution : JRE seul, utilisateur non-root
+# =============================================================================
+FROM eclipse-temurin:21-jre-alpine
+
+RUN addgroup -S stagehub && adduser -S -H -G stagehub stagehub
+
+WORKDIR /app
+COPY --from=build /build/extrait/dependencies/ ./
+COPY --from=build /build/extrait/spring-boot-loader/ ./
+COPY --from=build /build/extrait/snapshot-dependencies/ ./
+COPY --from=build /build/extrait/application/ ./
+
+# Petits services, petits tas (limites de 256 à 384 Mo dans docker-compose.yml) :
+#   - MaxRAMPercentage=70 : 70 % de la limite du conteneur pour le tas, le reste pour metaspace, piles, buffers ;
+#   - SerialGC : le ramasse-miettes le plus économe en mémoire, adapté aux tas de quelques centaines de Mo ;
+#   - Xss512k : piles de threads de 512 Ko au lieu de 1 Mo (Tomcat crée jusqu'à 200 threads).
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k -XX:+ExitOnOutOfMemoryError" \
+    SERVER_PORT=8080
+
+USER stagehub
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "application.jar"]

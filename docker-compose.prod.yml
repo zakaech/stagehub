@@ -15,6 +15,10 @@ services:
     # SMTP et interface uniquement dans le réseau Docker ; interface publique via https://domaine/mail/ (mot de passe)
     ports: !reset []
 
+  discovery-server:
+    # Annuaire des services : jamais exposé sur le serveur
+    ports: !reset []
+
   frontend:
     # Nginx n'est joignable que par Caddy
     ports: !reset []

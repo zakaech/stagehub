@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # =============================================================================
-# Étape 2 — Nginx non-root : sert les fichiers statiques et relaie /api vers le backend
+# Étape 2 — Nginx non-root : sert les fichiers statiques et relaie /api vers la gateway
 # =============================================================================
 # Construite pour chaque architecture demandée (amd64, arm64)
 FROM nginxinc/nginx-unprivileged:1.29-alpine
@@ -27,7 +27,8 @@ FROM nginxinc/nginx-unprivileged:1.29-alpine
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /build/dist/stagehub/browser/ /usr/share/nginx/html/
 
-ENV BACKEND_URL=http://backend:8080 \
+# Phase 7 : l'API passe par la gateway (qui relaie vers le monolithe puis vers les microservices)
+ENV BACKEND_URL=http://api-gateway:8080 \
     MAILPIT_URL=http://mailpit:8025
 
 # L'image "unprivileged" tourne déjà avec l'utilisateur nginx (uid 101) et écoute sur 8080
