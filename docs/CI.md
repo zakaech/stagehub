@@ -1,7 +1,7 @@
 # Intégration continue : Jenkins
 
 Jenkins tourne sur le PC de développement, dans Docker. À chaque commit poussé sur GitHub, il lance pour la branche
-concernée : les tests backend et frontend, la construction des images Docker et, sur `main`, le déploiement d'une
+concernée : les tests des microservices et du frontend, la construction des images Docker et, sur `main`, le déploiement d'une
 application de **recette** (environnement de test proche de la production) sur http://localhost:8095.
 
 | | Adresse |
@@ -119,22 +119,21 @@ Jenkins le recopie dans un fichier temporaire pendant l'étape de déploiement s
 | Étape | Branches | Ce qui se passe | Bloque si… |
 |---|---|---|---|
 | Préparation | toutes | Tag des images = SHA court du commit ; plateformes selon la branche | — |
-| Tests › Backend | toutes | `./mvnw verify` : tests unitaires, tests d'intégration (Testcontainers sur DinD), rapport et **seuils JaCoCo** | un test échoue, ou couverture d'un package `service` < 80 % des lignes / 70 % des branches |
-| Tests › Services | toutes | `services/` : `./mvnw verify` de tous les microservices (après le backend : mémoire de Jenkins) | même règle que le backend, service par service |
+| Tests › Services | toutes | `services/` : `./mvnw verify` de tous les microservices (POM parent multi-module) : tests unitaires, tests d'intégration (Testcontainers sur DinD), rapport et **seuils JaCoCo** | un test échoue, ou couverture d'un package `service` < 80 % des lignes / 70 % des branches, service par service |
 | Tests › Frontend | toutes | `npm ci`, Prettier, tests Vitest (rapport JUnit) | formatage incorrect ou test en échec |
 | Images | toutes | `docker buildx build` : **amd64** sur les branches de travail, **amd64 + arm64** sur `main` | un Dockerfile ne se construit pas |
 | Déploiement recette | `main` | `docker compose up --wait` sur DinD, puis `demo-seeder` (données de démo par l'API, à travers la gateway) et test de fumée `GET /api/v1/offres` | un service n'atteint pas l'état *healthy*, ou le seeder échoue |
 | Publication GHCR | `main` + paramètre | Push des images sur `ghcr.io/zakaech` | (désactivée par défaut) |
 | Déploiement distant | `main` + paramètre | SSH sur le serveur : `git pull`, `compose pull`, `up --wait` | (désactivée par défaut) |
 
-Backend et frontend sont testés **en parallèle**. Dès qu'une étape échoue, les suivantes sont marquées *skipped* :
+Microservices et frontend sont testés **en parallèle**. Dès qu'une étape échoue, les suivantes sont marquées *skipped* :
 aucune image n'est construite ni déployée à partir d'un code rouge.
 
 **Rapports publiés dans Jenkins** (page d'un build) :
 
-- **Tests** : résultats JUnit du backend (Surefire + Failsafe) et du frontend (Vitest), avec l'historique et la
+- **Tests** : résultats JUnit des microservices (Surefire + Failsafe) et du frontend (Vitest), avec l'historique et la
   trace de chaque test en échec ;
-- **Couverture backend (JaCoCo)** : couverture globale, par package et ligne par ligne dans le code source
+- **Couverture services (JaCoCo)** : couverture globale, par package et ligne par ligne dans le code source
   (plugin *Coverage*). Le seuil, lui, est contrôlé par Maven : même règle en local et dans Jenkins.
 
 ### Images multi-architecture

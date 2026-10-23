@@ -4,8 +4,9 @@ Le serveur fait tourner **exactement le même `docker-compose.yml` qu'en local**
 `docker-compose.prod.yml` : Caddy en façade (HTTPS automatique) et aucun autre port exposé.
 
 ```
-Internet ──443/80──▶ Caddy (HTTPS) ──▶ Nginx (Angular + /api + /mail/) ──▶ Backend Spring ──▶ PostgreSQL
-                                                                              └──────────────▶ Mailpit (SMTP)
+Internet ──443/80──▶ Caddy (HTTPS) ──▶ Nginx (Angular + /api + /mail/) ──▶ api-gateway ──▶ microservices ──▶ PostgreSQL
+                                                                                                  ├──▶ Kafka
+                                                                                                  └──▶ Mailpit (SMTP)
 ```
 
 - **Option principale : Oracle Cloud Always Free** (ARM Ampere, 2 cœurs, 12 Go) — gratuit.
@@ -13,7 +14,7 @@ Internet ──443/80──▶ Caddy (HTTPS) ──▶ Nginx (Angular + /api + /
 
 > Toutes les images utilisées existent en **arm64** (vérifié le 2026-10-17) : postgres:17-alpine, mailpit, eclipse-temurin 21,
 > node:24-alpine, nginx-unprivileged, caddy, ainsi qu'ollama et kafka pour les phases 7 et 8. Sur un serveur ARM, les images
-> du backend et du frontend sont construites **sur le serveur**, donc directement en arm64.
+> des microservices et du frontend sont construites **sur le serveur**, donc directement en arm64.
 
 ---
 
@@ -182,7 +183,7 @@ domaine d'envoi vérifié : enregistrements DNS SPF et DKIM).
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml ps        # tous "healthy" / "running"
-docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f caddy backend
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f caddy api-gateway candidature-service
 ```
 
 Au premier démarrage, Caddy obtient le certificat HTTPS (quelques secondes ; le port 80 doit être joignable).

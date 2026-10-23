@@ -3,8 +3,12 @@
 **Plateforme de gestion des stages PFE** : les entreprises publient leurs offres, les étudiants postulent avec leur CV,
 l'administrateur valide les entreprises et suit l'activité.
 
-Projet portfolio full stack : **Spring Boot 4 · Java 21 · Angular 22 · PostgreSQL · Docker**, avec sécurité JWT,
-tests automatisés (couverture contrôlée par JaCoCo), audit par AOP, emails asynchrones et tâches planifiées.
+Projet portfolio full stack : **Spring Boot 4 · Java 21 · Angular 22 · PostgreSQL · Docker**, en **microservices**
+(Spring Cloud Gateway, Eureka, OpenFeign, Kafka) avec sécurité JWT, tests automatisés (couverture contrôlée par
+JaCoCo), audit par AOP, emails par événements et tâches planifiées.
+
+> Le projet a commencé en monolithe Spring Boot (phases 1 à 6), découpé ensuite service par service. Le monolithe
+> complet reste consultable au tag [`v1.0-monolithe`](https://github.com/zakaech/stagehub/tree/v1.0-monolithe).
 
 ![Liste des offres avec filtres](docs/captures/offres.png)
 
@@ -129,7 +133,7 @@ flowchart LR
         eureka["discovery-server<br/>Eureka"]
         auth["auth-service<br/>comptes, JWT RS256"]
         offres["offre-service<br/>offres, entreprises<br/>+ outbox, ShedLock"]
-        backend["Monolithe Spring Boot 4<br/>candidatures, CV<br/>+ outbox"]
+        candidatures["candidature-service<br/>étudiants, CV, candidatures<br/>+ outbox"]
         kafka[["Kafka (KRaft)"]]
         notif["notification-service<br/>emails, idempotent"]
         postgres[("PostgreSQL 17<br/>une base par service")]
@@ -140,28 +144,30 @@ flowchart LR
     nginx -- "/api, /swagger-ui" --> gateway
     gateway -- "/api/v1/auth" --> auth
     gateway -- "offres, entreprises" --> offres
-    gateway -- "/api (reste)" --> backend
-    auth -- "OpenFeign : profils (saga)" --> backend
+    gateway -- "étudiants, candidatures" --> candidatures
+    auth -- "OpenFeign : profils (saga)" --> candidatures
     auth -- "OpenFeign : profils (saga)" --> offres
-    backend -- "OpenFeign + circuit breaker" --> offres
+    candidatures -- "OpenFeign + circuit breaker" --> offres
     gateway -. "annuaire" .-> eureka
     auth -- "JPA" --> postgres
     nginx -- "/mail/" --> mailpit
-    backend -- "JPA" --> postgres
-    backend -- "fichiers" --> cv
+    candidatures -- "JPA" --> postgres
+    candidatures -- "fichiers" --> cv
     offres -- "JPA" --> postgres
     offres -- "événements (outbox)" --> kafka
-    backend -- "événements (outbox → relais)" --> kafka
+    candidatures -- "événements (outbox → relais)" --> kafka
     kafka -- "consommés" --> notif
     notif -- "SMTP" --> mailpit
 ```
 
 Points de conception :
 
-- **Passage aux microservices en cours** (phase 7, pattern *strangler fig*) : une gateway (Spring Cloud Gateway) et un
-  annuaire (Eureka) sont placés devant le monolithe ; les services sont extraits un par un derrière la gateway, sans
-  interrompre l'application. Extraits : **auth-service** (comptes, connexion), **notification-service** (emails),
-  **offre-service** (offres, entreprises).
+- **Du monolithe aux microservices** (phase 7, pattern *strangler fig*) : une gateway (Spring Cloud Gateway) et un
+  annuaire (Eureka) ont d'abord été placés devant le monolithe, puis les services ont été extraits un par un derrière
+  la gateway, l'application restant utilisable à chaque étape : **auth-service** (comptes, connexion),
+  **notification-service** (emails), **offre-service** (offres, entreprises), **candidature-service** (étudiants, CV,
+  candidatures). Une base PostgreSQL et un rôle par service ; code technique commun dans `commons` et deux
+  bibliothèques (`outbox`, `audit`).
 - **JWT RS256** : seul auth-service détient la clé privée et signe les jetons ; la gateway et les services les vérifient
   avec sa clé publique (JWKS). La gateway vérifie et traite CORS, chaque service revérifie (défense en profondeur).
 - **Inscription = saga** : le compte (base d'auth-service) et le profil (autre service) sont créés par deux transactions
@@ -170,13 +176,13 @@ Points de conception :
   dans la même transaction ; un relais le publie ensuite dans Kafka. Kafka arrêté : l'action réussit quand même et
   l'email part au retour de Kafka (vérifié). notification-service ignore les doublons (id d'événement) et range les
   messages en échec dans un topic d'erreurs (`.DLT`).
-- **Appels entre services protégés** : pour postuler, le monolithe lit l'offre dans offre-service (OpenFeign) à travers
+- **Appels entre services protégés** : pour postuler, candidature-service lit l'offre dans offre-service (OpenFeign) à travers
   un **circuit breaker** Resilience4j. offre-service en panne : la candidature est refusée (503) plutôt qu'acceptée sans
   vérification, mais « mes candidatures » reste consultable avec les données recopiées au moment de postuler (vérifié).
 - **Tâche planifiée sur plusieurs instances** : la fermeture nocturne des offres expirées est protégée par **ShedLock**
   (verrou en base) ; avec `--scale offre-service=2`, une seule instance l'exécute (vérifié).
-- **Monolithe modulaire** : packages par fonctionnalité (`offre`, `candidature`, `cv`, `audit`, `notification`…), chacun
-  avec ses couches. Le découpage prépare le passage aux microservices.
+- **Packages par fonctionnalité** (`offre`, `candidature`, `cv`…), chacun avec ses couches : adopté dès le monolithe,
+  ce découpage a permis d'extraire chaque service presque sans réécriture.
 - **Sécurité** : JWT sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
   propriété dans les services (une entreprise n'agit que sur ses offres).
 - **Erreurs** : format standard ProblemDetail (RFC 9457) avec un `code` stable, y compris pour les 401/403.
@@ -192,7 +198,7 @@ Points de conception :
 
 | Domaine | Technologies |
 |---|---|
-| Backend | Java 21, Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security + OAuth2 Resource Server, AOP, Mail, Actuator), Maven |
+| Backend | Java 21, Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security + OAuth2 Resource Server, AOP, Mail, Actuator), Maven (POM parent multi-module) |
 | Données | PostgreSQL 17, Flyway, Hibernate (`ddl-auto=validate`), Specifications JPA |
 | Mapping | MapStruct, Lombok (limité aux getters/setters des entités) |
 | API | REST `/api/v1`, pagination, ProblemDetail, springdoc-openapi (Swagger UI) |
@@ -200,7 +206,7 @@ Points de conception :
 | Tests | JUnit 5, Mockito, Spring Boot Test, `@WebMvcTest`, Testcontainers, Vitest, JaCoCo |
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
 | CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
-| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign, Resilience4j (circuit breaker) ; JWT RS256 + JWKS ; Kafka 4.3 (KRaft), Spring Kafka, transactional outbox ; ShedLock — en cours (phase 7) |
+| Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign, Resilience4j (circuit breaker) ; JWT RS256 + JWKS ; Kafka 4.3 (KRaft), Spring Kafka, transactional outbox ; ShedLock |
 | À venir | Spring AI + Ollama |
 
 ---
@@ -219,7 +225,7 @@ npm ci
 npm start                                         # http://localhost:4200 (proxy /api → gateway :8088)
 
 docker compose up -d --build auth-service         # après une modification d'un service Java : reconstruire celui-ci
-cd services && ./mvnw verify -pl auth-service     # ses tests, sans le reste de la pile (Docker requis : Testcontainers)
+cd services && ./mvnw verify -pl auth-service -am # ses tests (et ses modules), sans le reste de la pile (Docker requis)
 ```
 
 Prérequis : JDK 21, Node 24 LTS, Docker.
@@ -229,21 +235,18 @@ Prérequis : JDK 21, Node 24 LTS, Docker.
 ## Tests et qualité
 
 ```bash
-cd backend
-./mvnw test        # tests unitaires (Mockito, @WebMvcTest)
-./mvnw verify      # + tests d'intégration sur un vrai PostgreSQL (Testcontainers, Docker requis)
-                   #   + rapport de couverture JaCoCo et contrôle des seuils
-
 cd services
-./mvnw verify      # microservices (gateway, annuaire...) : tests + couverture, module par module
+./mvnw test                               # tests unitaires de tous les services (Mockito, @WebMvcTest)
+./mvnw verify                             # + tests d'intégration sur un vrai PostgreSQL (Testcontainers, Docker
+                                          #   requis) + rapport de couverture JaCoCo et contrôle des seuils
+./mvnw verify -pl candidature-service -am # un seul service (et les modules dont il dépend)
 
 cd frontend
 npm test -- --watch=false     # tests Vitest
 npm run format:check          # formatage Prettier
 ```
 
-- Rapport de couverture : `backend/target/site/jacoco/index.html` (après `verify`) ; pour un service :
-  `services/<service>/target/site/jacoco/index.html`.
+- Rapport de couverture (après `verify`) : `services/<service>/target/site/jacoco/index.html`.
 - **Seuil** : chaque package de services doit couvrir au moins 80 % des lignes et 70 % des branches, sinon le build échoue.
 
 ---
@@ -253,7 +256,7 @@ npm run format:check          # formatage Prettier
 Jenkins tourne dans Docker (http://localhost:8085) et surveille le dépôt GitHub toutes les 2 minutes. Pour chaque
 branche, le [Jenkinsfile](Jenkinsfile) enchaîne :
 
-1. **Tests** backend (`mvn verify` : unitaires, intégration Testcontainers, seuils JaCoCo) et frontend (Prettier,
+1. **Tests** des microservices (`mvn verify` : unitaires, intégration Testcontainers, seuils JaCoCo) et du frontend (Prettier,
    Vitest), en parallèle ; rapports JUnit et couverture publiés dans Jenkins ;
 2. **Images Docker** avec buildx : amd64 sur les branches de travail, **amd64 + arm64** sur `main` (serveur ARM) ;
 3. sur `main` : **déploiement de recette** avec docker compose (http://localhost:8095) et test de fumée ;
@@ -291,13 +294,6 @@ Guide complet (Oracle Cloud Always Free, ou Hetzner en alternative) : [docs/DEPL
 
 ```
 StageHub/
-├── backend/                  monolithe Spring Boot, en cours de découpage (supprimé à la fin de la phase 7 d)
-│   └── src/main/java/com/stagehub/
-│       ├── candidature/  cv/  etudiant/  admin/   (offres lues dans offre-service : candidature/client)
-│       ├── audit/            audit AOP (@Audite) et journal
-│       ├── outbox/           événements à publier dans Kafka (table outbox + relais)
-│       ├── security/         vérification des JWT (clé publique d'auth-service), erreurs 401/403
-│       └── common/           exceptions, configuration, stockage, aspects
 ├── services/                 microservices (POM parent multi-module, Dockerfile commun)
 │   ├── commons/              code technique partagé (format des erreurs, vérification des JWT, pagination)
 │   ├── outbox/               bibliothèque : transactional outbox (table + relais vers Kafka)
@@ -307,6 +303,7 @@ StageHub/
 │   ├── auth-service/         comptes, connexion, JWT RS256, saga d'inscription
 │   ├── notification-service/ emails à partir des événements Kafka (idempotent, topic d'erreurs)
 │   ├── offre-service/        offres, entreprises, statistiques des offres, fermeture nocturne (ShedLock)
+│   ├── candidature-service/  étudiants, CV, candidatures (offres lues dans offre-service : OpenFeign + circuit breaker)
 │   └── demo-seeder/          données de démo créées par l'API
 ├── frontend/                 Angular (Dockerfile + configuration Nginx)
 ├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code
