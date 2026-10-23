@@ -82,6 +82,20 @@ stagehub:
     dossier: ${CV_STORAGE_DIR:./uploads/cv}
     taille-max: 5MB
 
+eureka:
+  client:
+    # Phase 7 : vrai dans docker compose (le monolithe est derrière la gateway) ; faux par défaut, pour le
+    # lancement en développement (port 8081, sans annuaire) et pour les tests
+    enabled: ${EUREKA_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+  instance:
+    # Adresse IP du conteneur plutôt que son nom d'hôte (identifiant aléatoire dans Docker)
+    prefer-ip-address: true
+    # Signe de vie toutes les 10 s (30 par défaut) ; retiré de l'annuaire après 30 s de silence
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
 management:
   endpoints:
     web:
