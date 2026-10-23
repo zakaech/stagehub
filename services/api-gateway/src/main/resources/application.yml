@@ -1,0 +1,81 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    # En local, lit le fichier .env à la racine du dépôt s'il existe (ignoré sinon)
+    import: optional:file:../../.env[.properties]
+  servlet:
+    multipart:
+      # La gateway relaie le corps des requêtes tel quel (dépôt de CV) : elle ne doit pas le décoder
+      enabled: false
+  cloud:
+    loadbalancer:
+      # Liste des instances gardée 5 s (35 s par défaut) : un service qui (re)démarre est joint plus vite
+      cache:
+        ttl: 5s
+    gateway:
+      server:
+        webmvc:
+          # En-têtes X-Forwarded-* reçus d'Nginx : acceptés seulement si la requête vient d'une adresse
+          # privée (réseau Docker). Sinon un client pourrait se faire passer pour un autre hôte ou une autre IP.
+          trusted-proxies: '${GATEWAY_TRUSTED_PROXIES:(127\..*|10\..*|172\.(1[6-9]|2[0-9]|3[01])\..*|192\.168\..*)}'
+          routes:
+            # API du monolithe (sous-étape a) : tout /api/** ; les services extraits auront leurs routes, plus
+            # précises, déclarées avant celle-ci
+            - id: monolithe-api
+              uri: ${BACKEND_URI:lb://stagehub-backend}
+              predicates:
+                - Path=/api/**
+              filters:
+                # CORS est traité ici, une seule fois : les services ne reçoivent plus d'Origin et n'ont pas à
+                # refaire (ni à contredire) la décision. Cf. SecurityConfig.
+                - RemoveRequestHeader=Origin
+            # Swagger du monolithe (présent seulement si SWAGGER_ENABLED=true côté monolithe)
+            - id: monolithe-swagger
+              uri: ${BACKEND_URI:lb://stagehub-backend}
+              predicates:
+                - Path=/swagger-ui.html,/swagger-ui/**,/v3/api-docs/**
+  http:
+    clients:
+      # Appels de la gateway vers les services : on n'attend pas indéfiniment une instance bloquée
+      connect-timeout: 2s
+      read-timeout: 30s
+
+eureka:
+  client:
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    # Copie locale de l'annuaire rafraîchie toutes les 5 s (30 s par défaut)
+    registry-fetch-interval-seconds: 5
+  instance:
+    # Adresse IP du conteneur plutôt que son nom d'hôte (identifiant aléatoire dans Docker)
+    prefer-ip-address: true
+
+stagehub:
+  jwt:
+    # Sous-étape (a) : même secret HS256 que le monolithe ; RS256 + clé publique à partir de la sous-étape (b)
+    secret: ${JWT_SECRET:}
+    issuer: stagehub
+  cors:
+    # Origines autorisées à appeler l'API depuis un navigateur (liste séparée par des virgules)
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+logging:
+  level:
+    # Avertissements normaux au démarrage tant que l'annuaire ne connaît pas encore les services
+    com.netflix.discovery: WARN
