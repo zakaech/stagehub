@@ -155,7 +155,7 @@ nano .env
 | `PUBLIC_URL` | `https://stagehub.duckdns.org` |
 | `DB_PASSWORD` | `openssl rand -base64 24` |
 | `AUTH_DB_PASSWORD` | `openssl rand -base64 24` (base d'auth-service, phase 7) |
-| `JWT_PRIVATE_KEY` | `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -outform DER | base64 -w0` : clé privée d'auth-service, à sauvegarder (la perdre déconnecte tout le monde) |
+| `JWT_PRIVATE_KEY` | Clé privée d'auth-service (PKCS#8 en Base64), à sauvegarder : la perdre déconnecte tout le monde. Commande ci-dessous |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Compte admin (mot de passe fort) |
 | `COMPOSE_PROFILES` | `demo` pour la démo (comptes de démo créés par `demo-seeder`) ; vide pour une vraie production |
 | `SPRING_PROFILES_ACTIVE` | `prod` |
@@ -163,6 +163,12 @@ nano .env
 | `LOG_FORMAT` | `ecs` (logs JSON) |
 | `MAILPIT_UI_AUTH` | `demo:<mot de passe>` : protège https://domaine/mail/ |
 | `DEMO_PASSWORD` | Mot de passe des comptes de démo, communiqué aux recruteurs |
+
+Clé `JWT_PRIVATE_KEY` (OpenSSL 3 : `genpkey` seul écrit du PKCS#1 en DER, d'où la conversion `pkcs8`) :
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | openssl pkcs8 -topk8 -nocrypt -outform DER | base64 -w0
+```
 
 **Emails** : par défaut, Mailpit capture tout ; les comptes de démo ont des adresses fictives (`@etu.demo`), qu'un vrai
 serveur SMTP ferait rebondir. Pour de vrais utilisateurs, renseigner `SMTP_HOST`, `SMTP_PORT`, `MAIL_USERNAME`,
