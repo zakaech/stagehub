@@ -38,11 +38,12 @@ COPY --from=build /build/extrait/spring-boot-loader/ ./
 COPY --from=build /build/extrait/snapshot-dependencies/ ./
 COPY --from=build /build/extrait/application/ ./
 
-# Petits services, petits tas (limites de 256 à 384 Mo dans docker-compose.yml) :
-#   - MaxRAMPercentage=70 : 70 % de la limite du conteneur pour le tas, le reste pour metaspace, piles, buffers ;
+# Petits services, petits tas (limites de 320 à 448 Mo dans docker-compose.yml) :
+#   - MaxRAMPercentage=60 : 60 % de la limite du conteneur pour le tas ; le reste (classes, code compilé, piles,
+#     buffers : 150 à 180 Mo pour un service Spring Cloud, mesuré) doit tenir dans les 40 % restants ;
 #   - SerialGC : le ramasse-miettes le plus économe en mémoire, adapté aux tas de quelques centaines de Mo ;
 #   - Xss512k : piles de threads de 512 Ko au lieu de 1 Mo (Tomcat crée jusqu'à 200 threads).
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k -XX:+ExitOnOutOfMemoryError" \
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k -XX:+ExitOnOutOfMemoryError" \
     SERVER_PORT=8080
 
 USER stagehub

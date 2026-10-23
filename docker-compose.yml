@@ -49,6 +49,7 @@ services:
       PGPASSWORD: ${DB_PASSWORD}
       PGDATABASE: ${DB_NAME:-stagehub}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD doit être défini dans .env}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD doit être défini dans .env}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -63,6 +64,7 @@ services:
           echo "Base et rôle $$1 prêts"
         }
         creer stagehub_auth "$$AUTH_DB_PASSWORD"
+        creer stagehub_notification "$$NOTIFICATION_DB_PASSWORD"
         # Base du monolithe (créée par l'image postgres) : PostgreSQL y autorise la connexion de tous les rôles par
         # défaut ; on la réserve à son propriétaire
         printf '%s\n' "SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'base') \gexec" \
@@ -89,6 +91,71 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    logging: *logs-limites
+
+  # ---- Phase 7 (e) : Kafka --------------------------------------------------------------------------------------
+
+  # Kafka en mode KRaft : un seul nœud, à la fois broker (stocke les messages) et contrôleur (gère les métadonnées
+  # du cluster) ; plus de ZooKeeper. Réplication 1 : suffisant pour une démo, pas pour de la production.
+  kafka:
+    image: apache/kafka:4.3.2
+    container_name: stagehub-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      # Identifiant du cluster (formatage du stockage au premier démarrage) : pas un secret
+      CLUSTER_ID: jEad27BokxJQs49ImtnDvg
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Topics créés explicitement (kafka-init) : une faute de frappe dans un nom ne crée pas un topic fantôme
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xmx384m -Xms384m
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    logging: *logs-limites
+
+  # Topics et leurs topics d'erreurs (.DLT), 3 partitions chacun, puis arrêt. Idempotent (--if-not-exists).
+  # La clé des messages (id de la candidature...) choisit la partition : les événements d'un même objet restent
+  # dans l'ordre, ceux d'objets différents peuvent être traités en parallèle.
+  kafka-init:
+    image: apache/kafka:4.3.2
+    container_name: stagehub-kafka-init
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_HEAP_OPTS: -Xmx128m
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        for topic in stagehub.candidature.statut-change stagehub.entreprise.validation; do
+          for nom in "$$topic" "$$topic.DLT"; do
+            /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
+              --topic "$$nom" --partitions 3 --replication-factor 1
+          done
+        done
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
     logging: *logs-limites
 
   # ---- Phase 7 : annuaire des services et point d'entrée de l'API --------------------------------------------
@@ -149,7 +216,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 320m
+          memory: 384m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
       interval: 10s
@@ -193,6 +260,54 @@ services:
     deploy:
       resources:
         limits:
+          # 384 Mo prévus : ~325 Mo mesurés hors cache (Spring Cloud + JPA + Feign), trop juste
+          memory: 448m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+    logging: *logs-limites
+
+  # Emails : consomme les événements Kafka (candidatures, entreprises), idempotent, topic d'erreurs en cas d'échec
+  notification-service:
+    build:
+      context: ./services
+      args:
+        SERVICE: notification-service
+    image: ${IMAGE_REGISTRY:-}stagehub-notification-service:${IMAGE_TAG:-local}
+    container_name: stagehub-notification-service
+    restart: unless-stopped
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      DB_PORT: 5432
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # SMTP vu depuis le conteneur : Mailpit par défaut, ou un vrai serveur (SMTP_HOST/SMTP_PORT dans .env)
+      MAIL_HOST: ${SMTP_HOST:-mailpit}
+      MAIL_PORT: ${SMTP_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@stagehub.local}
+      FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8090}
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
+    deploy:
+      resources:
+        limits:
+          # 320 Mo prévus : ~310 Mo mesurés (Kafka + JPA + mail), trop juste
           memory: 384m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
@@ -214,8 +329,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mailpit:
-        condition: service_healthy
       discovery-server:
         condition: service_healthy
     environment:
@@ -231,15 +344,9 @@ services:
       DB_NAME: ${DB_NAME:-stagehub}
       DB_USERNAME: ${DB_USERNAME:-stagehub}
       DB_PASSWORD: ${DB_PASSWORD}
-      # SMTP vu depuis le conteneur : Mailpit par défaut, ou un vrai serveur (SMTP_HOST/SMTP_PORT dans .env)
-      MAIL_HOST: ${SMTP_HOST:-mailpit}
-      MAIL_PORT: ${SMTP_PORT:-1025}
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
-      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
-      MAIL_FROM: ${MAIL_FROM:-no-reply@stagehub.local}
-      FRONTEND_URL: ${PUBLIC_URL:-http://localhost:8090}
+      # Événements publiés dans Kafka par le relais de l'outbox (les emails partent de notification-service).
+      # Pas de depends_on sur Kafka : sans lui, le monolithe fonctionne et les événements attendent dans l'outbox.
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       CV_STORAGE_DIR: /data/cv
       # Format des logs : vide = texte lisible ; "ecs" = JSON structuré (serveur)
@@ -273,6 +380,8 @@ services:
       auth-service:
         condition: service_healthy
       backend:
+        condition: service_healthy
+      notification-service:
         condition: service_healthy
     ports:
       - "${APP_PORT:-8090}:8080"
@@ -309,3 +418,5 @@ volumes:
   cv-data:
   # Clé de signature générée par auth-service quand JWT_PRIVATE_KEY n'est pas fourni
   auth-cles:
+  # Messages Kafka (et positions de lecture des groupes de consommateurs)
+  kafka-data:
