@@ -26,7 +26,7 @@ pipeline {
     environment {
         REGISTRE = 'ghcr.io/zakaech'
         // Microservices construits depuis services/ (phase 7) ; la liste s'allonge à chaque service extrait
-        SERVICES = 'discovery-server api-gateway auth-service demo-seeder'
+        SERVICES = 'discovery-server api-gateway auth-service notification-service demo-seeder'
     }
 
     stages {
@@ -85,6 +85,7 @@ pipeline {
                                                                        [path: 'services/discovery-server/src/main/java'],
                                                                        [path: 'services/api-gateway/src/main/java'],
                                                                        [path: 'services/auth-service/src/main/java'],
+                                                                       [path: 'services/notification-service/src/main/java'],
                                                                        [path: 'services/demo-seeder/src/main/java']],
                                                    sourceCodeRetention: 'LAST_BUILD'
                                 }
