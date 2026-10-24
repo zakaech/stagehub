@@ -65,6 +65,20 @@ class OutboxIT extends IntegrationTestBase {
     }
 
     @Test
+    void candidature_publieCandidatureCreeePourAiService() throws Exception {
+        ApiDeTest api = new ApiDeTest(mockMvc);
+
+        ApiDeTest.Scenario s = api.scenarioAvecCandidature();
+
+        ConsumerRecord<String, String> message = attendreMessage(Topics.CANDIDATURE_CREEE, s.candidatureId().toString());
+        assertThat(message.value())
+                .contains("\"candidatureId\":" + s.candidatureId())
+                .contains("\"offreId\":" + s.offreId())
+                .contains("\"etudiantId\":" + s.etudiant().id());
+        assertThat(message.headers().lastHeader(OutboxEntetes.ID_EVENEMENT)).isNotNull();
+    }
+
+    @Test
     void transitionRefusee_rollback_aucunEvenementDansLOutbox() throws Exception {
         ApiDeTest api = new ApiDeTest(mockMvc);
         ApiDeTest.Scenario s = api.scenarioAvecCandidature();

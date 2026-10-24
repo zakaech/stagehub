@@ -8,6 +8,7 @@ package com.stagehub.common;
 public final class Topics {
 
     public static final String CANDIDATURE_STATUT_CHANGE = "stagehub.candidature.statut-change";
+    public static final String CANDIDATURE_CREEE = "stagehub.candidature.creee";
 
     private Topics() {
     }

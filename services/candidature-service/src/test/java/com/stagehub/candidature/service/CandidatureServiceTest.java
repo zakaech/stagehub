@@ -8,6 +8,7 @@ import com.stagehub.candidature.dto.CandidatureRequest;
 import com.stagehub.candidature.dto.OffreResumeResponse;
 import com.stagehub.candidature.entity.Candidature;
 import com.stagehub.candidature.entity.StatutCandidature;
+import com.stagehub.candidature.event.CandidatureCreeeEvent;
 import com.stagehub.candidature.event.CandidatureStatutChangeEvent;
 import com.stagehub.candidature.mapper.CandidatureMapper;
 import com.stagehub.candidature.repository.CandidatureRepository;
@@ -76,7 +77,8 @@ class CandidatureServiceTest {
         // Vrai mapper généré par MapStruct : on teste aussi le contenu des réponses
         CandidatureMapper mapper = Mappers.getMapper(CandidatureMapper.class);
         // Vraie classe d'enregistrement (sans proxy transactionnel) : seuls les dépôts et offre-service sont simulés
-        EnregistrementCandidature enregistrement = new EnregistrementCandidature(candidatureRepository, etudiantRepository);
+        EnregistrementCandidature enregistrement =
+                new EnregistrementCandidature(candidatureRepository, etudiantRepository, outbox);
         service = new CandidatureService(candidatureRepository, enregistrement, offreClient, mapper, outbox);
 
         etudiant = new Etudiant();
@@ -114,6 +116,19 @@ class CandidatureServiceTest {
                     new OffreResumeResponse(OFFRE_ID, "Stage PFE Java", "Acme", "Casablanca", "OUVERTE"));
             assertThat(reponse.lettreMotivation()).isEqualTo("Très motivée");
             assertThat(reponse.statut()).isEqualTo(StatutCandidature.EN_ATTENTE);
+        }
+
+        @Test
+        void publieCandidatureCreeePourAiService() {
+            etudiant.setCheminCv("cv-en-vigueur.pdf");
+            when(offreClient.offre(OFFRE_ID)).thenReturn(offre(true));
+            when(etudiantRepository.findAvecVerrou(ETUDIANT_ID)).thenReturn(Optional.of(etudiant));
+            enregistrementRenvoieLaCandidature();
+
+            service.postuler(ETUDIANT_ID, OFFRE_ID, null);
+
+            verify(outbox).enregistrer(Topics.CANDIDATURE_CREEE, CANDIDATURE_ID.toString(),
+                    new CandidatureCreeeEvent(CANDIDATURE_ID, OFFRE_ID, ETUDIANT_ID, "cv-en-vigueur.pdf"));
         }
 
         @Test
@@ -338,9 +353,13 @@ class CandidatureServiceTest {
 
     // --- Fabriques de données de test ---
 
-    /** Comme JPA : saveAndFlush renvoie l'entité enregistrée. */
+    /** Comme JPA : saveAndFlush attribue un id et renvoie l'entité enregistrée. */
     private void enregistrementRenvoieLaCandidature() {
-        when(candidatureRepository.saveAndFlush(any(Candidature.class))).thenAnswer(appel -> appel.getArgument(0));
+        when(candidatureRepository.saveAndFlush(any(Candidature.class))).thenAnswer(appel -> {
+            Candidature candidature = appel.getArgument(0);
+            candidature.setId(CANDIDATURE_ID);
+            return candidature;
+        });
     }
 
     /** Offre telle que renvoyée par offre-service. */

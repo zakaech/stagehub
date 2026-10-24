@@ -3,11 +3,14 @@ package com.stagehub.candidature.service;
 import com.stagehub.candidature.client.OffreInterne;
 import com.stagehub.candidature.dto.CandidatureRequest;
 import com.stagehub.candidature.entity.Candidature;
+import com.stagehub.candidature.event.CandidatureCreeeEvent;
 import com.stagehub.candidature.repository.CandidatureRepository;
+import com.stagehub.common.Topics;
 import com.stagehub.common.exception.CandidatureDejaExistanteException;
 import com.stagehub.common.exception.UtilisateurNotFoundException;
 import com.stagehub.etudiant.entity.Etudiant;
 import com.stagehub.etudiant.repository.EtudiantRepository;
+import com.stagehub.outbox.service.OutboxService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,9 +26,13 @@ public class EnregistrementCandidature {
     private final CandidatureRepository candidatureRepository;
     private final EtudiantRepository etudiantRepository;
 
-    public EnregistrementCandidature(CandidatureRepository candidatureRepository, EtudiantRepository etudiantRepository) {
+    private final OutboxService outbox;
+
+    public EnregistrementCandidature(CandidatureRepository candidatureRepository, EtudiantRepository etudiantRepository,
+                                     OutboxService outbox) {
         this.candidatureRepository = candidatureRepository;
         this.etudiantRepository = etudiantRepository;
+        this.outbox = outbox;
     }
 
     @Transactional
@@ -47,12 +54,17 @@ public class EnregistrementCandidature {
         candidature.setEntrepriseNom(offre.entrepriseNom());
         candidature.setOffreVille(offre.ville());
         candidature.setLettreMotivation(request == null ? null : request.lettreMotivation());
+        Candidature enregistree;
         try {
-            return candidatureRepository.saveAndFlush(candidature);
+            enregistree = candidatureRepository.saveAndFlush(candidature);
         } catch (DataIntegrityViolationException e) {
             // Filet de sécurité : deux requêtes simultanées peuvent passer le exists() ;
             // la contrainte unique (etudiant_id, offre_id) tranche en base.
             throw new CandidatureDejaExistanteException();
         }
+        // Dans la même transaction (outbox) : ai-service est prévenu si, et seulement si, la candidature existe
+        outbox.enregistrer(Topics.CANDIDATURE_CREEE, enregistree.getId().toString(), new CandidatureCreeeEvent(
+                enregistree.getId(), enregistree.getOffreId(), etudiant.getId(), enregistree.getCvFichier()));
+        return enregistree;
     }
 }
