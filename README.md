@@ -136,6 +136,7 @@ flowchart LR
         candidatures["candidature-service<br/>étudiants, CV, candidatures<br/>+ outbox"]
         kafka[["Kafka (KRaft)"]]
         notif["notification-service<br/>emails, idempotent"]
+        ai["ai-service<br/>demandes d'analyse<br/>(IA en phase 8)"]
         postgres[("PostgreSQL 17<br/>une base par service")]
         cv[("Volume<br/>CV (PDF)")]
         mailpit["Mailpit<br/>SMTP de démo"]
@@ -157,6 +158,7 @@ flowchart LR
     offres -- "événements (outbox)" --> kafka
     candidatures -- "événements (outbox → relais)" --> kafka
     kafka -- "consommés" --> notif
+    kafka -- "candidatures créées" --> ai
     notif -- "SMTP" --> mailpit
 ```
 
@@ -179,6 +181,8 @@ Points de conception :
 - **Appels entre services protégés** : pour postuler, candidature-service lit l'offre dans offre-service (OpenFeign) à travers
   un **circuit breaker** Resilience4j. offre-service en panne : la candidature est refusée (503) plutôt qu'acceptée sans
   vérification, mais « mes candidatures » reste consultable avec les données recopiées au moment de postuler (vérifié).
+- **Préparé pour l'IA** : chaque candidature publie un événement `CandidatureCreee` ; ai-service l'enregistre comme
+  demande d'analyse. En phase 8, il calculera le score de matching sans faire attendre l'étudiant.
 - **Tâche planifiée sur plusieurs instances** : la fermeture nocturne des offres expirées est protégée par **ShedLock**
   (verrou en base) ; avec `--scale offre-service=2`, une seule instance l'exécute (vérifié).
 - **Packages par fonctionnalité** (`offre`, `candidature`, `cv`…), chacun avec ses couches : adopté dès le monolithe,
@@ -259,6 +263,8 @@ branche, le [Jenkinsfile](Jenkinsfile) enchaîne :
 1. **Tests** des microservices (`mvn verify` : unitaires, intégration Testcontainers, seuils JaCoCo) et du frontend (Prettier,
    Vitest), en parallèle ; rapports JUnit et couverture publiés dans Jenkins ;
 2. **Images Docker** avec buildx : amd64 sur les branches de travail, **amd64 + arm64** sur `main` (serveur ARM) ;
+   **reconstruction sélective** : seuls les modules modifiés depuis le dernier build réussi sont testés (avec ceux qui
+   en dépendent), et seules les images dont le contenu a changé sont reconstruites (tag = empreinte du contenu) ;
 3. sur `main` : **déploiement de recette** avec docker compose (http://localhost:8095) et test de fumée ;
 4. prévu, désactivé : publication sur GHCR et déploiement distant par SSH (identifiants dans les credentials Jenkins).
 
@@ -304,9 +310,11 @@ StageHub/
 │   ├── notification-service/ emails à partir des événements Kafka (idempotent, topic d'erreurs)
 │   ├── offre-service/        offres, entreprises, statistiques des offres, fermeture nocturne (ShedLock)
 │   ├── candidature-service/  étudiants, CV, candidatures (offres lues dans offre-service : OpenFeign + circuit breaker)
+│   ├── ai-service/           demandes d'analyse des candidatures (squelette ; Spring AI en phase 8)
 │   └── demo-seeder/          données de démo créées par l'API
 ├── frontend/                 Angular (Dockerfile + configuration Nginx)
-├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code
+├── ci/                       Jenkins : compose (Jenkins + DinD), image, plugins, configuration en code ;
+│                             scripts de reconstruction sélective (selection.sh, tags.sh, images.sh)
 ├── deploiement/              Caddyfile (HTTPS sur serveur)
 ├── docs/                     DEPLOIEMENT.md, CI.md, captures
 ├── Jenkinsfile               pipeline CI/CD
