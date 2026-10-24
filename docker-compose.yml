@@ -52,6 +52,7 @@ services:
       NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD doit être défini dans .env}
       OFFRE_DB_PASSWORD: ${OFFRE_DB_PASSWORD:?OFFRE_DB_PASSWORD doit être défini dans .env}
       CANDIDATURE_DB_PASSWORD: ${CANDIDATURE_DB_PASSWORD:?CANDIDATURE_DB_PASSWORD doit être défini dans .env}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:?AI_DB_PASSWORD doit être défini dans .env}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -69,6 +70,7 @@ services:
         creer stagehub_notification "$$NOTIFICATION_DB_PASSWORD"
         creer stagehub_offre "$$OFFRE_DB_PASSWORD"
         creer stagehub_candidature "$$CANDIDATURE_DB_PASSWORD"
+        creer stagehub_ai "$$AI_DB_PASSWORD"
         # Base par défaut du compte administrateur (créée par l'image postgres, sans données d'application) :
         # PostgreSQL y autorise la connexion de tous les rôles ; on la réserve à son propriétaire
         printf '%s\n' "SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'base') \gexec" \
@@ -153,7 +155,7 @@ services:
     command:
       - |
         set -eu
-        for topic in stagehub.candidature.statut-change stagehub.entreprise.validation; do
+        for topic in stagehub.candidature.statut-change stagehub.candidature.creee stagehub.entreprise.validation; do
           for nom in "$$topic" "$$topic.DLT"; do
             /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
               --topic "$$nom" --partitions 3 --replication-factor 1
@@ -399,6 +401,42 @@ services:
       resources:
         limits:
           memory: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 120s
+    logging: *logs-limites
+
+  # Analyse des candidatures par IA (phase 8 : Spring AI + Ollama). Phase 7 (f) : squelette sans API, qui reçoit
+  # chaque candidature créée par Kafka et l'enregistre comme demande d'analyse (consommateur idempotent, DLT).
+  ai-service:
+    build:
+      context: ./services
+      args:
+        SERVICE: ai-service
+    image: ${IMAGE_REGISTRY:-}stagehub-ai-service:${IMAGE_TAG:-local}
+    container_name: stagehub-ai-service
+    restart: unless-stopped
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      discovery-server:
+        condition: service_healthy
+    environment:
+      EUREKA_URL: http://discovery-server:8761/eureka
+      DB_HOST: postgres
+      DB_PORT: 5432
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
+    deploy:
+      resources:
+        limits:
+          memory: 384m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
       interval: 10s
