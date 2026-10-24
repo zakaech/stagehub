@@ -5,6 +5,11 @@
 //                                                                  → Publication GHCR + déploiement distant (main, désactivés)
 //
 // Toute étape en échec arrête le pipeline : les étapes suivantes sont sautées (« skipped »).
+//
+// Reconstruction sélective (phase 7 f) : seuls les modules modifiés depuis le dernier build réussi sont testés (avec
+// ceux qui en dépendent), et seules les images dont le contenu a changé sont reconstruites (tag = empreinte du
+// contenu). Build complet : paramètre COMPLET, ou chaque jour vers midi sur main. Règles : ci/selection.sh,
+// ci/tags.sh, ci/images.sh.
 
 pipeline {
     agent any
@@ -18,7 +23,15 @@ pipeline {
         skipStagesAfterUnstable()
     }
 
+    // Build complet planifié sur main, vers midi (H : minute choisie par Jenkins, stable pour ce job). Pas la nuit :
+    // Jenkins tourne sur le PC de développement, et un créneau manqué (PC éteint) n'est pas rattrapé.
+    triggers {
+        cron(env.BRANCH_NAME == 'main' ? 'H 12 * * *' : '')
+    }
+
     parameters {
+        booleanParam(name: 'COMPLET', defaultValue: false,
+            description: 'Tout tester et reconstruire, sans tenir compte des fichiers modifiés')
         booleanParam(name: 'DEPLOIEMENT_DISTANT', defaultValue: false,
             description: 'Publier les images sur GHCR et déployer sur le serveur (branche main ; credentials requis, voir docs/CI.md)')
     }
@@ -26,19 +39,26 @@ pipeline {
     environment {
         REGISTRE = 'ghcr.io/zakaech'
         // Microservices construits depuis services/ (phase 7 ; le monolithe a été supprimé en sous-étape d)
-        SERVICES = 'discovery-server api-gateway auth-service notification-service offre-service candidature-service demo-seeder'
+        SERVICES = 'discovery-server api-gateway auth-service notification-service offre-service candidature-service ai-service demo-seeder'
     }
 
     stages {
         stage('Préparation') {
             steps {
                 script {
-                    // Tag des images = SHA court du commit : on sait toujours quel code tourne
-                    env.IMAGE_TAG = env.GIT_COMMIT.take(7)
                     // amd64 seul sur les branches de travail (rapide) ; amd64 + arm64 sur main (serveur Oracle ARM)
                     env.PLATEFORMES = env.BRANCH_NAME == 'main' ? 'linux/amd64,linux/arm64' : 'linux/amd64'
+                    boolean planifie = !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').isEmpty()
+                    // Commit du dernier build réussi de cette branche (plugin Git) ; absent au premier build
+                    String reference = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: ''
+                    Map selection = lireCleValeur(sh(returnStdout: true,
+                            script: "sh ci/selection.sh '${reference}' ${params.COMPLET || planifie}"))
+                    env.MODULES = selection.MODULES
+                    env.FRONTEND = selection.FRONTEND
+                    echo "Sélection (${selection.RAISON}) : modules Java = ${env.MODULES ?: 'aucun'} ; frontend = ${env.FRONTEND}"
                 }
-                echo "Branche ${env.BRANCH_NAME}, images stagehub-*:${env.IMAGE_TAG} pour ${env.PLATEFORMES}"
+                // Tag de chaque image = empreinte de son contenu (et des plateformes) ; lu par docker compose
+                sh 'sh ci/tags.sh "$PLATEFORMES" frontend $SERVICES > images.env && cat images.env'
                 sh 'docker version --format "Démon Docker (DinD) : {{.Server.Version}}"'
             }
         }
@@ -46,12 +66,23 @@ pipeline {
         stage('Tests') {
             parallel {
                 stage('Services') {
+                    when { expression { env.MODULES } }
                     steps {
                         dir('services') {
-                            // Tous les microservices (POM parent multi-module) : tests unitaires + tests d'intégration
-                            // (Testcontainers, sur DinD) + rapport JaCoCo + contrôle des seuils : un test rouge OU une
-                            // couverture insuffisante → échec
-                            sh './mvnw -B -ntp verify'
+                            // Tests unitaires + tests d'intégration (Testcontainers, sur DinD) + rapport JaCoCo +
+                            // contrôle des seuils : un test rouge OU une couverture insuffisante → échec
+                            script {
+                                if (env.MODULES == 'TOUS') {
+                                    sh './mvnw -B -ntp verify'
+                                } else {
+                                    // 1. Modules dont dépend la sélection (commons...), installés sans leurs tests :
+                                    //    l'étape 2 les lit dans le dépôt Maven local
+                                    sh "./mvnw -B -ntp -q install -DskipTests -Djacoco.skip=true -pl ${env.MODULES} -am"
+                                    // 2. Modules modifiés et ceux qui en dépendent (-amd) : toucher outbox reteste
+                                    //    offre-service et candidature-service
+                                    sh "./mvnw -B -ntp verify -pl ${env.MODULES} -amd"
+                                }
+                            }
                         }
                     }
                     post {
@@ -69,12 +100,14 @@ pipeline {
                                                                [path: 'services/notification-service/src/main/java'],
                                                                [path: 'services/offre-service/src/main/java'],
                                                                [path: 'services/candidature-service/src/main/java'],
+                                                               [path: 'services/ai-service/src/main/java'],
                                                                [path: 'services/demo-seeder/src/main/java']],
                                            sourceCodeRetention: 'LAST_BUILD'
                         }
                     }
                 }
                 stage('Frontend') {
+                    when { expression { env.FRONTEND == 'true' } }
                     steps {
                         dir('frontend') {
                             sh 'npm ci --no-audit --no-fund'
@@ -94,17 +127,8 @@ pipeline {
 
         stage('Images') {
             steps {
-                // buildx (BuildKit) : une variante par plateforme, réunies sous un même tag (manifest list).
-                // --load les range dans le magasin d'images de DinD (containerd, qui accepte le multi-architecture).
-                sh '''
-                    docker buildx build --platform "$PLATEFORMES" --tag "stagehub-frontend:$IMAGE_TAG" --load frontend
-                    # Microservices : un seul Dockerfile (services/), le module est choisi par SERVICE
-                    for service in $SERVICES; do
-                        docker buildx build --platform "$PLATEFORMES" --build-arg SERVICE="$service" \
-                            --tag "stagehub-$service:$IMAGE_TAG" --load services
-                    done
-                    docker image ls --tree "stagehub-*:$IMAGE_TAG"
-                '''
+                // Une image dont le tag (empreinte du contenu) existe déjà dans DinD n'est pas reconstruite
+                sh 'sh ci/images.sh construire "$PLATEFORMES"'
             }
         }
 
@@ -115,10 +139,12 @@ pipeline {
                 withCredentials([file(credentialsId: 'stagehub-env-recette', variable: 'ENV_RECETTE')]) {
                     // --no-build : les images de l'étape précédente ; --wait : attend les healthchecks
                     // (tous les services « healthy »), sinon l'étape échoue
-                    sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" up -d --no-build --wait --wait-timeout 300'
+                    // Second --env-file : les tags des images (images.env). Un service dont le tag n'a pas changé
+                    // n'est pas recréé : la recette ne redémarre que ce qui a été modifié.
+                    sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" --env-file images.env up -d --no-build --wait --wait-timeout 300'
                     // Données de démo créées par l'API (ne fait rien si elles existent déjà) ; ses logs restent dans
                     // la console du build. Un échec ici signale aussi un parcours cassé à travers la gateway.
-                    sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" run --rm demo-seeder'
+                    sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" --env-file images.env run --rm demo-seeder'
                 }
                 // Test de fumée à travers Nginx et la gateway (le nom « docker » désigne le conteneur DinD).
                 // Nouvelles tentatives : la gateway peut répondre 503 quelques secondes, le temps de trouver le
@@ -143,10 +169,7 @@ pipeline {
                                                   usernameVariable: 'GHCR_UTILISATEUR', passwordVariable: 'GHCR_TOKEN')]) {
                     sh '''
                         echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_UTILISATEUR" --password-stdin
-                        for app in frontend $SERVICES; do
-                            docker tag "stagehub-$app:$IMAGE_TAG" "$REGISTRE/stagehub-$app:$IMAGE_TAG"
-                            docker push "$REGISTRE/stagehub-$app:$IMAGE_TAG"
-                        done
+                        sh ci/images.sh publier "$REGISTRE"
                     '''
                 }
             }
@@ -174,10 +197,12 @@ pipeline {
                     string(credentialsId: 'oracle-hote', variable: 'HOTE_SSH')
                 ]) {
                     sh '''
+                        # Tags des images (images.env) transmis comme variables : le serveur tire exactement ces images
+                        TAGS=$(sed 's/^/export /; s/$/;/' images.env | paste -sd ' ' -)
                         ssh -i "$CLE_SSH" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$KNOWN_HOSTS" \
                             "$UTILISATEUR_SSH@$HOTE_SSH" \
                             "cd ~/stagehub && git pull --ff-only \
-                             && export IMAGE_REGISTRY=$REGISTRE/ IMAGE_TAG=$IMAGE_TAG \
+                             && $TAGS export IMAGE_REGISTRY=$REGISTRE/ \
                              && docker compose -f docker-compose.yml -f docker-compose.prod.yml pull \
                              && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-build --wait"
                     '''
@@ -188,8 +213,21 @@ pipeline {
 
     post {
         always {
-            // Couches orphelines laissées par les builds successifs : le disque de DinD reste sous contrôle
+            // Les images gardent leur tag d'un build à l'autre (réutilisées si le contenu n'a pas changé) : on ne
+            // supprime que celles qu'aucun conteneur n'utilise et créées il y a plus de 14 jours, plus les couches
+            // orphelines. Le disque de DinD reste sous contrôle ; au pire, une image supprimée est reconstruite.
+            sh 'docker image prune -af --filter "until=336h" > /dev/null 2>&1 || true'
             sh 'docker image prune -f > /dev/null 2>&1 || true'
         }
     }
+}
+
+/** Lignes « clé=valeur » (sortie de ci/selection.sh) → Map. */
+Map lireCleValeur(String texte) {
+    Map valeurs = [:]
+    texte.trim().readLines().each { String ligne ->
+        int egal = ligne.indexOf('=')
+        valeurs[ligne.substring(0, egal)] = ligne.substring(egal + 1)
+    }
+    return valeurs
 }

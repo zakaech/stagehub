@@ -4,6 +4,9 @@
 # Maven
 services/*/target/
 
+# Jenkins : tags des images calculés à chaque build (ci/tags.sh)
+images.env
+
 # Angular / Node (phase 2)
 frontend/node_modules/
 frontend/dist/

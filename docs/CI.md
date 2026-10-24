@@ -105,8 +105,9 @@ volume `stagehub-ci_jenkins-home`.
 
 1. Copier `ci/recette.env.example` en `ci/recette.env` (fichier ignoré par git) et remplacer les valeurs `change-me`
    (`JWT_PRIVATE_KEY` : clé RSA d'auth-service, commande dans le fichier).
-   **À refaire quand de nouvelles variables apparaissent** (phase 7 : `AUTH_DB_PASSWORD`, `JWT_PRIVATE_KEY`, puis `NOTIFICATION_DB_PASSWORD`) :
-   compléter le fichier puis **Credentials → stagehub-env-recette → Update** pour téléverser la nouvelle version.
+   **À refaire quand de nouvelles variables apparaissent** (phase 7 : `AUTH_DB_PASSWORD`, `JWT_PRIVATE_KEY`, `NOTIFICATION_DB_PASSWORD`, `OFFRE_DB_PASSWORD`, `CANDIDATURE_DB_PASSWORD`, `AI_DB_PASSWORD`) :
+   compléter le fichier puis **Credentials → stagehub-env-recette → Update** pour téléverser la nouvelle version,
+   **avant** de pousser le commit qui utilise la variable (sinon l'étape de recette échoue : build n° 8).
 2. **Add Credentials** : *Kind* **Secret file**, *File* `ci/recette.env`, *ID* `stagehub-env-recette`.
 
 Jenkins le recopie dans un fichier temporaire pendant l'étape de déploiement seulement
@@ -118,11 +119,11 @@ Jenkins le recopie dans un fichier temporaire pendant l'étape de déploiement s
 
 | Étape | Branches | Ce qui se passe | Bloque si… |
 |---|---|---|---|
-| Préparation | toutes | Tag des images = SHA court du commit ; plateformes selon la branche | — |
-| Tests › Services | toutes | `services/` : `./mvnw verify` de tous les microservices (POM parent multi-module) : tests unitaires, tests d'intégration (Testcontainers sur DinD), rapport et **seuils JaCoCo** | un test échoue, ou couverture d'un package `service` < 80 % des lignes / 70 % des branches, service par service |
-| Tests › Frontend | toutes | `npm ci`, Prettier, tests Vitest (rapport JUnit) | formatage incorrect ou test en échec |
-| Images | toutes | `docker buildx build` : **amd64** sur les branches de travail, **amd64 + arm64** sur `main` | un Dockerfile ne se construit pas |
-| Déploiement recette | `main` | `docker compose up --wait` sur DinD, puis `demo-seeder` (données de démo par l'API, à travers la gateway) et test de fumée `GET /api/v1/offres` | un service n'atteint pas l'état *healthy*, ou le seeder échoue |
+| Préparation | toutes | Sélection de ce qui a changé (`ci/selection.sh`), tag de chaque image = empreinte de son contenu (`ci/tags.sh` → `images.env`), plateformes selon la branche | — |
+| Tests › Services | si un module a changé | `services/` : `./mvnw verify` des modules modifiés et de ceux qui en dépendent (`-pl … -amd`), ou de tous (POM parent multi-module) : tests unitaires, tests d'intégration (Testcontainers sur DinD), rapport et **seuils JaCoCo** | un test échoue, ou couverture d'un package `service` < 80 % des lignes / 70 % des branches, service par service |
+| Tests › Frontend | si `frontend/` a changé | `npm ci`, Prettier, tests Vitest (rapport JUnit) | formatage incorrect ou test en échec |
+| Images | toutes | `docker buildx build` des seules images dont le tag n'existe pas encore (`ci/images.sh`) : **amd64** sur les branches de travail, **amd64 + arm64** sur `main` | un Dockerfile ne se construit pas |
+| Déploiement recette | `main` | `docker compose up --wait` sur DinD avec les tags de `images.env` (seuls les services dont l'image a changé sont recréés), puis `demo-seeder` (données de démo par l'API, à travers la gateway) et test de fumée `GET /api/v1/offres` | un service n'atteint pas l'état *healthy*, ou le seeder échoue |
 | Publication GHCR | `main` + paramètre | Push des images sur `ghcr.io/zakaech` | (désactivée par défaut) |
 | Déploiement distant | `main` + paramètre | SSH sur le serveur : `git pull`, `compose pull`, `up --wait` | (désactivée par défaut) |
 
@@ -135,6 +136,30 @@ aucune image n'est construite ni déployée à partir d'un code rouge.
   trace de chaque test en échec ;
 - **Couverture services (JaCoCo)** : couverture globale, par package et ligne par ligne dans le code source
   (plugin *Coverage*). Le seuil, lui, est contrôlé par Maven : même règle en local et dans Jenkins.
+
+### Reconstruction sélective (phase 7 f)
+
+Avec huit services, tout retester et tout reconstruire à chaque commit prenait environ 15 minutes (build n° 10 :
+tests 8 min 51, images 3 min 50, recette 2 min 34). Le pipeline ne refait plus que ce qui a changé :
+
+- **Tests** : `ci/selection.sh` compare le commit construit à celui du **dernier build réussi** de la branche
+  (`GIT_PREVIOUS_SUCCESSFUL_COMMIT`, fourni par le plugin Git). Un module modifié est testé avec ceux qui en dépendent
+  (`mvn verify -pl <modules> -amd` : toucher `outbox` reteste offre-service et candidature-service ; toucher `commons`
+  reteste presque tout). Un build en échec ne fait pas avancer la référence : ses changements seront retestés.
+- **Tout est retesté** si on ne peut pas raisonner sur un diff (premier build d'une branche, historique réécrit) ou si
+  un fichier commun change : POM parent, Dockerfile commun, wrapper Maven, `Jenkinsfile`, scripts `ci/*.sh`.
+- **Images** : `ci/tags.sh` donne à chaque image un tag égal à l'empreinte de son contenu (arbres git du module, des
+  modules internes dont il dépend, du POM parent, du Dockerfile, plus les plateformes). Même contenu → même tag →
+  l'image existe déjà dans DinD et n'est pas reconstruite (`ci/images.sh`). La recette ne recrée que les services dont
+  le tag a changé.
+- **Build complet** : paramètre `COMPLET` (*Build with Parameters*), et chaque jour vers midi sur `main`
+  (`cron('H 12 * * *')`). Pas la nuit : Jenkins tourne sur le PC de développement, et un créneau manqué n'est pas
+  rattrapé.
+- Une modification de la seule documentation ne lance ni test Java ni test Angular : le pipeline reste vert, la
+  recette est simplement confirmée.
+
+Les images inutilisées depuis plus de 14 jours sont supprimées de DinD à la fin de chaque build (au pire, une image
+supprimée est reconstruite au build suivant).
 
 ### Images multi-architecture
 

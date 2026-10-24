@@ -172,7 +172,7 @@ services:
       context: ./services
       args:
         SERVICE: discovery-server
-    image: ${IMAGE_REGISTRY:-}stagehub-discovery-server:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-discovery-server:${TAG_DISCOVERY_SERVER:-${IMAGE_TAG:-local}}
     container_name: stagehub-discovery-server
     restart: unless-stopped
     environment:
@@ -204,7 +204,7 @@ services:
       context: ./services
       args:
         SERVICE: api-gateway
-    image: ${IMAGE_REGISTRY:-}stagehub-api-gateway:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-api-gateway:${TAG_API_GATEWAY:-${IMAGE_TAG:-local}}
     container_name: stagehub-api-gateway
     restart: unless-stopped
     depends_on:
@@ -242,7 +242,7 @@ services:
       context: ./services
       args:
         SERVICE: auth-service
-    image: ${IMAGE_REGISTRY:-}stagehub-auth-service:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-auth-service:${TAG_AUTH_SERVICE:-${IMAGE_TAG:-local}}
     container_name: stagehub-auth-service
     restart: unless-stopped
     depends_on:
@@ -287,7 +287,7 @@ services:
       context: ./services
       args:
         SERVICE: notification-service
-    image: ${IMAGE_REGISTRY:-}stagehub-notification-service:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-notification-service:${TAG_NOTIFICATION_SERVICE:-${IMAGE_TAG:-local}}
     container_name: stagehub-notification-service
     restart: unless-stopped
     depends_on:
@@ -336,7 +336,7 @@ services:
       context: ./services
       args:
         SERVICE: offre-service
-    image: ${IMAGE_REGISTRY:-}stagehub-offre-service:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-offre-service:${TAG_OFFRE_SERVICE:-${IMAGE_TAG:-local}}
     restart: unless-stopped
     depends_on:
       postgres-init:
@@ -375,7 +375,7 @@ services:
       context: ./services
       args:
         SERVICE: candidature-service
-    image: ${IMAGE_REGISTRY:-}stagehub-candidature-service:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-candidature-service:${TAG_CANDIDATURE_SERVICE:-${IMAGE_TAG:-local}}
     container_name: stagehub-candidature-service
     restart: unless-stopped
     depends_on:
@@ -416,7 +416,7 @@ services:
       context: ./services
       args:
         SERVICE: ai-service
-    image: ${IMAGE_REGISTRY:-}stagehub-ai-service:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-ai-service:${TAG_AI_SERVICE:-${IMAGE_TAG:-local}}
     container_name: stagehub-ai-service
     restart: unless-stopped
     depends_on:
@@ -447,7 +447,7 @@ services:
 
   frontend:
     build: ./frontend
-    image: ${IMAGE_REGISTRY:-}stagehub-frontend:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-frontend:${TAG_FRONTEND:-${IMAGE_TAG:-local}}
     container_name: stagehub-frontend
     restart: unless-stopped
     depends_on:
@@ -472,7 +472,7 @@ services:
       context: ./services
       args:
         SERVICE: demo-seeder
-    image: ${IMAGE_REGISTRY:-}stagehub-demo-seeder:${IMAGE_TAG:-local}
+    image: ${IMAGE_REGISTRY:-}stagehub-demo-seeder:${TAG_DEMO_SEEDER:-${IMAGE_TAG:-local}}
     container_name: stagehub-demo-seeder
     profiles: ["demo"]
     restart: "no"
