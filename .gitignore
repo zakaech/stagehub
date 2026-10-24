@@ -2,7 +2,6 @@
 .env
 
 # Maven
-backend/target/
 services/*/target/
 
 # Angular / Node (phase 2)
