@@ -1,0 +1,68 @@
+server:
+  # Hors Docker (8085 : Jenkins, 8086 : candidature-service) ; dans un conteneur, SERVER_PORT (Dockerfile) a priorité
+  port: 8087
+
+spring:
+  application:
+    name: ai-service
+  config:
+    import: optional:file:../../.env[.properties]
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${AI_DB_NAME:stagehub_ai}
+    username: ${AI_DB_USERNAME:stagehub_ai}
+    password: ${AI_DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    consumer:
+      # Groupe propre à ce service : il reçoit chaque candidature créée, indépendamment des autres consommateurs
+      group-id: ai-service
+      # Premier démarrage du groupe : lire depuis le début (aucune candidature perdue si le service démarre après)
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Texte brut : le JSON est lu par CandidatureCreeeListener (illisible → topic d'erreurs, sans nouvel essai)
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      # Utilisé seulement pour envoyer les messages en échec dans le topic « .DLT »
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+
+eureka:
+  client:
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka}
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+stagehub:
+  topics:
+    candidature-creee: stagehub.candidature.creee
+  erreurs:
+    # Échec passager : nouvelles tentatives espacées de 2 s, 4 s, 8 s, puis topic « .DLT »
+    tentatives: 3
+    premier-delai: 2s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.netflix.discovery: WARN

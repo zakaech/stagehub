@@ -33,6 +33,7 @@
         <module>notification-service</module>
         <module>offre-service</module>
         <module>candidature-service</module>
+        <module>ai-service</module>
         <module>demo-seeder</module>
     </modules>
 
