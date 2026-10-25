@@ -183,6 +183,9 @@ Points de conception :
   vérification, mais « mes candidatures » reste consultable avec les données recopiées au moment de postuler (vérifié).
 - **Préparé pour l'IA** : chaque candidature publie un événement `CandidatureCreee` ; ai-service l'enregistre comme
   demande d'analyse. En phase 8, il calculera le score de matching sans faire attendre l'étudiant.
+- **Une requête, un traceId** (Micrometer Tracing + OpenTelemetry) : transmis de la gateway aux services, par Feign
+  et par Kafka (l'outbox le conserve avec l'événement). Chaque service journalise ses requêtes avec ce traceId, et
+  chaque erreur le renvoie : `docker compose logs | grep <traceId>` suit une candidature jusqu'à ai-service.
 - **Tâche planifiée sur plusieurs instances** : la fermeture nocturne des offres expirées est protégée par **ShedLock**
   (verrou en base) ; avec `--scale offre-service=2`, une seule instance l'exécute (vérifié).
 - **Packages par fonctionnalité** (`offre`, `candidature`, `cv`…), chacun avec ses couches : adopté dès le monolithe,
