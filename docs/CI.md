@@ -155,19 +155,22 @@ tests 8 min 51, images 3 min 50, recette 2 min 34). Le pipeline ne refait plus q
   le tag a changé.
 - **Build complet** : paramètre `COMPLET` (*Build with Parameters*), et chaque jour vers midi sur `main`
   (`cron('H 12 * * *')`). Pas la nuit : Jenkins tourne sur le PC de développement, et un créneau manqué n'est pas
-  rattrapé.
+  rattrapé. Il reteste tout et **reconstruit toutes les images**, même celles dont le tag existe déjà, en
+  retéléchargeant les images de base (`buildx build --pull`). Le cache BuildKit reste utilisé : si rien n'a changé,
+  la reconstruction est rapide ; si l'image de base a reçu des correctifs, les couches qui en dépendent sont refaites.
+  Une image reconstruite garde son tag : la recette recrée le conteneur (image différente), GHCR reçoit la nouvelle
+  version sous le même tag.
 - Une modification de la seule documentation ne lance ni test Java ni test Angular : le pipeline reste vert, la
   recette est simplement confirmée.
 
 Les images inutilisées depuis plus de 14 jours sont supprimées de DinD à la fin de chaque build (au pire, une image
 supprimée est reconstruite au build suivant).
 
-**Limites connues** : l'empreinte ne couvre que des fichiers du dépôt.
-- `ci/images.sh` (la façon de construire) n'y entre pas : si on le modifie (option de `buildx`, argument de
-  build...), les images dont le contenu n'a pas changé ne sont pas reconstruites, même avec `COMPLET` (mêmes tags).
-  Il faut alors supprimer les images concernées de DinD.
+L'empreinte ne couvre que des fichiers du dépôt, d'où le rôle du build complet :
+- `ci/images.sh` (la façon de construire) n'y entre pas : après l'avoir modifié (option de `buildx`, argument de
+  build...), lancer un build `COMPLET` pour reconstruire les images dont le contenu n'a pas changé.
 - Une nouvelle version d'une image de base au même tag (`eclipse-temurin:21-jre-alpine`, correctifs de sécurité)
-  ne change pas non plus l'empreinte : elle n'est prise qu'à la prochaine reconstruction du service.
+  ne change pas l'empreinte : elle est prise au plus tard au build complet du jour (`--pull`).
 
 #### Démonstration (2026-10-25)
 

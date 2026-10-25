@@ -8,8 +8,9 @@
 //
 // Reconstruction sélective (phase 7 f) : seuls les modules modifiés depuis le dernier build réussi sont testés (avec
 // ceux qui en dépendent), et seules les images dont le contenu a changé sont reconstruites (tag = empreinte du
-// contenu). Build complet : paramètre COMPLET, ou chaque jour vers midi sur main. Règles : ci/selection.sh,
-// ci/tags.sh, ci/images.sh.
+// contenu). Build complet : paramètre COMPLET, ou chaque jour vers midi sur main ; il reteste tout et reconstruit
+// toutes les images en retéléchargeant les images de base (--pull). Règles : ci/selection.sh, ci/tags.sh,
+// ci/images.sh.
 
 pipeline {
     agent any
@@ -31,7 +32,7 @@ pipeline {
 
     parameters {
         booleanParam(name: 'COMPLET', defaultValue: false,
-            description: 'Tout tester et reconstruire, sans tenir compte des fichiers modifiés')
+            description: 'Tout tester et reconstruire toutes les images (images de base retéléchargées), sans tenir compte des fichiers modifiés')
         booleanParam(name: 'DEPLOIEMENT_DISTANT', defaultValue: false,
             description: 'Publier les images sur GHCR et déployer sur le serveur (branche main ; credentials requis, voir docs/CI.md)')
     }
@@ -49,10 +50,12 @@ pipeline {
                     // amd64 seul sur les branches de travail (rapide) ; amd64 + arm64 sur main (serveur Oracle ARM)
                     env.PLATEFORMES = env.BRANCH_NAME == 'main' ? 'linux/amd64,linux/arm64' : 'linux/amd64'
                     boolean planifie = !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').isEmpty()
+                    // Build complet : demandé à la main (COMPLET) ou planifié ; lu aussi par l'étape Images
+                    env.BUILD_COMPLET = (params.COMPLET || planifie).toString()
                     // Commit du dernier build réussi de cette branche (plugin Git) ; absent au premier build
                     String reference = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: ''
                     Map selection = lireCleValeur(sh(returnStdout: true,
-                            script: "sh ci/selection.sh '${reference}' ${params.COMPLET || planifie}"))
+                            script: "sh ci/selection.sh '${reference}' ${env.BUILD_COMPLET}"))
                     env.MODULES = selection.MODULES
                     env.FRONTEND = selection.FRONTEND
                     echo "Sélection (${selection.RAISON}) : modules Java = ${env.MODULES ?: 'aucun'} ; frontend = ${env.FRONTEND}"
@@ -127,8 +130,9 @@ pipeline {
 
         stage('Images') {
             steps {
-                // Une image dont le tag (empreinte du contenu) existe déjà dans DinD n'est pas reconstruite
-                sh 'sh ci/images.sh construire "$PLATEFORMES"'
+                // Une image dont le tag (empreinte du contenu) existe déjà dans DinD n'est pas reconstruite, sauf
+                // en build complet : toutes le sont, images de base retéléchargées (correctifs de sécurité)
+                sh 'sh ci/images.sh construire "$PLATEFORMES" "$BUILD_COMPLET"'
             }
         }
 
