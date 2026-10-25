@@ -3,6 +3,7 @@ package com.stagehub.commons.error;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -15,7 +16,9 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.util.ClassUtils;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -69,6 +72,23 @@ public abstract class ProblemDetailExceptionHandler extends ResponseEntityExcept
     protected ResponseEntity<Object> handleNoResourceFoundException(NoResourceFoundException ex, HttpHeaders headers,
                                                                     HttpStatusCode status, WebRequest request) {
         ProblemDetail body = probleme(HttpStatus.NOT_FOUND, "Aucune ressource à cette adresse", "RessourceIntrouvable");
+        return handleExceptionInternal(ex, body, headers, status, request);
+    }
+
+    /**
+     * Paramètre d'un mauvais type, par exemple {@code /offres/abc} quand un id numérique est attendu : même format que
+     * le reste, en français, sans le message technique de Spring. La valeur reçue n'est pas recopiée dans la réponse.
+     */
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(TypeMismatchException ex, HttpHeaders headers,
+                                                        HttpStatusCode status, WebRequest request) {
+        String nom = ex instanceof MethodArgumentTypeMismatchException argument ? argument.getName() : ex.getPropertyName();
+        Class<?> type = ex.getRequiredType();
+        boolean nombre = type != null && Number.class.isAssignableFrom(ClassUtils.resolvePrimitiveIfNecessary(type));
+        String detail = nombre
+                ? "Le paramètre « " + nom + " » doit être un nombre"
+                : "Valeur invalide pour le paramètre « " + nom + " »";
+        ProblemDetail body = probleme(HttpStatus.BAD_REQUEST, detail, "ParametreInvalide");
         return handleExceptionInternal(ex, body, headers, status, request);
     }
 
