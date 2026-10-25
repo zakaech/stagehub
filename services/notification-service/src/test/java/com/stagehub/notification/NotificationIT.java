@@ -90,7 +90,7 @@ class NotificationIT {
                 "00-" + traceId + "-b7ad6b7169203331-01");
 
         verify(mailSender, timeout(20_000)).send(argThat(pour(email, "Candidature acceptée")));
-        assertThat(sortie.getOut()).containsPattern(traceId + ".*Email « [^»]+ » envoyé à " + email);
+        attendreLaLigne(sortie, traceId + ".*Email « [^»]+ » envoyé à " + email);
     }
 
     @Test
@@ -214,5 +214,18 @@ class NotificationIT {
             }
         }
         throw new AssertionError("Aucun message attendu dans " + topic);
+    }
+
+    /**
+     * La ligne est écrite juste après l'action observée par le test (envoi, réponse...) : on lui laisse jusqu'à 10 s
+     * pour apparaître dans la sortie, au lieu de la chercher tout de suite (course perdue dans Jenkins, build n° 16).
+     */
+    private static void attendreLaLigne(CapturedOutput sortie, String motif) throws InterruptedException {
+        java.util.regex.Pattern ligne = java.util.regex.Pattern.compile(motif);
+        java.time.Instant limite = java.time.Instant.now().plusSeconds(10);
+        while (!ligne.matcher(sortie.getOut()).find() && java.time.Instant.now().isBefore(limite)) {
+            Thread.sleep(100);
+        }
+        assertThat(sortie.getOut()).containsPattern(motif);
     }
 }

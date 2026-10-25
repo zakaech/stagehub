@@ -86,8 +86,9 @@ class AiServiceIT {
 
         attendre(() -> demandeAnalyseRepository.existsById(candidatureId));
         assertThat(demandeAnalyseRepository.findById(candidatureId).orElseThrow().getTraceparent()).isEqualTo(traceparent);
-        assertThat(sortie.getOut()).containsPattern(
-                traceId + ".*Candidature " + candidatureId + " enregistrée pour analyse");
+        // La ligne est écrite avant le commit, donc avant que la demande soit visible : pas de course ici, mais on
+        // attend quand même la sortie, comme dans les autres tests qui lisent les logs
+        attendre(() -> sortie.getOut().matches("(?s).*" + traceId + ".*Candidature " + candidatureId + " enregistrée pour analyse.*"));
     }
 
     @Test

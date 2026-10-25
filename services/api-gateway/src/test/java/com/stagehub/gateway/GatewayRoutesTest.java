@@ -397,7 +397,7 @@ class GatewayRoutesTest {
         offres.verify(getRequestedFor(urlEqualTo("/api/v1/offres/5"))
                 .withHeader("traceparent", matching("00-" + traceId + "-(?!00f067aa0ba902b7)[0-9a-f]{16}-01")));
         // Journal des requêtes : une ligne, avec le traceId
-        assertThat(sortie.getOut()).containsPattern(traceId + ".*GET /api/v1/offres/5 → 200 en \\d+ ms");
+        attendreLaLigne(sortie, traceId + ".*GET /api/v1/offres/5 → 200 en \\d+ ms");
     }
 
     @Test
@@ -467,5 +467,18 @@ class GatewayRoutesTest {
         } catch (JOSEException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /**
+     * La ligne du journal est écrite après la réponse : on lui laisse jusqu'à 10 s pour apparaître dans la sortie, au
+     * lieu de la chercher tout de suite (même course que celle perdue par NotificationIT dans Jenkins, build n° 16).
+     */
+    private static void attendreLaLigne(CapturedOutput sortie, String motif) throws InterruptedException {
+        java.util.regex.Pattern ligne = java.util.regex.Pattern.compile(motif);
+        Instant limite = Instant.now().plusSeconds(10);
+        while (!ligne.matcher(sortie.getOut()).find() && Instant.now().isBefore(limite)) {
+            Thread.sleep(100);
+        }
+        assertThat(sortie.getOut()).containsPattern(motif);
     }
 }
