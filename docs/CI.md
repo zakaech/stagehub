@@ -147,7 +147,8 @@ tests 8 min 51, images 3 min 50, recette 2 min 34). Le pipeline ne refait plus q
   (`mvn verify -pl <modules> -amd` : toucher `outbox` reteste offre-service et candidature-service ; toucher `commons`
   reteste presque tout). Un build en échec ne fait pas avancer la référence : ses changements seront retestés.
 - **Tout est retesté** si on ne peut pas raisonner sur un diff (premier build d'une branche, historique réécrit) ou si
-  un fichier commun change : POM parent, Dockerfile commun, wrapper Maven, `Jenkinsfile`, scripts `ci/*.sh`.
+  un fichier commun change : POM parent, Dockerfile commun, wrapper Maven, `Jenkinsfile`, `ci/selection.sh`,
+  `ci/tags.sh`.
 - **Images** : `ci/tags.sh` donne à chaque image un tag égal à l'empreinte de son contenu (arbres git du module, des
   modules internes dont il dépend, du POM parent, du Dockerfile, plus les plateformes). Même contenu → même tag →
   l'image existe déjà dans DinD et n'est pas reconstruite (`ci/images.sh`). La recette ne recrée que les services dont
@@ -160,6 +161,36 @@ tests 8 min 51, images 3 min 50, recette 2 min 34). Le pipeline ne refait plus q
 
 Les images inutilisées depuis plus de 14 jours sont supprimées de DinD à la fin de chaque build (au pire, une image
 supprimée est reconstruite au build suivant).
+
+**Limites connues** : l'empreinte ne couvre que des fichiers du dépôt.
+- `ci/images.sh` (la façon de construire) n'y entre pas : si on le modifie (option de `buildx`, argument de
+  build...), les images dont le contenu n'a pas changé ne sont pas reconstruites, même avec `COMPLET` (mêmes tags).
+  Il faut alors supprimer les images concernées de DinD.
+- Une nouvelle version d'une image de base au même tag (`eclipse-temurin:21-jre-alpine`, correctifs de sécurité)
+  ne change pas non plus l'empreinte : elle n'est prise qu'à la prochaine reconstruction du service.
+
+#### Démonstration (2026-10-25)
+
+Premier build de `main` avec la reconstruction sélective (n° 11) : complet, puisque le `Jenkinsfile` avait changé,
+**vert en 22 min 47 s** (282 tests ; tests 11 min 07, images 5 min 18, recette 4 min 03). Plus long que le n° 10 :
+ai-service en plus, et toutes les images changeaient de tag (SHA du commit → empreinte), donc la recette a recréé
+tous ses conteneurs. Le gain se mesure sur les commits suivants.
+
+Branche jetable `demo/reconstruction-selective` (amd64 seulement, pas de recette), une modification de commentaire
+par commit, chaque build comparé au précédent :
+
+| Build | Modification | Sélection | Modules testés (*Reactor Summary*) | Images reconstruites | Durée |
+|---|---|---|---|---|---|
+| #1 | aucune (branche neuve) | `TOUS` : aucun build réussi précédent | tous | 9 / 9 | 15 min |
+| #2 | `offre-service` | `offre-service` | offre-service | 1 / 9 | 5 min 13 |
+| #3 | `outbox` | `outbox` | outbox, offre-service, candidature-service | 2 / 9 | 6 min 54 |
+| #4 | `commons` | `commons` | commons, audit, api-gateway, auth-service, offre-service, candidature-service | 4 / 9 | 7 min 54 |
+| #5 | `README.md` | aucun | aucun (Services et Frontend sautées) | 0 / 9 | 11 s |
+
+Leçons : un commit qui touche un service coûte environ trois fois moins qu'un build complet ; une bibliothèque
+partagée coûte en proportion des services qui l'utilisent (`-amd` les retrouve dans les POM, `ci/tags.sh` aussi) ;
+la documentation ne coûte presque rien. Un build sans test n'a pas de rapport JUnit : trou normal dans la courbe des
+tests. Branche supprimée ensuite (GitHub et local), job retiré par Jenkins au scan suivant.
 
 ### Images multi-architecture
 
