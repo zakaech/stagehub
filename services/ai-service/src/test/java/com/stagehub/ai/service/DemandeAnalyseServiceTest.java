@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 class DemandeAnalyseServiceTest {
 
     private static final Instant MAINTENANT = Instant.parse("2026-10-24T10:00:00Z");
+    private static final String TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
     private static final UUID EVENEMENT = UUID.randomUUID();
 
     @Mock
@@ -45,7 +46,7 @@ class DemandeAnalyseServiceTest {
     void nouvelEvenement_demandeEnregistreeEnAttente() {
         when(evenementTraiteRepository.inscrire(EVENEMENT, "CandidatureCreee", MAINTENANT)).thenReturn(1);
 
-        service.surCandidatureCreee(EVENEMENT, new CandidatureCreee(8L, 3L, 5L, "cv.pdf"));
+        service.surCandidatureCreee(EVENEMENT, new CandidatureCreee(8L, 3L, 5L, "cv.pdf"), TRACEPARENT);
 
         ArgumentCaptor<DemandeAnalyse> demande = ArgumentCaptor.forClass(DemandeAnalyse.class);
         verify(demandeAnalyseRepository).save(demande.capture());
@@ -55,13 +56,15 @@ class DemandeAnalyseServiceTest {
         assertThat(demande.getValue().getCvFichier()).isEqualTo("cv.pdf");
         assertThat(demande.getValue().getStatut()).isEqualTo(StatutAnalyse.EN_ATTENTE);
         assertThat(demande.getValue().getDateReception()).isEqualTo(MAINTENANT);
+        // Contexte de trace reçu avec l'événement, repris par l'analyse (phase 8 d)
+        assertThat(demande.getValue().getTraceparent()).isEqualTo(TRACEPARENT);
     }
 
     @Test
     void candidatureSansCv_demandeEnregistreeQuandMeme() {
         when(evenementTraiteRepository.inscrire(EVENEMENT, "CandidatureCreee", MAINTENANT)).thenReturn(1);
 
-        service.surCandidatureCreee(EVENEMENT, new CandidatureCreee(9L, 3L, 5L, null));
+        service.surCandidatureCreee(EVENEMENT, new CandidatureCreee(9L, 3L, 5L, null), null);
 
         ArgumentCaptor<DemandeAnalyse> demande = ArgumentCaptor.forClass(DemandeAnalyse.class);
         verify(demandeAnalyseRepository).save(demande.capture());
@@ -72,7 +75,7 @@ class DemandeAnalyseServiceTest {
     void evenementDejaTraite_rienNEstEnregistre() {
         when(evenementTraiteRepository.inscrire(EVENEMENT, "CandidatureCreee", MAINTENANT)).thenReturn(0);
 
-        service.surCandidatureCreee(EVENEMENT, new CandidatureCreee(8L, 3L, 5L, "cv.pdf"));
+        service.surCandidatureCreee(EVENEMENT, new CandidatureCreee(8L, 3L, 5L, "cv.pdf"), TRACEPARENT);
 
         verifyNoInteractions(demandeAnalyseRepository);
     }

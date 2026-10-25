@@ -26,6 +26,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
+        <!-- API de Micrometer Tracing : contexte de trace (traceparent) enregistré avec l'événement, puis remis dans
+             l'en-tête du message Kafka par le relais (phase 8 a) -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing</artifactId>
+        </dependency>
         <!-- JsonMapper (Jackson 3) pour sérialiser les événements -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

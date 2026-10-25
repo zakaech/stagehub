@@ -7,6 +7,11 @@ public final class OutboxEntetes {
     public static final String ID_EVENEMENT = "stagehub-evenement-id";
     /** Nom simple de la classe de l'événement (ex. EntrepriseValidationEvent), pour le diagnostic. */
     public static final String TYPE = "stagehub-type";
+    /**
+     * Contexte de trace W3C (standard, lu par Micrometer Tracing côté consommateur) : le traitement du message
+     * continue la trace de l'action qui l'a produit, avec le même traceId.
+     */
+    public static final String TRACEPARENT = "traceparent";
 
     private OutboxEntetes() {
     }

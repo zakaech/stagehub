@@ -38,4 +38,7 @@ public class DemandeAnalyse {
 
     @Column(name = "date_reception", nullable = false)
     private Instant dateReception;
+
+    /** Contexte de trace W3C reçu avec l'événement : l'analyse continuera la trace de la candidature (null : aucun). */
+    private String traceparent;
 }

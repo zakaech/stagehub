@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
  * Désactivable ({@code stagehub.outbox.relais.actif=false}) : la plupart des tests n'ont pas de Kafka.
  * Bibliothèque partagée (phase 7) : chaque service qui publie des événements a sa table outbox (migration
  * {@code classpath:db/outbox}) et son relais.
+ * <p>Traçage (phase 8 a) : le relais tourne dans son propre thread, hors de la requête d'origine. Il remet donc dans
+ * l'en-tête {@code traceparent} le contexte enregistré avec l'événement : le consommateur continue la même trace.
  */
 @Component
 @ConditionalOnProperty(name = "stagehub.outbox.relais.actif", havingValue = "true", matchIfMissing = true)
@@ -91,6 +93,9 @@ public class OutboxRelais {
                 new ProducerRecord<>(evenement.getTopic(), evenement.getCle(), evenement.getContenu());
         enregistrement.headers().add(OutboxEntetes.ID_EVENEMENT, evenement.getId().toString().getBytes(StandardCharsets.UTF_8));
         enregistrement.headers().add(OutboxEntetes.TYPE, evenement.getType().getBytes(StandardCharsets.UTF_8));
+        if (evenement.getTraceparent() != null) {
+            enregistrement.headers().add(OutboxEntetes.TRACEPARENT, evenement.getTraceparent().getBytes(StandardCharsets.UTF_8));
+        }
         return enregistrement;
     }
 

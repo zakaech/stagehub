@@ -27,6 +27,9 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       # Texte brut : le JSON est lu par CandidatureCreeeListener (illisible → topic d'erreurs, sans nouvel essai)
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Traçage (phase 8 a) : le traitement d'un message continue la trace reçue dans l'en-tête traceparent
+      observation-enabled: true
     producer:
       # Utilisé seulement pour envoyer les messages en échec dans le topic « .DLT »
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -53,6 +56,11 @@ stagehub:
     premier-delai: 2s
 
 management:
+  tracing:
+    sampling:
+      # Toutes les requêtes sont tracées (0,1 par défaut) : sans exportateur, une trace ne coûte presque rien, et
+      # chaque ligne de log porte un traceId
+      probability: 1.0
   endpoints:
     web:
       exposure:

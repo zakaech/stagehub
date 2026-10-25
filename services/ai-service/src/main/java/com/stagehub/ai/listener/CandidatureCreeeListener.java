@@ -16,11 +16,15 @@ import java.util.UUID;
 /**
  * Point d'entrée Kafka : lit l'id de l'événement (en-tête posé par l'outbox de candidature-service) et le JSON, puis
  * délègue. Si le traitement lève une exception, le message est rejoué (voir KafkaErreursConfig).
+ * <p>Traçage (phase 8 a) : Spring Kafka lit l'en-tête {@code traceparent} et place le traceId de la candidature dans
+ * les logs de ce traitement ({@code spring.kafka.listener.observation-enabled}). L'en-tête est aussi conservé avec la
+ * demande, pour l'analyse qui viendra plus tard.
  */
 @Component
 public class CandidatureCreeeListener {
 
     static final String ENTETE_ID_EVENEMENT = "stagehub-evenement-id";
+    static final String ENTETE_TRACEPARENT = "traceparent";
 
     private final DemandeAnalyseService demandeAnalyseService;
     private final JsonMapper jsonMapper;
@@ -32,12 +36,13 @@ public class CandidatureCreeeListener {
 
     @KafkaListener(topics = "${stagehub.topics.candidature-creee}")
     public void surCandidatureCreee(@Payload String json,
-                                    @Header(name = ENTETE_ID_EVENEMENT, required = false) String id) {
+                                    @Header(name = ENTETE_ID_EVENEMENT, required = false) String id,
+                                    @Header(name = ENTETE_TRACEPARENT, required = false) String traceparent) {
         CandidatureCreee evenement = lire(json);
         if (evenement.candidatureId() == null || evenement.offreId() == null || evenement.etudiantId() == null) {
             throw new EvenementInvalideException("Champ obligatoire absent dans l'événement", null);
         }
-        demandeAnalyseService.surCandidatureCreee(idEvenement(id), evenement);
+        demandeAnalyseService.surCandidatureCreee(idEvenement(id), evenement, traceparent);
     }
 
     private CandidatureCreee lire(String json) {

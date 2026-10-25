@@ -9,8 +9,11 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.kafka.KafkaContainer;
@@ -35,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "stagehub.erreurs.tentatives=2",
         "stagehub.erreurs.premier-delai=200ms"
 })
+@ExtendWith(OutputCaptureExtension.class)
 class AiServiceIT {
 
     private static final String TOPIC = "stagehub.candidature.creee";
@@ -69,6 +73,23 @@ class AiServiceIT {
         assertThat(demande.getStatut()).isEqualTo(StatutAnalyse.EN_ATTENTE);
     }
 
+    /**
+     * Phase 8 (a) : le message porte le contexte de trace de la candidature (posé par l'outbox de candidature-service).
+     * Le traitement le continue (même traceId dans les logs) et la demande le conserve pour l'analyse.
+     */
+    @Test
+    void candidatureCreee_traceContinueeDansLesLogsEtConservee(CapturedOutput sortie) throws Exception {
+        long candidatureId = IDS.incrementAndGet();
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e" + String.format("%04x", candidatureId % 0x10000);
+        String traceparent = "00-" + traceId + "-00f067aa0ba902b7-01";
+        publier(candidatureId, UUID.randomUUID(), candidature(candidatureId, "\"cv.pdf\""), traceparent);
+
+        attendre(() -> demandeAnalyseRepository.existsById(candidatureId));
+        assertThat(demandeAnalyseRepository.findById(candidatureId).orElseThrow().getTraceparent()).isEqualTo(traceparent);
+        assertThat(sortie.getOut()).containsPattern(
+                traceId + ".*Candidature " + candidatureId + " enregistrée pour analyse");
+    }
+
     @Test
     void memeEvenementRecuDeuxFois_uneSeuleDemande() throws Exception {
         long candidatureId = IDS.incrementAndGet();
@@ -94,8 +115,15 @@ class AiServiceIT {
     }
 
     private void publier(long cle, UUID id, String json) throws Exception {
+        publier(cle, id, json, null);
+    }
+
+    private void publier(long cle, UUID id, String json, String traceparent) throws Exception {
         ProducerRecord<String, String> message = new ProducerRecord<>(TOPIC, String.valueOf(cle), json);
         message.headers().add("stagehub-evenement-id", id.toString().getBytes(StandardCharsets.UTF_8));
+        if (traceparent != null) {
+            message.headers().add("traceparent", traceparent.getBytes(StandardCharsets.UTF_8));
+        }
         kafkaTemplate.send(message).get();
     }
 

@@ -39,4 +39,7 @@ public class OutboxEvenement {
 
     @Column(name = "date_publication")
     private Instant datePublication;
+
+    /** Contexte de trace W3C de l'action d'origine, remis dans l'en-tête du message Kafka (null : pas de trace). */
+    private String traceparent;
 }

@@ -35,7 +35,7 @@ public class DemandeAnalyseService {
     }
 
     @Transactional
-    public void surCandidatureCreee(UUID evenementId, CandidatureCreee evenement) {
+    public void surCandidatureCreee(UUID evenementId, CandidatureCreee evenement, String traceparent) {
         if (evenementTraiteRepository.inscrire(evenementId, "CandidatureCreee", clock.instant()) == 0) {
             log.info("Événement {} (CandidatureCreee) déjà traité : doublon ignoré", evenementId);
             return;
@@ -46,6 +46,7 @@ public class DemandeAnalyseService {
         demande.setEtudiantId(evenement.etudiantId());
         demande.setCvFichier(evenement.cvFichier());
         demande.setDateReception(clock.instant());
+        demande.setTraceparent(traceparent);
         demandeAnalyseRepository.save(demande);
         log.info("Candidature {} enregistrée pour analyse ({})", evenement.candidatureId(),
                 evenement.cvFichier() == null ? "sans CV" : "avec CV");

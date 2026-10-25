@@ -28,6 +28,10 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       # Texte brut : le JSON est lu par EvenementsListener (erreur de lecture → topic d'erreurs, sans nouvel essai)
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Traçage (phase 8 a) : le traitement d'un message continue la trace de l'action qui l'a produit (en-tête
+      # traceparent posé par l'outbox) ; l'en-tête est recopié tel quel dans les messages envoyés en « .DLT »
+      observation-enabled: true
     producer:
       # Utilisé seulement pour envoyer les messages en échec dans les topics « .DLT »
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -74,6 +78,11 @@ stagehub:
     premier-delai: 2s
 
 management:
+  tracing:
+    sampling:
+      # Toutes les requêtes sont tracées (0,1 par défaut) : sans exportateur, une trace ne coûte presque rien, et
+      # chaque ligne de log porte un traceId
+      probability: 1.0
   endpoints:
     web:
       exposure:

@@ -7,9 +7,12 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.mail.MailSendException;
@@ -47,6 +50,7 @@ import static org.mockito.Mockito.verify;
         "stagehub.erreurs.tentatives=2",
         "stagehub.erreurs.premier-delai=200ms"
 })
+@ExtendWith(OutputCaptureExtension.class)
 class NotificationIT {
 
     private static final String TOPIC_CANDIDATURES = "stagehub.candidature.statut-change";
@@ -75,6 +79,18 @@ class NotificationIT {
         publier(TOPIC_CANDIDATURES, "1", UUID.randomUUID(), candidature(email, "ACCEPTEE"));
 
         verify(mailSender, timeout(20_000)).send(argThat(pour(email, "Candidature acceptée")));
+    }
+
+    /** Phase 8 (a) : l'email est envoyé dans la trace de l'action d'origine (traceId de l'en-tête traceparent). */
+    @Test
+    void changementDeStatut_logDeLEmailAvecLeTraceIdDeLAction(CapturedOutput sortie) throws Exception {
+        String email = destinataire();
+        String traceId = "0af7651916cd43dd8448eb211c80319c";
+        publier(TOPIC_CANDIDATURES, "6", UUID.randomUUID(), candidature(email, "ACCEPTEE"),
+                "00-" + traceId + "-b7ad6b7169203331-01");
+
+        verify(mailSender, timeout(20_000)).send(argThat(pour(email, "Candidature acceptée")));
+        assertThat(sortie.getOut()).containsPattern(traceId + ".*Email « [^»]+ » envoyé à " + email);
     }
 
     @Test
@@ -138,8 +154,15 @@ class NotificationIT {
     }
 
     private void publier(String topic, String cle, UUID id, String json) throws Exception {
+        publier(topic, cle, id, json, null);
+    }
+
+    private void publier(String topic, String cle, UUID id, String json, String traceparent) throws Exception {
         ProducerRecord<String, String> message = new ProducerRecord<>(topic, cle, json);
         message.headers().add("stagehub-evenement-id", id.toString().getBytes(StandardCharsets.UTF_8));
+        if (traceparent != null) {
+            message.headers().add("traceparent", traceparent.getBytes(StandardCharsets.UTF_8));
+        }
         kafkaTemplate.send(message).get();
     }
 

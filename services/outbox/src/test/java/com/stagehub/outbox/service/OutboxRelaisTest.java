@@ -108,6 +108,19 @@ class OutboxRelaisTest {
                 .isEqualTo(evenement.getId().toString());
         assertThat(new String(enregistrement.headers().lastHeader(OutboxEntetes.TYPE).value(), StandardCharsets.UTF_8))
                 .isEqualTo("CandidatureStatutChangeEvent");
+        // Événement sans contexte de trace : pas d'en-tête traceparent
+        assertThat(enregistrement.headers().lastHeader(OutboxEntetes.TRACEPARENT)).isNull();
+    }
+
+    @Test
+    void enregistrementKafka_remetLeContexteDeTraceDeLActionDansLEnTete() {
+        OutboxEvenement evenement = evenement("42");
+        evenement.setTraceparent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+
+        ProducerRecord<String, String> enregistrement = OutboxRelais.enregistrementKafka(evenement);
+
+        assertThat(new String(enregistrement.headers().lastHeader(OutboxEntetes.TRACEPARENT).value(), StandardCharsets.UTF_8))
+                .isEqualTo("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
     }
 
     @Test
