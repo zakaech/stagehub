@@ -66,6 +66,11 @@ stagehub:
     profils-entreprise: ${PROFILS_ENTREPRISE_SERVICE:offre-service}
 
 management:
+  tracing:
+    sampling:
+      # Traçage (phase 8 a) : toutes les requêtes sont tracées (0,1 par défaut). Sans exportateur, une trace ne coûte
+      # presque rien, et chaque ligne de log porte le traceId de sa requête, le même dans tous les services traversés
+      probability: 1.0
   endpoints:
     web:
       exposure:

@@ -68,6 +68,11 @@ stagehub:
     jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8082/.well-known/jwks.json}
 
 management:
+  tracing:
+    sampling:
+      # Traçage (phase 8 a) : toutes les requêtes sont tracées (0,1 par défaut). Sans exportateur, une trace ne coûte
+      # presque rien, et chaque ligne de log porte le traceId de sa requête, le même dans tous les services traversés
+      probability: 1.0
   endpoints:
     web:
       exposure:

@@ -60,6 +60,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <!-- Traçage (phase 8 a) : traceId et spanId dans chaque ligne de log, transmis d'un service à l'autre (en-tête
+             W3C traceparent, en HTTP comme dans Kafka). Micrometer Tracing + pont OpenTelemetry, sans exportateur :
+             aucune trace n'est envoyée à un serveur, les identifiants servent à relier les logs. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-micrometer-tracing-opentelemetry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing-bridge-otel</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>

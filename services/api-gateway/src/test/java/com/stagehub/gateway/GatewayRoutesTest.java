@@ -11,7 +11,10 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -56,6 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "stagehub.cors.allowed-origins=http://front.test",
         "spring.http.clients.read-timeout=2s"
 })
+@ExtendWith(OutputCaptureExtension.class)
 class GatewayRoutesTest {
 
     private static final WireMockServer candidatures = new WireMockServer(options().dynamicPort());
@@ -378,6 +382,44 @@ class GatewayRoutesTest {
 
         assertThat(reponse.statusCode()).isEqualTo(504);
         assertThat(reponse.body()).contains("\"code\":\"DelaiDepasse\"");
+    }
+
+    // --- Traçage (phase 8 a) ---
+
+    @Test
+    void traceRecue_transmiseAuServiceAvecLeMemeTraceId_etJournalisee(CapturedOutput sortie) throws Exception {
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        offres.stubFor(get(urlEqualTo("/api/v1/offres/5")).willReturn(aResponse().withStatus(200)));
+
+        envoyer(requete("/api/v1/offres/5").header("traceparent", "00-" + traceId + "-00f067aa0ba902b7-01").GET());
+
+        // Même trace, nouveau span (celui de l'appel de la gateway vers le service)
+        offres.verify(getRequestedFor(urlEqualTo("/api/v1/offres/5"))
+                .withHeader("traceparent", matching("00-" + traceId + "-(?!00f067aa0ba902b7)[0-9a-f]{16}-01")));
+        // Journal des requêtes : une ligne, avec le traceId
+        assertThat(sortie.getOut()).containsPattern(traceId + ".*GET /api/v1/offres/5 → 200 en \\d+ ms");
+    }
+
+    @Test
+    void sansTraceRecue_laGatewayEnCommenceUne() throws Exception {
+        offres.stubFor(get(urlEqualTo("/api/v1/offres/6")).willReturn(aResponse().withStatus(200)));
+
+        envoyer(requete("/api/v1/offres/6").GET());
+
+        offres.verify(getRequestedFor(urlEqualTo("/api/v1/offres/6"))
+                // Drapeaux : 01 = échantillonnée, + 02 = traceId aléatoire (W3C Trace Context niveau 2) → 03
+                .withHeader("traceparent", matching("00-[0-9a-f]{32}-[0-9a-f]{16}-0[13]")));
+    }
+
+    @Test
+    void erreurDeLaGateway_porteLeTraceIdDeLaRequete() throws Exception {
+        String traceId = "0af7651916cd43dd8448eb211c80319c";
+
+        HttpResponse<String> reponse = envoyer(requete("/api/v1/etudiant/candidatures")
+                .header("traceparent", "00-" + traceId + "-b7ad6b7169203331-01").GET());
+
+        assertThat(reponse.statusCode()).isEqualTo(401);
+        assertThat(reponse.body()).contains("\"traceId\":\"" + traceId + "\"");
     }
 
     private HttpRequest.Builder requete(String chemin) {

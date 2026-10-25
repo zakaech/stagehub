@@ -2,6 +2,7 @@ package com.stagehub.commons.error;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -25,11 +26,13 @@ import java.util.stream.Stream;
  * Format d'erreur commun à tous les services : ProblemDetail (RFC 9457) avec un champ {@code code} stable, et la liste
  * {@code erreurs} des champs invalides pour une validation échouée. Même format que le monolithe : le frontend ne voit
  * pas de différence. Chaque service l'active en déclarant une sous-classe annotée {@code @RestControllerAdvice}
- * (et peut y ajouter ses propres cas).
+ * (et peut y ajouter ses propres cas). Depuis la phase 8 (a), chaque erreur porte aussi le {@code traceId} de la requête.
  */
 public abstract class ProblemDetailExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ProblemDetailExceptionHandler.class);
+    /** Clé du MDC remplie par Micrometer Tracing, et nom du champ ajouté à chaque ProblemDetail. */
+    static final String CLE_TRACE_ID = "traceId";
 
     public record ChampInvalide(String champ, String message) {
     }
@@ -91,9 +94,32 @@ public abstract class ProblemDetailExceptionHandler extends ResponseEntityExcept
         return probleme(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur interne est survenue", "ErreurInterne");
     }
 
+    /** Réponses construites par Spring lui-même (405, 415...) : elles reçoivent aussi le traceId. */
+    @Override
+    protected ResponseEntity<Object> createResponseEntity(Object body, HttpHeaders headers, HttpStatusCode statusCode,
+                                                          WebRequest request) {
+        if (body instanceof ProblemDetail problem) {
+            ajouterTraceId(problem);
+        }
+        return super.createResponseEntity(body, headers, statusCode, request);
+    }
+
     public static ProblemDetail probleme(HttpStatus status, String detail, String code) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
         problem.setProperty("code", code);
+        ajouterTraceId(problem);
         return problem;
+    }
+
+    /**
+     * Identifiant de trace de la requête (phase 8 a), placé dans le MDC par Micrometer Tracing : l'utilisateur peut le
+     * communiquer, et on retrouve toutes les lignes de log de sa requête, dans tous les services. Absent si le service
+     * n'a pas de traçage.
+     */
+    private static void ajouterTraceId(ProblemDetail problem) {
+        String traceId = MDC.get(CLE_TRACE_ID);
+        if (traceId != null && !traceId.isBlank()) {
+            problem.setProperty(CLE_TRACE_ID, traceId);
+        }
     }
 }
