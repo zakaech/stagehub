@@ -148,7 +148,9 @@ pipeline {
                     sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" --env-file images.env up -d --no-build --wait --wait-timeout 300'
                     // Données de démo créées par l'API (ne fait rien si elles existent déjà) ; ses logs restent dans
                     // la console du build. Un échec ici signale aussi un parcours cassé à travers la gateway.
-                    sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" --env-file images.env run --rm demo-seeder'
+                    // --no-deps : ses dépendances viennent d'être démarrées par « up --wait » ; sans cette option,
+                    // compose relance les conteneurs ponctuels (kafka-init : ~1 min 30 de plus à chaque build).
+                    sh 'docker compose -p stagehub-recette --env-file "$ENV_RECETTE" --env-file images.env run --rm --no-deps demo-seeder'
                 }
                 // Test de fumée à travers Nginx et la gateway (le nom « docker » désigne le conteneur DinD).
                 // Nouvelles tentatives : la gateway peut répondre 503 quelques secondes, le temps de trouver le
