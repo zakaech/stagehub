@@ -24,6 +24,13 @@ set -a
 . ./images.env
 set +a
 
+# Affiche la commande puis la lance (comme « sh -x ») : dans la console Jenkins, on voit les options réellement
+# utilisées, --pull compris
+executer() {
+    echo "+ $*"
+    "$@"
+}
+
 # Tag de l'image d'une application : variable TAG_<NOM> de images.env (ex. offre-service → TAG_OFFRE_SERVICE)
 tag_de() {
     eval "echo \"\$TAG_$(echo "$1" | tr 'a-z-' 'A-Z_')\""
@@ -38,16 +45,16 @@ for app in frontend $SERVICES; do
             elif [ "$app" = frontend ]; then
                 # buildx (BuildKit) : une variante par plateforme, réunies sous un même tag (manifest list) ;
                 # --load la range dans le magasin d'images de DinD (containerd, qui accepte le multi-architecture)
-                docker buildx build $options --platform "$parametre" --tag "stagehub-frontend:$tag" --load frontend
+                executer docker buildx build $options --platform "$parametre" --tag "stagehub-frontend:$tag" --load frontend
             else
                 # Microservices : un seul Dockerfile (services/), le module est choisi par SERVICE
-                docker buildx build $options --platform "$parametre" --build-arg SERVICE="$app" \
+                executer docker buildx build $options --platform "$parametre" --build-arg SERVICE="$app" \
                     --tag "stagehub-$app:$tag" --load services
             fi
             ;;
         publier)
-            docker tag "stagehub-$app:$tag" "$parametre/stagehub-$app:$tag"
-            docker push "$parametre/stagehub-$app:$tag"
+            executer docker tag "stagehub-$app:$tag" "$parametre/stagehub-$app:$tag"
+            executer docker push "$parametre/stagehub-$app:$tag"
             ;;
         *)
             echo "Action inconnue : $action" >&2
