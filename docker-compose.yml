@@ -445,6 +445,34 @@ services:
       start_period: 120s
     logging: *logs-limites
 
+  # Phase 8 : modèle de langage local pour l'analyse des candidatures. Profil « ia » : ne démarre que sur demande
+  # (COMPOSE_PROFILES=demo,ia), car il occupe plusieurs Go de mémoire. Port non publié : ai-service le joint par son
+  # nom. Modèles dans le volume ollama-modeles : docker compose exec ollama ollama pull <modèle>
+  ollama:
+    image: ollama/ollama:0.40.3
+    container_name: stagehub-ollama
+    restart: unless-stopped
+    profiles: ["ia"]
+    environment:
+      # Une analyse à la fois (le processeur est partagé avec toute la pile), un seul modèle en mémoire, déchargé
+      # après 10 min sans demande
+      OLLAMA_NUM_PARALLEL: 1
+      OLLAMA_MAX_LOADED_MODELS: 1
+      OLLAMA_KEEP_ALIVE: 10m
+    volumes:
+      - ollama-modeles:/root/.ollama
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *logs-limites
+
   frontend:
     build: ./frontend
     image: ${IMAGE_REGISTRY:-}stagehub-frontend:${TAG_FRONTEND:-${IMAGE_TAG:-local}}
@@ -498,3 +526,5 @@ volumes:
   auth-cles:
   # Messages Kafka (et positions de lecture des groupes de consommateurs)
   kafka-data:
+  # Modèles téléchargés par Ollama (plusieurs Go : on ne les retélécharge pas à chaque recréation du conteneur)
+  ollama-modeles:
