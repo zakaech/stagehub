@@ -11,13 +11,9 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.testcontainers.kafka.KafkaContainer;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -31,28 +27,12 @@ import java.util.function.BooleanSupplier;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** ai-service de bout en bout, sur un vrai Kafka et un vrai PostgreSQL (Testcontainers). */
-@SpringBootTest(properties = {
-        "eureka.client.enabled=false",
-        // Nouvelles tentatives rapides en test
-        "stagehub.erreurs.tentatives=2",
-        "stagehub.erreurs.premier-delai=200ms"
-})
+/** ai-service de bout en bout, sur un vrai Kafka et un vrai PostgreSQL (Testcontainers, voir IntegrationTestBase). */
 @ExtendWith(OutputCaptureExtension.class)
-class AiServiceIT {
+class AiServiceIT extends IntegrationTestBase {
 
     private static final String TOPIC = "stagehub.candidature.creee";
     private static final AtomicLong IDS = new AtomicLong(1_000);
-
-    @ServiceConnection
-    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
-    @ServiceConnection
-    static final KafkaContainer KAFKA = new KafkaContainer("apache/kafka:4.3.2");
-
-    static {
-        POSTGRES.start();
-        KAFKA.start();
-    }
 
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;

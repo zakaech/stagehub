@@ -44,6 +44,8 @@
         <jacoco.version>0.8.15</jacoco.version>
         <wiremock.version>3.13.2</wiremock.version>
         <springdoc.version>3.1.1</springdoc.version>
+        <!-- Lecture du texte des CV (ai-service, phase 8 c) -->
+        <pdfbox.version>3.0.8</pdfbox.version>
     </properties>
 
     <dependencyManagement>

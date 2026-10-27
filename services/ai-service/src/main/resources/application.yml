@@ -17,6 +17,35 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  security:
+    oauth2:
+      client:
+        # Phase 8 c : jeton de service demandé à auth-service (flux client credentials) pour lire les CV dans
+        # candidature-service ; secret propre à ai-service (variable d'environnement, jamais dans le dépôt)
+        registration:
+          auth-service:
+            client-id: ai-service
+            client-secret: ${AI_SERVICE_CLIENT_SECRET:}
+            authorization-grant-type: client_credentials
+            client-authentication-method: client_secret_basic
+        provider:
+          auth-service:
+            token-uri: ${AUTH_TOKEN_URI:http://localhost:8082/oauth2/token}
+  cloud:
+    loadbalancer:
+      cache:
+        ttl: 5s
+    openfeign:
+      # Le jeton ci-dessus est ajouté à chaque appel Feign, et renouvelé avant son expiration (5 min)
+      oauth2:
+        enabled: true
+        client-registration-id: auth-service
+      client:
+        config:
+          default:
+            connect-timeout: 2000
+            # Un CV fait 5 Mo au plus
+            read-timeout: 10000
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
     consumer:
