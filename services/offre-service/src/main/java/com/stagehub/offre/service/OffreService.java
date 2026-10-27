@@ -132,12 +132,16 @@ public class OffreService {
         return offreMapper.toResponse(offre);
     }
 
-    /** Pour le service des candidatures (API interne) : offre de tout statut, avec la règle pour postuler. */
+    /**
+     * API interne : offre de tout statut, avec la règle pour postuler (service des candidatures) et son contenu
+     * (ai-service, pour l'analyse des candidatures).
+     */
     public OffreInterneResponse getOffreInterne(Long offreId) {
         Offre offre = offreRepository.findAvecEntreprise(offreId).orElseThrow(() -> new OffreNotFoundException(offreId));
         return new OffreInterneResponse(offre.getId(), offre.getTitre(), offre.getVille(), offre.getStatut(),
                 offre.getDateLimite(), offre.getEntreprise().getId(), offre.getEntreprise().getNom(),
-                offre.accepteCandidatures(LocalDate.now(clock)));
+                offre.accepteCandidatures(LocalDate.now(clock)), offre.getDescription(), offre.getDomaine(),
+                List.copyOf(offre.getTechnologies()));
     }
 
     /** Résumés de plusieurs offres (ids inconnus ignorés), en une requête. */
