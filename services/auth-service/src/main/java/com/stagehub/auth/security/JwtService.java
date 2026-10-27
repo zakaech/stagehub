@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 
 /** Fabrique les JWT : mêmes claims que le monolithe (sub = email, uid, role), signés en RS256 avec un « kid ». */
@@ -19,6 +20,10 @@ import java.time.Instant;
 public class JwtService {
 
     static final String SUJET_SERVICE = "auth-service";
+
+    /** Jeton de service et sa durée de validité (renvoyée au client OAuth2 dans {@code expires_in}). */
+    public record JetonDeService(String valeur, Duration duree) {
+    }
 
     private final JwtEncoder jwtEncoder;
     private final JwtProperties properties;
@@ -50,15 +55,23 @@ public class JwtService {
      * Aucun compte ne peut avoir ce rôle (absent de l'enum Role) : seul auth-service, avec sa clé privée, l'émet.
      */
     public String jetonDeService() {
+        return jetonDeService(SUJET_SERVICE).valeur();
+    }
+
+    /**
+     * Même jeton, pour un autre service authentifié par le flux client credentials (phase 8 c) : son identifiant
+     * devient le sujet, ce qui permet à un service appelé de n'accepter qu'un appelant précis (ex. ai-service).
+     */
+    public JetonDeService jetonDeService(String sujet) {
         Instant maintenant = clock.instant();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(JwtClaims.EMETTEUR)
-                .subject(SUJET_SERVICE)
+                .subject(sujet)
                 .issuedAt(maintenant)
                 .expiresAt(maintenant.plus(properties.dureeJetonService()))
                 .claim(JwtClaims.ROLE, JwtClaims.ROLE_SERVICE)
                 .build();
-        return signer(claims);
+        return new JetonDeService(signer(claims), properties.dureeJetonService());
     }
 
     private String signer(JwtClaimsSet claims) {

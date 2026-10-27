@@ -64,10 +64,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.cloud.openfeign.client.config.default.read-timeout=3000",
         // Nettoyage déclenché à la main par le test (abandon immédiat, pas d'exécution planifiée pendant le test)
         "stagehub.inscription.delai-abandon=PT0S",
-        "stagehub.inscription.intervalle-nettoyage=PT1H"
+        "stagehub.inscription.intervalle-nettoyage=PT1H",
+        // Jetons de service (client credentials) : un client valide, et un client au secret trop court (ignoré)
+        "stagehub.clients-service.secrets.ai-service=" + AuthServiceIT.SECRET_AI_SERVICE,
+        "stagehub.clients-service.secrets.service-faible=court"
 })
 @AutoConfigureMockMvc
 class AuthServiceIT {
+
+    static final String SECRET_AI_SERVICE = "secret-de-test-ai-service-0123456789abcdef";
 
     @ServiceConnection
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
@@ -350,6 +355,64 @@ class AuthServiceIT {
     private ResultActions connecter(String email, String motDePasse) throws Exception {
         return mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\": \"%s\", \"motDePasse\": \"%s\"}".formatted(email, motDePasse)));
+    }
+
+    // --- Jetons de service : flux OAuth2 client credentials (phase 8 c) ---
+
+    @Test
+    void clientCredentials_jetonCourtSigneAuNomDuService() throws Exception {
+        String json = demanderJetonDeService("ai-service", SECRET_AI_SERVICE, "client_credentials")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token_type").value("Bearer"))
+                .andExpect(jsonPath("$.expires_in").value(300))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Cache-Control", "no-store"))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        Jwt jwt = verifierAvecLaClePublique(JsonPath.read(json, "$.access_token"));
+        assertThat(jwt.getSubject()).isEqualTo("ai-service");
+        assertThat(jwt.getClaimAsString("role")).isEqualTo("SERVICE");
+        assertThat(jwt.hasClaim("uid")).isFalse();
+        assertThat(Duration.between(jwt.getIssuedAt(), jwt.getExpiresAt())).isEqualTo(Duration.ofMinutes(5));
+    }
+
+    @Test
+    void clientCredentials_mauvaisSecretClientInconnuOuSansIdentifiants_401InvalidClient() throws Exception {
+        for (ResultActions refus : new ResultActions[]{
+                demanderJetonDeService("ai-service", SECRET_AI_SERVICE + "x", "client_credentials"),
+                demanderJetonDeService("offre-service", SECRET_AI_SERVICE, "client_credentials"),
+                mockMvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED).param("grant_type", "client_credentials"))}) {
+            refus.andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.error").value("invalid_client"))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                            .string("WWW-Authenticate", "Basic realm=\"stagehub\""));
+        }
+    }
+
+    @Test
+    void clientCredentials_secretTropCourtJamaisAccepte() throws Exception {
+        // Configuré avec « court » : refusé même avec ce secret exact
+        demanderJetonDeService("service-faible", "court", "client_credentials")
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void clientCredentials_autreTypeDeDemande_400UnsupportedGrantType() throws Exception {
+        demanderJetonDeService("ai-service", SECRET_AI_SERVICE, "password")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("unsupported_grant_type"));
+    }
+
+    /** Comme le client OAuth2 de Spring Security : identifiant et secret encodés, puis en Basic. */
+    private ResultActions demanderJetonDeService(String client, String secret, String grantType) throws Exception {
+        String identifiants = java.net.URLEncoder.encode(client, StandardCharsets.UTF_8) + ":"
+                + java.net.URLEncoder.encode(secret, StandardCharsets.UTF_8);
+        return mockMvc.perform(MockMvcRequestBuilders.post("/oauth2/token")
+                .header("Authorization", "Basic " + java.util.Base64.getEncoder()
+                        .encodeToString(identifiants.getBytes(StandardCharsets.UTF_8)))
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("grant_type", grantType));
     }
 
     private String jeton(String email, String motDePasse) throws Exception {

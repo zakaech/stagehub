@@ -53,6 +53,11 @@ stagehub:
     key-id: ${JWT_KEY_ID:}
     expiration: ${JWT_EXPIRATION:PT1H}
     duree-jeton-service: PT5M
+  clients-service:
+    # Services autorisés à demander un jeton (flux OAuth2 client credentials, POST /oauth2/token) et leur secret
+    # (32 caractères au moins ; vide = ce service ne peut obtenir aucun jeton)
+    secrets:
+      ai-service: ${AI_SERVICE_CLIENT_SECRET:}
   admin:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}

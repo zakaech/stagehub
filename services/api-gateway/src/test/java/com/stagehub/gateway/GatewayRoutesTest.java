@@ -256,6 +256,17 @@ class GatewayRoutesTest {
     }
 
     @Test
+    void jetonsDeService_jamaisDemandablesDeLExterieur() throws Exception {
+        // POST /oauth2/token (client credentials, phase 8 c) n'existe qu'entre services : aucune route ne le relaie
+        HttpResponse<String> reponse = envoyer(requete("/oauth2/token")
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString("grant_type=client_credentials")));
+
+        assertThat(reponse.statusCode()).isIn(401, 403);
+        auth.verify(0, postRequestedFor(urlEqualTo("/oauth2/token")));
+    }
+
+    @Test
     void cheminDApiInconnu_404SansAppelerAucunService() throws Exception {
         String jeton = jetonRs256("ADMIN", Instant.now().plusSeconds(3600), CLE_AUTH);
 

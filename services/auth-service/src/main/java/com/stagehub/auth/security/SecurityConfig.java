@@ -32,6 +32,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/.well-known/jwks.json").permitAll()
+                        // Jetons de service (client credentials) : le client s'authentifie par son secret, vérifié
+                        // par JetonServiceController ; chemin non routé par la gateway
+                        .requestMatchers(HttpMethod.POST, "/oauth2/token").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register/**", "/api/v1/auth/login").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer
