@@ -263,6 +263,8 @@ services:
       # Services qui détiennent les profils créés à l'inscription (saga)
       PROFILS_ETUDIANT_SERVICE: candidature-service
       PROFILS_ENTREPRISE_SERVICE: offre-service
+      # Phase 8 c : secret d'ai-service pour obtenir un jeton de service (POST /oauth2/token, client credentials)
+      AI_SERVICE_CLIENT_SECRET: ${AI_SERVICE_CLIENT_SECRET:?AI_SERVICE_CLIENT_SECRET doit être défini dans .env}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
@@ -432,11 +434,16 @@ services:
       DB_PORT: 5432
       AI_DB_PASSWORD: ${AI_DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Phase 8 c : jeton de service demandé à auth-service, puis CV lu dans candidature-service (par l'annuaire)
+      AI_SERVICE_CLIENT_SECRET: ${AI_SERVICE_CLIENT_SECRET:?AI_SERVICE_CLIENT_SECRET doit être défini dans .env}
+      AUTH_TOKEN_URI: http://auth-service:8080/oauth2/token
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
     deploy:
       resources:
         limits:
-          memory: 384m
+          # 384 Mo jusqu'en phase 7 ; Spring Security (client OAuth2), Feign et PDFBox portent la mémoire réelle à
+          # ~325 Mo au repos (mesuré en phase 8 c), avant Spring AI et l'analyse d'un CV
+          memory: 512m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
       interval: 10s
