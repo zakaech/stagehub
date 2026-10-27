@@ -155,7 +155,7 @@ services:
     command:
       - |
         set -eu
-        for topic in stagehub.candidature.statut-change stagehub.candidature.creee stagehub.entreprise.validation; do
+        for topic in stagehub.candidature.statut-change stagehub.candidature.creee stagehub.candidature.analyse-terminee stagehub.entreprise.validation; do
           for nom in "$$topic" "$$topic.DLT"; do
             /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
               --topic "$$nom" --partitions 3 --replication-factor 1
@@ -192,9 +192,11 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      # Délai de grâce des services Java : au démarrage à froid de toute la pile, ils se partagent le processeur et
-      # mettent jusqu'à ~105 s (mesuré) ; avec 60 s, un service lent était déclaré « unhealthy » et bloquait le reste
-      start_period: 120s
+      # Délai de grâce des services Java : au démarrage à froid de toute la pile, ils se partagent le processeur. Mesuré :
+      # ~105 s seule, 163 à 165 s quand le PC est chargé (Docker Desktop qui redémarre tout, recette Jenkins pendant
+      # des tests) ; 120 s ont fait échouer la recette du build n° 20. Un service qui ne démarre vraiment pas reste
+      # détecté, simplement un peu plus tard.
+      start_period: 180s
     logging: *logs-limites
 
   # Gateway : seule porte d'entrée de l'API (Nginx → gateway → services). Vérifie le JWT avec la clé publique
@@ -230,7 +232,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     logging: *logs-limites
 
   # ---- Microservices ---------------------------------------------------------------------------------------------
@@ -280,7 +282,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     logging: *logs-limites
 
   # Emails : consomme les événements Kafka (candidatures, entreprises), idempotent, topic d'erreurs en cas d'échec
@@ -327,7 +329,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     logging: *logs-limites
 
   # Offres et entreprises (profils, validation par l'admin, statistiques des offres), fermeture nocturne des offres
@@ -367,7 +369,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     logging: *logs-limites
 
   # Profils étudiants, CV et candidatures (dernier morceau du monolithe, phase 7 d). Lit les offres dans offre-service
@@ -408,7 +410,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     logging: *logs-limites
 
   # Analyse des candidatures par IA (phase 8 : Spring AI + Ollama). Phase 7 (f) : squelette sans API, qui reçoit
@@ -437,6 +439,11 @@ services:
       # Phase 8 c : jeton de service demandé à auth-service, puis CV lu dans candidature-service (par l'annuaire)
       AI_SERVICE_CLIENT_SECRET: ${AI_SERVICE_CLIENT_SECRET:?AI_SERVICE_CLIENT_SECRET doit être défini dans .env}
       AUTH_TOKEN_URI: http://auth-service:8080/oauth2/token
+      # Phase 8 d : analyse par le modèle d'Ollama (profil compose « ia ») ; sans lui, IA_ACTIVE=false et les
+      # demandes attendent
+      IA_ACTIVE: ${IA_ACTIVE:-false}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
     deploy:
       resources:
@@ -449,7 +456,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     logging: *logs-limites
 
   # Phase 8 : modèle de langage local pour l'analyse des candidatures. Profil « ia » : ne démarre que sur demande
