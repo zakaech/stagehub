@@ -3,6 +3,7 @@ package com.stagehub.ai;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.kafka.KafkaContainer;
@@ -19,8 +20,12 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
         // Nouvelles tentatives rapides en test
         "stagehub.erreurs.tentatives=2",
         "stagehub.erreurs.premier-delai=200ms",
-        "spring.security.oauth2.client.registration.auth-service.client-secret=" + IntegrationTestBase.SECRET_AI_SERVICE
+        "spring.security.oauth2.client.registration.auth-service.client-secret=" + IntegrationTestBase.SECRET_AI_SERVICE,
+        // Pas d'Ollama : modèle simulé (ModeleSimule) ; la tâche planifiée reste arrêtée, le test lance l'analyse
+        "spring.ai.model.chat=none",
+        "stagehub.analyse.active=false"
 })
+@Import(ModeleSimule.Config.class)
 public abstract class IntegrationTestBase {
 
     protected static final String SECRET_AI_SERVICE = "secret-de-test-ai-service-0123456789abcdef";
@@ -33,12 +38,15 @@ public abstract class IntegrationTestBase {
     protected static final WireMockServer AUTH = new WireMockServer(options().dynamicPort());
     /** Faux candidature-service : sert les CV (GET /internal/candidatures/{id}/cv). */
     protected static final WireMockServer CANDIDATURES = new WireMockServer(options().dynamicPort());
+    /** Faux offre-service : sert le contenu des offres (GET /internal/offres/{id}). */
+    protected static final WireMockServer OFFRES = new WireMockServer(options().dynamicPort());
 
     static {
         POSTGRES.start();
         KAFKA.start();
         AUTH.start();
         CANDIDATURES.start();
+        OFFRES.start();
     }
 
     @DynamicPropertySource
@@ -48,5 +56,6 @@ public abstract class IntegrationTestBase {
         // Adresse fixe pour le client Feign : pas d'annuaire Eureka en test
         registry.add("spring.cloud.openfeign.client.config.candidatures.url",
                 () -> "http://localhost:" + CANDIDATURES.port());
+        registry.add("spring.cloud.openfeign.client.config.offres.url", () -> "http://localhost:" + OFFRES.port());
     }
 }

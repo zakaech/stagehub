@@ -17,6 +17,33 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    # Migrations du service + table de la bibliothèque outbox (V1000, V1002)
+    locations: classpath:db/migration,classpath:db/outbox
+  http:
+    clients:
+      # Une analyse dure plusieurs minutes sur processeur : le client HTTP qui appelle Ollama attend jusqu'à 10 min
+      connect-timeout: 5s
+      read-timeout: 10m
+  ai:
+    model:
+      # Fournisseur du modèle (phase 8 d) : Ollama en local ; « none » dans les tests (modèle simulé). Un autre
+      # fournisseur (ex. OpenAI) se branche par la configuration : starter et propriétés, sans toucher au code
+      chat: ${IA_FOURNISSEUR:ollama}
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        # Choisi en phase 8 b (mesures) : seul des deux modèles testés à résister à l'injection de consigne
+        model: ${OLLAMA_MODEL:qwen3.5:4b}
+        # Même entrée, même sortie autant que possible ; mode « réflexion » coupé (bien trop lent sur processeur)
+        temperature: 0.0
+        seed: 42
+        think: false
+        # Consignes + offre + CV (12 000 caractères au plus) tiennent dans 8 192 jetons
+        num-ctx: 8192
+    retry:
+      # Pas de nouvelles tentatives de Spring AI (jusqu'à 10 par défaut, sur des appels de plusieurs minutes) : c'est
+      # la demande d'analyse qui est retentée plus tard (stagehub.analyse.attentes)
+      max-attempts: 1
   security:
     oauth2:
       client:
@@ -60,10 +87,16 @@ spring:
       # Traçage (phase 8 a) : le traitement d'un message continue la trace reçue dans l'en-tête traceparent
       observation-enabled: true
     producer:
-      # Utilisé seulement pour envoyer les messages en échec dans le topic « .DLT »
+      # Messages en échec (topic « .DLT ») et, depuis la phase 8 d, résultats des analyses (relais de l'outbox)
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all
+      properties:
+        enable.idempotence: true
+        # Kafka arrêté : échouer vite (le relais réessaie à chaque passage) au lieu de bloquer 60 s
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
 
 eureka:
   client:
@@ -79,6 +112,23 @@ eureka:
 stagehub:
   topics:
     candidature-creee: stagehub.candidature.creee
+  # Fuseau des tâches planifiées de la bibliothèque outbox (purge nocturne)
+  fuseau: Africa/Casablanca
+  outbox:
+    relais:
+      actif: ${OUTBOX_RELAIS_ACTIF:true}
+      intervalle: 1s
+  analyse:
+    # Faux par défaut : il faut un modèle (profil compose « ia »). Sans lui, les demandes attendent.
+    active: ${IA_ACTIVE:false}
+    intervalle: 10s
+    tentatives-max: 3
+    # Attente avant la 2e puis la 3e tentative
+    attentes: 1m,5m
+    # Une demande EN_COURS depuis plus longtemps est reprise (service arrêté pendant l'analyse)
+    bail: 15m
+    # Écart (en points) entre le score et la part des technologies retrouvées au-delà duquel l'entreprise est alertée
+    ecart-alerte: 50
   erreurs:
     # Échec passager : nouvelles tentatives espacées de 2 s, 4 s, 8 s, puis topic « .DLT »
     tentatives: 3

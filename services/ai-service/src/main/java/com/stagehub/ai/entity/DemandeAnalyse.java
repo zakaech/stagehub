@@ -41,4 +41,28 @@ public class DemandeAnalyse {
 
     /** Contexte de trace W3C reçu avec l'événement : l'analyse continuera la trace de la candidature (null : aucun). */
     private String traceparent;
+
+    /** Tentatives déjà commencées (phase 8 d). */
+    @Column(nullable = false)
+    private int tentatives;
+
+    /** Pas de nouvelle tentative avant cette date (null : dès que possible). */
+    @Column(name = "prochaine_tentative")
+    private Instant prochaineTentative;
+
+    @Column(name = "debut_analyse")
+    private Instant debutAnalyse;
+
+    @Column(name = "date_fin")
+    private Instant dateFin;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "motif_echec")
+    private MotifEchec motifEchec;
+
+    /** Modèle qui a produit le résultat (ex. qwen3.5:4b). */
+    private String modele;
+
+    @Column(name = "duree_ms")
+    private Long dureeMs;
 }

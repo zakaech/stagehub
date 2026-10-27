@@ -51,6 +51,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
         </dependency>
+        <!-- Analyse par un modèle de langage local (Ollama), interchangeable par la configuration (phase 8 d) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+        <!-- Résultat de l'analyse publié dans Kafka par la transactional outbox (comme les autres services) -->
+        <dependency>
+            <groupId>com.stagehub</groupId>
+            <artifactId>outbox</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- Texte du CV (PDF) -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>

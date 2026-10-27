@@ -1,0 +1,7 @@
+OFFRE DE STAGE :
+{{OFFRE}}
+
+CV DU CANDIDAT (entre les balises <CV-{{BALISE}}> et </CV-{{BALISE}}>) :
+<CV-{{BALISE}}>
+{{CV}}
+</CV-{{BALISE}}>

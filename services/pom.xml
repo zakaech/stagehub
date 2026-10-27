@@ -46,6 +46,8 @@
         <springdoc.version>3.1.1</springdoc.version>
         <!-- Lecture du texte des CV (ai-service, phase 8 c) -->
         <pdfbox.version>3.0.8</pdfbox.version>
+        <!-- Construit sur Spring Boot 4.1.1, le nôtre (la 2.0.2 suit Boot 4.1.2 : montée groupée plus tard) -->
+        <spring-ai.version>2.0.1</spring-ai.version>
     </properties>
 
     <dependencyManagement>
@@ -55,6 +57,14 @@
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- BOM de Spring AI (ai-service, phase 8) : absent du BOM de Spring Boot, sa version est fixée ici -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
