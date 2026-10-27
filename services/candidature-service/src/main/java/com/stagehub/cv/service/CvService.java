@@ -88,6 +88,16 @@ public class CvService {
         return charger(candidature.getCvFichier(), candidature.getEtudiant());
     }
 
+    /**
+     * CV figé d'une candidature, pour son analyse par ai-service (phase 8 c) : celui que l'entreprise télécharge.
+     * L'accès (sujet « ai-service ») est vérifié par SecurityConfig.
+     */
+    public CvTelechargement cvPourAnalyse(Long candidatureId) {
+        Candidature candidature = candidatureRepository.findById(candidatureId)
+                .orElseThrow(() -> new CandidatureNotFoundException(candidatureId));
+        return charger(candidature.getCvFichier(), candidature.getEtudiant());
+    }
+
     private CvTelechargement charger(String nomFichier, Etudiant etudiant) {
         if (nomFichier == null) {
             throw new CvNotFoundException();

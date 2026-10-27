@@ -3,6 +3,7 @@ package com.stagehub.cv;
 import com.jayway.jsonpath.JsonPath;
 import com.stagehub.ApiDeTest;
 import com.stagehub.IntegrationTestBase;
+import com.stagehub.JetonsDeTest;
 import com.stagehub.candidature.repository.CandidatureRepository;
 import com.stagehub.cv.config.CvProperties;
 import com.stagehub.etudiant.repository.EtudiantRepository;
@@ -152,6 +153,52 @@ class CvAccesIT extends IntegrationTestBase {
     }
 
     // --- Mise en place ---
+
+    // --- Lecture par ai-service pour l'analyse (phase 8 c) ---
+
+    @Test
+    void aiService_litLeCvFigeDeLaCandidature_sansNomDeFichier() throws Exception {
+        Scenario s = scenario();
+
+        appeler(get("/internal/candidatures/{id}/cv", s.candidatureId()), JetonsDeTest.service("ai-service"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(content().bytes(CV_1))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().doesNotExist("Content-Disposition"));
+    }
+
+    @Test
+    void cvPourAnalyse_refuseAuxAutresJetons() throws Exception {
+        Scenario s = scenario();
+        ApiDeTest api = new ApiDeTest(mockMvc);
+
+        // Rôle SERVICE mais autre service (auth-service) : 403
+        appeler(get("/internal/candidatures/{id}/cv", s.candidatureId()), JetonsDeTest.service())
+                .andExpect(status().isForbidden());
+        // Sujet « ai-service » sans le rôle SERVICE (jeton d'utilisateur) : 403
+        appeler(get("/internal/candidatures/{id}/cv", s.candidatureId()),
+                JetonsDeTest.utilisateur(1L, "ai-service", "ADMIN"))
+                .andExpect(status().isForbidden());
+        appeler(get("/internal/candidatures/{id}/cv", s.candidatureId()), api.tokenAdmin())
+                .andExpect(status().isForbidden());
+        appeler(get("/internal/candidatures/{id}/cv", s.candidatureId()), s.tokenEntreprise())
+                .andExpect(status().isForbidden());
+        appeler(get("/internal/candidatures/{id}/cv", s.candidatureId()), null)
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void cvPourAnalyse_candidatureInconnueOuSansCv_404() throws Exception {
+        ApiDeTest api = new ApiDeTest(mockMvc);
+        Long sansCv = api.scenarioAvecCandidature().candidatureId();
+
+        appeler(get("/internal/candidatures/{id}/cv", 999_999_999L), JetonsDeTest.service("ai-service"))
+                .andExpect(status().isNotFound());
+        appeler(get("/internal/candidatures/{id}/cv", sansCv), JetonsDeTest.service("ai-service"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CvNotFound"));
+    }
 
     private Scenario scenario() throws Exception {
         ApiDeTest api = new ApiDeTest(mockMvc);

@@ -49,10 +49,15 @@ public final class JetonsDeTest {
 
     /** Jeton de service (appels internes d'auth-service). */
     public static String service() {
+        return service("auth-service");
+    }
+
+    /** Jeton de service au nom d'un service précis (flux client credentials d'auth-service, phase 8 c). */
+    public static String service(String sujet) {
         Instant maintenant = Instant.now();
         return signer(JwtClaimsSet.builder()
                 .issuer(JwtClaims.EMETTEUR)
-                .subject("auth-service")
+                .subject(sujet)
                 .issuedAt(maintenant)
                 .expiresAt(maintenant.plusSeconds(300))
                 .claim(JwtClaims.ROLE, JwtClaims.ROLE_SERVICE)
