@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.StructuredOutputChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 
 import java.io.ByteArrayOutputStream;
@@ -31,6 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.StreamSupport;
 
@@ -61,6 +65,9 @@ class AnalyseIT extends IntegrationTestBase {
     private ModeleSimule modele;
     @Autowired
     private OAuth2AuthorizedClientService jetons;
+    /** Planificateur des tâches @Scheduled (relais de l'outbox, analyse), configuré par Spring Boot. */
+    @Autowired
+    private ThreadPoolTaskScheduler planificateur;
 
     @BeforeEach
     void reinitialiser() {
@@ -116,6 +123,31 @@ class AnalyseIT extends IntegrationTestBase {
         assertThat(prompt.getOptions()).isInstanceOf(StructuredOutputChatOptions.class);
         assertThat(((StructuredOutputChatOptions) prompt.getOptions()).getOutputSchema()).contains("score", "resume");
         assertThat(utilisateur).doesNotContain("JSON");
+    }
+
+    /**
+     * Pendant une longue analyse, l'entreprise doit déjà voir « en cours » : le relais de l'outbox ne doit pas attendre
+     * la fin de l'analyse. L'analyse tourne ici sur un thread du planificateur des tâches {@code @Scheduled}, comme
+     * en production ; avec un seul thread (réglage par défaut), EN_COURS ne partait qu'avec le résultat.
+     */
+    @Test
+    void analyseLonguePlanifiee_etatEnCoursPublieAvantLaReponseDuModele() throws Exception {
+        long id = demandeEnAttente("cv.pdf", null);
+        CANDIDATURES.stubFor(get(urlEqualTo("/internal/candidatures/" + id + "/cv")).willReturn(aResponse()
+                .withHeader("Content-Type", "application/pdf").withBody(pdf(CV))));
+        modele.repondra("{\"score\": 70, \"justification\": \"Correct.\", \"resume\": [\"Étudiant DevOps\"]}");
+        CountDownLatch reponseDuModele = new CountDownLatch(1);
+        modele.retenir(reponseDuModele);
+
+        CompletableFuture<DemandeAnalyse> analyseEnCours = planificateur.submitCompletable(() -> analyserJusquA(id));
+        try {
+            assertThat(messagesDeCle(String.valueOf(id), Duration.ofSeconds(15), 1)).extracting(ConsumerRecord::value)
+                    .singleElement().satisfies(v -> assertThat(v).contains("\"statut\":\"EN_COURS\""));
+            assertThat(reponseDuModele.getCount()).as("le modèle n'a pas encore répondu").isEqualTo(1);
+        } finally {
+            reponseDuModele.countDown();
+        }
+        assertThat(analyseEnCours.get(30, TimeUnit.SECONDS).getStatut()).isEqualTo(StatutAnalyse.TERMINEE);
     }
 
     @Test

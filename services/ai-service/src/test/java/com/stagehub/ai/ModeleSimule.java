@@ -16,6 +16,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Modèle simulé pour les tests (phase 8 d) : Jenkins n'a pas d'Ollama. Il renvoie les réponses prévues par le test,
@@ -26,9 +28,15 @@ public class ModeleSimule implements ChatModel {
 
     private final Deque<String> reponses = new ConcurrentLinkedDeque<>();
     private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
+    private volatile CountDownLatch retenue;
 
     public void repondra(String... json) {
         reponses.addAll(List.of(json));
+    }
+
+    /** Le prochain appel attend que le test libère ce verrou (30 s au plus), comme une analyse qui dure. */
+    public void retenir(CountDownLatch verrou) {
+        retenue = verrou;
     }
 
     public List<Prompt> prompts() {
@@ -38,11 +46,20 @@ public class ModeleSimule implements ChatModel {
     public void reinitialiser() {
         reponses.clear();
         prompts.clear();
+        retenue = null;
     }
 
     @Override
     public ChatResponse call(Prompt prompt) {
         prompts.add(prompt);
+        CountDownLatch verrou = retenue;
+        if (verrou != null) {
+            try {
+                verrou.await(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         String json = reponses.poll();
         if (json == null) {
             throw new IllegalStateException("Modèle simulé : aucune réponse prévue par le test");
