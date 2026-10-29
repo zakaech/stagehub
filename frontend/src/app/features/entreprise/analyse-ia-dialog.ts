@@ -75,6 +75,12 @@ export interface AnalyseIaDialogData {
     .alerte {
       color: var(--mat-sys-error);
     }
+    /* Icônes alignées sur le texte, un peu d'espace avant lui */
+    .avertissement mat-icon,
+    .alerte mat-icon {
+      vertical-align: text-bottom;
+      margin-right: 4px;
+    }
     .source {
       color: var(--mat-sys-on-surface-variant);
       font: var(--mat-sys-body-small);
