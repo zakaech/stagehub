@@ -398,6 +398,8 @@ services:
       CV_STORAGE_DIR: /data/cv
       # Phase 8 e : même valeur qu'ai-service ; arrêtée, une analyse en attente s'affiche « désactivée »
       IA_ACTIVE: ${IA_ACTIVE:-false}
+      # Même fournisseur qu'ai-service : choisit le texte d'information de l'étudiant (avec OpenAI, le CV est envoyé)
+      IA_FOURNISSEUR: ${IA_FOURNISSEUR:-ollama}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
     volumes:
@@ -444,8 +446,14 @@ services:
       # Phase 8 d : analyse par le modèle d'Ollama (profil compose « ia ») ; sans lui, IA_ACTIVE=false et les
       # demandes attendent
       IA_ACTIVE: ${IA_ACTIVE:-false}
+      # Fournisseur du modèle (spec §1) : ollama (local, profil « ia ») ou openai (le CV est envoyé à OpenAI ; clé
+      # obligatoire si IA_ACTIVE=true, sinon ai-service refuse de démarrer)
+      IA_FOURNISSEUR: ${IA_FOURNISSEUR:-ollama}
       OLLAMA_BASE_URL: http://ollama:11434
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
     deploy:
       resources:
