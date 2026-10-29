@@ -6,6 +6,7 @@ import {
   CandidatureEntrepriseResponse,
   CandidatureEtudiantResponse,
   StatutCandidature,
+  TriCandidatures,
 } from '../models/candidature.models';
 import { PageRequest, PageResponse } from '../models/page.models';
 import { API_URL } from './api';
@@ -38,13 +39,16 @@ export class CandidatureApi {
 
   // --- Espace entreprise ---
 
+  /** Tri par date par défaut (paramètre absent) ; « score » : par score indicatif, sans score à la fin. */
   candidaturesDeLOffre(
     offreId: number,
     page: PageRequest,
+    tri: TriCandidatures = 'date',
   ): Observable<PageResponse<CandidatureEntrepriseResponse>> {
+    const params = paramsDePage(page);
     return this.http.get<PageResponse<CandidatureEntrepriseResponse>>(
       `${API_URL}/entreprise/offres/${offreId}/candidatures`,
-      { params: paramsDePage(page) },
+      { params: tri === 'score' ? params.set('tri', 'score') : params },
     );
   }
 

@@ -1,7 +1,8 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, input, numberAttribute } from '@angular/core';
+import { Component, computed, effect, inject, input, numberAttribute } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
@@ -18,6 +19,7 @@ import {
   CandidatureEntrepriseResponse,
   StatutCandidature,
   TRANSITIONS_CANDIDATURE,
+  TriCandidatures,
 } from '../../core/models/candidature.models';
 import { NotificationService } from '../../core/notification.service';
 import { confirmer } from '../../shared/confirm-dialog';
@@ -26,7 +28,12 @@ import { PAGINATOR_FR } from '../../shared/paginator-fr';
 import { StatutChip } from '../../shared/statut-chip';
 import { enregistrerFichier } from '../../shared/telechargement';
 import { valeurConservee } from '../../shared/valeur-conservee';
+import { AnalyseIaCell } from './analyse-ia-cell';
+import { AVERTISSEMENT_SCORE, AnalyseIaDialog, AnalyseIaDialogData } from './analyse-ia-dialog';
 import { LettreDialog, LettreDialogData } from './lettre-dialog';
+
+/** Tant qu'une analyse est en attente ou en cours, la liste est relue toutes les 20 s (une analyse dure ~3 min). */
+export const RAFRAICHISSEMENT_ANALYSES_MS = 20_000;
 
 const ACTIONS: Record<StatutCandidature, { libelle: string; icone: string }> = {
   EN_ATTENTE: { libelle: 'Remettre en attente', icone: 'hourglass_top' },
@@ -41,15 +48,33 @@ const ACTIONS: Record<StatutCandidature, { libelle: string; icone: string }> = {
     DatePipe,
     RouterLink,
     MatButtonModule,
+    MatButtonToggleModule,
     MatIconModule,
     MatMenuModule,
     MatPaginatorModule,
     MatProgressBarModule,
     MatTableModule,
+    AnalyseIaCell,
     StatutChip,
   ],
   providers: [PAGINATOR_FR],
   templateUrl: './candidatures-offre-page.html',
+  styles: `
+    .avertissement-ia {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--mat-sys-surface-container-high);
+    }
+    .barre-tri {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 12px 0;
+    }
+  `,
 })
 export class CandidaturesOffrePage {
   private readonly offreApi = inject(OffreApi);
@@ -67,6 +92,7 @@ export class CandidaturesOffrePage {
     'date',
     'lettre',
     'cv',
+    'analyse',
     'statut',
     'actions',
   ];
@@ -77,10 +103,31 @@ export class CandidaturesOffrePage {
   });
   /** Page courante lue dans l'URL (?page=2&size=25). */
   protected readonly etat = etatListeDansUrl(PAGINATION_TABLEAU);
+  /** Ordre lu dans l'URL : par date sauf ?tri=score, choisi explicitement par l'entreprise. */
+  protected readonly tri = computed<TriCandidatures>(() =>
+    this.etat.params().get('tri') === 'score' ? 'score' : 'date',
+  );
   protected readonly candidatures = rxResource({
-    params: () => ({ offreId: this.id(), page: this.etat.pagination() }),
-    stream: ({ params }) => this.candidatureApi.candidaturesDeLOffre(params.offreId, params.page),
+    params: () => ({ offreId: this.id(), page: this.etat.pagination(), tri: this.tri() }),
+    stream: ({ params }) =>
+      this.candidatureApi.candidaturesDeLOffre(params.offreId, params.page, params.tri),
   });
+  protected readonly avertissement = AVERTISSEMENT_SCORE;
+
+  constructor() {
+    // Analyses en attente ou en cours : la page se met à jour seule quand ai-service publie un résultat
+    effect((onCleanup) => {
+      const page = this.candidatures.hasValue() ? this.candidatures.value() : undefined;
+      const enAttente = page?.content.some(
+        (c) => c.analyse?.statut === 'EN_ATTENTE' || c.analyse?.statut === 'EN_COURS',
+      );
+      if (!enAttente) {
+        return;
+      }
+      const minuteur = setTimeout(() => this.candidatures.reload(), RAFRAICHISSEMENT_ANALYSES_MS);
+      onCleanup(() => clearTimeout(minuteur));
+    });
+  }
   /** Dernière page reçue, conservée pendant les rechargements (pas de clignotement). */
   protected readonly candidaturesAffichees = valeurConservee(this.candidatures);
 
@@ -100,6 +147,21 @@ export class CandidaturesOffrePage {
       .subscribe((reponse) =>
         enregistrerFichier(reponse, `CV ${c.etudiantPrenom} ${c.etudiantNom}.pdf`),
       );
+  }
+
+  /** Le tri par défaut (date) n'apparaît pas dans l'URL ; changer d'ordre ramène à la première page. */
+  protected changerTri(tri: TriCandidatures): void {
+    this.etat.filtrer({ tri: tri === 'score' ? 'score' : null });
+  }
+
+  protected voirAnalyse(c: CandidatureEntrepriseResponse): void {
+    if (!c.analyse) {
+      return;
+    }
+    this.dialog.open<AnalyseIaDialog, AnalyseIaDialogData>(AnalyseIaDialog, {
+      data: { candidat: `${c.etudiantPrenom} ${c.etudiantNom}`, analyse: c.analyse },
+      width: '640px',
+    });
   }
 
   protected voirLettre(c: CandidatureEntrepriseResponse): void {

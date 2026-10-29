@@ -9,6 +9,12 @@ import { RouterLink } from '@angular/router';
 
 import { messageErreurChamp } from '../../shared/form-errors';
 
+/** Information de l'étudiant sur l'analyse de son CV (phase 8). Si l'IA passe à un service externe, l'adapter. */
+export const INFORMATION_ANALYSE_IA =
+  'Pour aider l’entreprise à lire les candidatures, votre CV sera analysé par un modèle d’IA hébergé par ' +
+  'StageHub : il ne quitte pas nos serveurs. L’entreprise verra un score indicatif et un résumé. Aucune décision ' +
+  'n’est prise automatiquement.';
+
 export interface PostulerDialogData {
   titreOffre: string;
   /** null : inconnu (profil non chargé) — aucune mention n'est alors affichée. */
@@ -40,6 +46,10 @@ export interface PostulerDialogData {
           <a routerLink="/etudiant/profil" mat-dialog-close>Déposer mon CV</a>
         </p>
       }
+      <p class="info-ia" role="note">
+        <mat-icon inline>info</mat-icon>
+        <span>{{ informationIa }}</span>
+      </p>
       <mat-form-field class="pleine-largeur">
         <mat-label>Lettre de motivation (facultative)</mat-label>
         <textarea matInput [formControl]="lettre" rows="8"></textarea>
@@ -63,10 +73,20 @@ export interface PostulerDialogData {
       align-items: center;
       gap: 8px;
     }
+    .info-ia {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--mat-sys-surface-container-high);
+    }
   `,
 })
 export class PostulerDialog {
   protected readonly data = inject<PostulerDialogData>(MAT_DIALOG_DATA);
+  /** Texte validé par l'auteur (phase 8) : l'étudiant sait que son CV sera analysé, et comment. */
+  protected readonly informationIa = INFORMATION_ANALYSE_IA;
   private readonly dialogRef = inject<MatDialogRef<PostulerDialog, string | null>>(MatDialogRef);
 
   protected readonly lettre = new FormControl('', {

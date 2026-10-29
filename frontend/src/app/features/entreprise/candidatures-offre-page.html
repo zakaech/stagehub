@@ -23,6 +23,21 @@
       <p>Aucune candidature reçue pour cette offre.</p>
     </section>
   } @else {
+    <p class="avertissement-ia" role="note">
+      <mat-icon inline>info</mat-icon>
+      <span><strong>Score indicatif.</strong> {{ avertissement }}</span>
+    </p>
+    <div class="barre-tri">
+      <span id="libelle-tri">Ordre :</span>
+      <mat-button-toggle-group
+        aria-labelledby="libelle-tri"
+        [value]="tri()"
+        (change)="changerTri($event.value)"
+      >
+        <mat-button-toggle value="date">Date de candidature</mat-button-toggle>
+        <mat-button-toggle value="score">Score indicatif</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
     <div class="tableau-conteneur">
       <table mat-table [dataSource]="page.content">
         <ng-container matColumnDef="candidat">
@@ -69,6 +84,13 @@
             } @else {
               <small>Aucun</small>
             }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="analyse">
+          <th mat-header-cell *matHeaderCellDef>Analyse IA</th>
+          <td mat-cell *matCellDef="let c">
+            <app-analyse-ia-cell [analyse]="c.analyse" (details)="voirAnalyse(c)" />
           </td>
         </ng-container>
 

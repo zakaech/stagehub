@@ -36,7 +36,38 @@ export interface CandidatureEntrepriseResponse {
   lettreMotivation: string | null;
   statut: StatutCandidature;
   dateCandidature: string;
-  scoreMatching: number | null;
+  /** Analyse par l'IA (phase 8), indicative ; null pour une candidature antérieure à l'analyse. */
+  analyse: AnalyseIa | null;
   /** CV figé au moment de la candidature, téléchargeable par l'entreprise. */
   cvDisponible: boolean;
 }
+
+/**
+ * État de l'analyse par l'IA. DESACTIVEE : en attente alors que l'IA est arrêtée (calculé par le serveur).
+ * EN_ATTENTE peut porter une nouvelle tentative programmée après une panne (prochaineTentative).
+ */
+export type StatutAnalyse = 'EN_ATTENTE' | 'EN_COURS' | 'TERMINEE' | 'ECHEC' | 'DESACTIVEE';
+
+/** Miroir de AnalyseIaResponse (candidature-service) : vu par l'entreprise seulement. */
+export interface AnalyseIa {
+  statut: StatutAnalyse;
+  /** CV_ABSENT, CV_ILLISIBLE, OFFRE_INTROUVABLE, ANALYSE_IMPOSSIBLE (ECHEC seulement). */
+  motifEchec: string | null;
+  prochaineTentative: string | null;
+  /** Score indicatif de 0 à 100 (TERMINEE seulement). */
+  score: number | null;
+  justification: string | null;
+  resume: string[];
+  /** Technologies de l'offre retrouvées dans le CV : comptage déterministe, sans le modèle. */
+  technologiesTrouvees: string[];
+  technologiesOffre: number | null;
+  /** Écart flagrant entre le score du modèle et la part des technologies retrouvées. */
+  alerteEcart: boolean;
+  /** Phrases qui ressemblent à des consignes adressées au modèle (heuristique : à vérifier). */
+  contenuSuspect: boolean;
+  modele: string | null;
+  date: string | null;
+}
+
+/** Ordre des candidatures d'une offre : par date (défaut) ou par score indicatif, au choix de l'entreprise. */
+export type TriCandidatures = 'date' | 'score';
