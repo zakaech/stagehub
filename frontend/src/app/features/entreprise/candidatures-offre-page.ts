@@ -68,6 +68,10 @@ const ACTIONS: Record<StatutCandidature, { libelle: string; icone: string }> = {
       border-radius: 8px;
       background: var(--mat-sys-surface-container-high);
     }
+    /* L'icône garde sa taille quand le texte passe sur plusieurs lignes (écran étroit) */
+    .avertissement-ia mat-icon {
+      flex-shrink: 0;
+    }
     .barre-tri {
       display: flex;
       align-items: center;

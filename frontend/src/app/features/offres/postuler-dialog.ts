@@ -81,6 +81,10 @@ export interface PostulerDialogData {
       border-radius: 8px;
       background: var(--mat-sys-surface-container-high);
     }
+    /* Sans cela, le texte (plusieurs lignes) écrase l'icône : seul un « ( » restait visible */
+    .info-ia mat-icon {
+      flex-shrink: 0;
+    }
   `,
 })
 export class PostulerDialog {
