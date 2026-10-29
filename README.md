@@ -5,7 +5,8 @@ l'administrateur valide les entreprises et suit l'activité.
 
 Projet portfolio full stack : **Spring Boot 4 · Java 21 · Angular 22 · PostgreSQL · Docker**, en **microservices**
 (Spring Cloud Gateway, Eureka, OpenFeign, Kafka) avec sécurité JWT, tests automatisés (couverture contrôlée par
-JaCoCo), audit par AOP, emails par événements et tâches planifiées.
+JaCoCo), audit par AOP, emails par événements, tâches planifiées, traçage de bout en bout et **analyse des
+candidatures par une IA locale** (Spring AI + Ollama), présentée comme une aide indicative.
 
 > Le projet a commencé en monolithe Spring Boot (phases 1 à 6), découpé ensuite service par service. Le monolithe
 > complet reste consultable au tag [`v1.0-monolithe`](https://github.com/zakaech/stagehub/tree/v1.0-monolithe).
@@ -45,6 +46,9 @@ JaCoCo), audit par AOP, emails par événements et tâches planifiées.
 - Publication, modification, fermeture et réouverture de ses offres
 - Candidatures reçues : profil, lettre, **CV tel qu'il était au moment de la candidature**
 - Décision (entretien, acceptée, refusée) selon une machine à états ; seules les transitions valides sont proposées
+- **Score indicatif** de chaque CV par une IA locale, avec le nombre de technologies de l'offre retrouvées dans le CV,
+  des alertes et un résumé ; jamais de décision automatique (voir
+  [Analyse des candidatures par l'IA](#analyse-des-candidatures-par-lia))
 
 **Administrateur**
 - Validation ou refus des comptes entreprise
@@ -316,7 +320,8 @@ modèle ci-dessus est manuelle.
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
 | CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
 | Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign, Resilience4j (circuit breaker) ; JWT RS256 + JWKS ; Kafka 4.3 (KRaft), Spring Kafka, transactional outbox ; ShedLock |
-| À venir | Spring AI + Ollama |
+| IA | Spring AI 2.0 (sortie structurée JSON), Ollama (`qwen3.5:4b`, local), Apache PDFBox ; client OAuth2 *client credentials* entre services |
+| Observabilité | Micrometer Tracing + pont OpenTelemetry (traceId W3C de la gateway jusqu'après Kafka), journal des requêtes |
 
 ---
 
