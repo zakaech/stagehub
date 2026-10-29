@@ -130,6 +130,12 @@ Jenkins le recopie dans un fichier temporaire pendant l'étape de déploiement s
 Microservices et frontend sont testés **en parallèle**. Dès qu'une étape échoue, les suivantes sont marquées *skipped* :
 aucune image n'est construite ni déployée à partir d'un code rouge.
 
+**Analyse par l'IA (phase 8) sans Ollama** : Jenkins ne télécharge ni n'exécute de modèle (3,8 Go d'image, plusieurs
+minutes par analyse sur processeur). Les tests d'ai-service remplacent le modèle par `ModeleSimule` (réponses prévues
+par le test, prompts conservés pour vérifier ce qui part au modèle), avec `spring.ai.model.chat=none` ; la recette
+tourne avec `IA_ACTIVE=false` (les analyses y restent « désactivées »). La validation avec le vrai modèle est faite à
+la main : voir la section « Analyse des candidatures par l'IA » du README.
+
 **Rapports publiés dans Jenkins** (page d'un build) :
 
 - **Tests** : résultats JUnit des microservices (Surefire + Failsafe) et du frontend (Vitest), avec l'historique et la
