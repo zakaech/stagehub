@@ -6,7 +6,8 @@ l'administrateur valide les entreprises et suit l'activité.
 Projet portfolio full stack : **Spring Boot 4 · Java 21 · Angular 22 · PostgreSQL · Docker**, en **microservices**
 (Spring Cloud Gateway, Eureka, OpenFeign, Kafka) avec sécurité JWT, tests automatisés (couverture contrôlée par
 JaCoCo), audit par AOP, emails par événements, tâches planifiées, traçage de bout en bout et **analyse des
-candidatures par une IA locale** (Spring AI + Ollama), présentée comme une aide indicative.
+candidatures par une IA** (Spring AI ; Ollama en local par défaut, OpenAI par configuration), présentée comme une aide
+indicative.
 
 > Le projet a commencé en monolithe Spring Boot (phases 1 à 6), découpé ensuite service par service. Le monolithe
 > complet reste consultable au tag [`v1.0-monolithe`](https://github.com/zakaech/stagehub/tree/v1.0-monolithe).
@@ -46,7 +47,7 @@ candidatures par une IA locale** (Spring AI + Ollama), présentée comme une aid
 - Publication, modification, fermeture et réouverture de ses offres
 - Candidatures reçues : profil, lettre, **CV tel qu'il était au moment de la candidature**
 - Décision (entretien, acceptée, refusée) selon une machine à états ; seules les transitions valides sont proposées
-- **Score indicatif** de chaque CV par une IA locale, avec le nombre de technologies de l'offre retrouvées dans le CV,
+- **Score indicatif** de chaque CV par une IA (locale par défaut), avec le nombre de technologies de l'offre retrouvées dans le CV,
   des alertes et un résumé ; jamais de décision automatique (voir
   [Analyse des candidatures par l'IA](#analyse-des-candidatures-par-lia))
 
@@ -209,10 +210,12 @@ Points de conception :
 
 ## Analyse des candidatures par l'IA
 
-À chaque candidature, ai-service compare le CV à l'offre avec un modèle de langage **local** (Ollama, `qwen3.5:4b` ;
-le CV ne quitte pas le serveur) et renvoie un **score indicatif de 0 à 100**, une justification de deux phrases et un
-résumé du CV en cinq lignes. L'analyse est **asynchrone** : la candidature est enregistrée tout de suite, le score
-arrive quelques minutes plus tard (de 2 à 4 min sur le processeur d'un portable, sans GPU).
+À chaque candidature, ai-service compare le CV à l'offre avec un modèle de langage et renvoie un **score indicatif de
+0 à 100**, une justification de deux phrases et un résumé du CV en cinq lignes. Par défaut, le modèle est **local**
+(Ollama, `qwen3.5:4b`) : **le CV ne quitte pas le serveur**. Avec OpenAI (voir
+[Changer de fournisseur](#changer-de-fournisseur-ollama-ou-openai)), **le CV est envoyé à OpenAI**. L'analyse est
+**asynchrone** : la candidature est enregistrée tout de suite, le score arrive plus tard (de 2 à 4 min avec Ollama sur
+le processeur d'un portable, sans GPU).
 
 ```text
 candidature → Kafka → ai-service : demande en attente → jeton de service (auth-service) → CV (candidature-service)
@@ -230,7 +233,10 @@ technologies de l'offre retrouvées dans le CV) et des
 alertes (écart flagrant, consignes repérées dans le CV) ; le bouton *Détails* montre la justification et le résumé.
 La liste reste **triée par date** ; le tri par score est un choix explicite (gardé dans l'URL). Tant qu'une analyse
 est en cours, la page se rafraîchit toute seule toutes les 20 s. **Ce que voit l'étudiant** : au moment de postuler,
-un texte l'informe que son CV sera analysé par une IA hébergée par StageHub et qu'aucune décision n'est automatique.
+un texte l'informe que son CV sera analysé par une IA et qu'aucune décision n'est automatique. Ce texte **dépend du
+fournisseur** : avec Ollama, le CV ne quitte pas nos serveurs ; avec OpenAI, il est envoyé à OpenAI, email et
+téléphone masqués mais **le reste du CV, nom compris, transmis**. S'il ne peut pas savoir quel fournisseur est
+configuré, le dialogue affiche le texte d'OpenAI, le plus prudent ; l'envoi n'est possible qu'une fois le texte affiché.
 
 ![Liste des candidatures : avertissement, scores indicatifs, comptage des technologies, analyse impossible](docs/captures/ia-score-avertissement.png)
 
@@ -285,10 +291,36 @@ ne diffèrent que par une consigne, cachée en blanc et en tout petit, sauf la n
 (`ModeleSimule`) qui renvoie les réponses prévues par le test et garde les prompts reçus : on vérifie ce qui part au
 modèle (CV délimité, coordonnées masquées, schéma JSON dans les options) et le traitement de sa réponse (validation,
 nouvelles tentatives, publication). La recette Jenkins tourne avec l'analyse désactivée ; la validation avec le vrai
-modèle ci-dessus est manuelle.
+modèle ci-dessus est manuelle. Le passage à OpenAI est testé sans clé ni appel réel : le **vrai client OpenAI** de
+Spring AI parle à un **faux serveur OpenAI** (WireMock), qui vérifie la clé envoyée, le modèle, le schéma JSON imposé
+(`response_format`), l'absence de température et de conservation des échanges, les coordonnées masquées.
+
+### Changer de fournisseur (Ollama ou OpenAI)
+
+Le code d'analyse ne dépend d'aucun fournisseur (`ChatClient` de Spring AI) : le choix se fait dans `.env`.
+
+| Variable | Ollama (défaut) | OpenAI |
+|---|---|---|
+| `IA_FOURNISSEUR` | `ollama` | `openai` |
+| `IA_ACTIVE` | `true` (avec le profil compose `ia` et le modèle téléchargé) | `true` (pas besoin du profil `ia`) |
+| `OLLAMA_MODEL` | `qwen3.5:4b` | — |
+| `OPENAI_API_KEY` | — | la clé d'API (secret : seulement dans `.env`) |
+| `OPENAI_MODEL` | — | `gpt-5-mini` par défaut |
+| `OPENAI_BASE_URL` | — | `https://api.openai.com/v1` par défaut |
+
+Puis `docker compose up -d ai-service candidature-service` (les deux lisent `IA_FOURNISSEUR` : candidature-service
+pour le texte de l'étudiant). Avec `IA_FOURNISSEUR=openai`, `IA_ACTIVE=true` et une clé vide, ai-service **refuse de
+démarrer** plutôt que d'échouer à chaque analyse. Réglages propres à OpenAI : pas de température (les modèles GPT-5
+n'acceptent que la valeur par défaut), pas de nouvel essai par le SDK (la demande d'analyse est retentée plus tard),
+délai de 3 min, échanges non conservés par OpenAI (`store: false`). Une candidature déposée pendant que l'analyse est
+arrêtée sera analysée par le fournisseur configuré **au moment de l'analyse** : changer de fournisseur s'applique
+aussi aux demandes en attente.
 
 **Limites connues** :
 
+- **toutes les mesures ci-dessus ne valent que pour `qwen3.5:4b`** : la résistance aux injections, la variabilité,
+  l'écart entre profils et le seuil de l'alerte d'écart (50 points) ne se transposent pas à un autre modèle. OpenAI
+  n'a été testé qu'avec un faux serveur : avant de s'y fier, il faudrait refaire la validation avec le vrai modèle ;
 - **le modèle pénalise les consignes explicites** au lieu de les ignorer : 13 à 22 points de moins que le CV témoin
   en moyenne, alors que le prompt lui demande de n'en tenir compte ni en bien ni en mal ; l'alerte « contenu
   inhabituel » invite justement à relire ces CV ;
@@ -320,7 +352,7 @@ modèle ci-dessus est manuelle.
 | Conteneurs | Docker multi-stage (utilisateurs non-root), docker compose, Nginx, Mailpit, Caddy (HTTPS sur serveur) |
 | CI/CD | Jenkins (pipeline déclaratif, job multibranche, configuration en code), Docker-in-Docker, buildx (amd64 + arm64) |
 | Microservices | Spring Cloud 2025.1 : Gateway (Web MVC), Eureka, OpenFeign, Resilience4j (circuit breaker) ; JWT RS256 + JWKS ; Kafka 4.3 (KRaft), Spring Kafka, transactional outbox ; ShedLock |
-| IA | Spring AI 2.0 (sortie structurée JSON), Ollama (`qwen3.5:4b`, local), Apache PDFBox ; client OAuth2 *client credentials* entre services |
+| IA | Spring AI 2.0 (sortie structurée JSON), Ollama (`qwen3.5:4b`, local) ou OpenAI (`gpt-5-mini`) par configuration, Apache PDFBox ; client OAuth2 *client credentials* entre services |
 | Observabilité | Micrometer Tracing + pont OpenTelemetry (traceId W3C de la gateway jusqu'après Kafka), journal des requêtes |
 
 ---
