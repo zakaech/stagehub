@@ -1,4 +1,4 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { HttpContextToken, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
@@ -9,6 +9,12 @@ import { NotificationService } from '../notification.service';
 import { messageErreur, problemDetail } from './problem-detail';
 
 export const URL_LOGIN = `${API_URL}/auth/login`;
+
+/**
+ * Requête dont l'échec est géré par l'appelant sans message global (ex. information sur l'analyse du CV : à défaut,
+ * le dialogue affiche le texte le plus prudent). Un 401 déconnecte toujours.
+ */
+export const ERREUR_SILENCIEUSE = new HttpContextToken<boolean>(() => false);
 
 /**
  * Traitement global des erreurs HTTP. L'erreur est toujours relancée : le composant appelant
@@ -28,7 +34,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           notifications.erreur('Votre session a expiré, veuillez vous reconnecter');
           void router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
         }
-      } else if (!problemDetail(erreur)?.erreurs?.length) {
+      } else if (!req.context.get(ERREUR_SILENCIEUSE) && !problemDetail(erreur)?.erreurs?.length) {
         // Les erreurs de validation (400 + "erreurs") sont affichées sous les champs par le formulaire
         notifications.erreur(messageErreur(erreur));
       }

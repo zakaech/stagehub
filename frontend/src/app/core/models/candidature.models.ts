@@ -48,6 +48,14 @@ export interface CandidatureEntrepriseResponse {
  */
 export type StatutAnalyse = 'EN_ATTENTE' | 'EN_COURS' | 'TERMINEE' | 'ECHEC' | 'DESACTIVEE';
 
+/** Fournisseur qui analyse les CV (spec §1) : avec OpenAI, le CV quitte les serveurs de StageHub. */
+export type FournisseurIa = 'OLLAMA' | 'OPENAI';
+
+/** Miroir de InformationAnalyseResponse (GET /etudiant/analyse-ia). */
+export interface InformationAnalyseResponse {
+  fournisseur: FournisseurIa;
+}
+
 /** Miroir de AnalyseIaResponse (candidature-service) : vu par l'entreprise seulement. */
 export interface AnalyseIa {
   statut: StatutAnalyse;

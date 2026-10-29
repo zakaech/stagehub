@@ -1,11 +1,11 @@
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
 import { NotificationService } from '../notification.service';
-import { errorInterceptor } from './error.interceptor';
+import { ERREUR_SILENCIEUSE, errorInterceptor } from './error.interceptor';
 
 describe('errorInterceptor', () => {
   let http: HttpClient;
@@ -74,6 +74,34 @@ describe('errorInterceptor', () => {
     expect(statut).toBe(409);
     expect(notifications.erreur).toHaveBeenCalledWith('Vous avez déjà postulé à cette offre');
     expect(auth.deconnecter).not.toHaveBeenCalled();
+  });
+
+  it('requête marquée ERREUR_SILENCIEUSE : pas de snackbar, l’erreur est relancée à l’appelant', () => {
+    let statutRecu: number | undefined;
+    http
+      .get('/api/v1/etudiant/analyse-ia', {
+        context: new HttpContext().set(ERREUR_SILENCIEUSE, true),
+      })
+      .subscribe({ error: (e) => (statutRecu = e.status) });
+    backend
+      .expectOne('/api/v1/etudiant/analyse-ia')
+      .flush({ detail: 'Service indisponible' }, { status: 503, statusText: 'Erreur' });
+
+    expect(statutRecu).toBe(503);
+    expect(notifications.erreur).not.toHaveBeenCalled();
+  });
+
+  it('requête marquée ERREUR_SILENCIEUSE : un 401 déconnecte quand même', () => {
+    http
+      .get('/api/v1/etudiant/analyse-ia', {
+        context: new HttpContext().set(ERREUR_SILENCIEUSE, true),
+      })
+      .subscribe({ error: () => undefined });
+    backend
+      .expectOne('/api/v1/etudiant/analyse-ia')
+      .flush({}, { status: 401, statusText: 'Erreur' });
+
+    expect(auth.deconnecter).toHaveBeenCalledWith(false);
   });
 
   it('erreur de validation (400 + erreurs[]) : pas de snackbar, le formulaire affiche les champs', () => {

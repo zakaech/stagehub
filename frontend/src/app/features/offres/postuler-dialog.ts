@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -7,13 +8,21 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { RouterLink } from '@angular/router';
 
+import { CandidatureApi } from '../../core/api/candidature.api';
 import { messageErreurChamp } from '../../shared/form-errors';
 
-/** Information de l'étudiant sur l'analyse de son CV (phase 8). Si l'IA passe à un service externe, l'adapter. */
-export const INFORMATION_ANALYSE_IA =
+/** Information de l'étudiant, modèle local (Ollama) : texte validé par l'auteur (phase 8). */
+export const INFORMATION_ANALYSE_IA_LOCALE =
   'Pour aider l’entreprise à lire les candidatures, votre CV sera analysé par un modèle d’IA hébergé par ' +
   'StageHub : il ne quitte pas nos serveurs. L’entreprise verra un score indicatif et un résumé. Aucune décision ' +
   'n’est prise automatiquement.';
+
+/** Information de l'étudiant, OpenAI (spec §1) : le CV quitte nos serveurs. Texte validé par l'auteur. */
+export const INFORMATION_ANALYSE_IA_OPENAI =
+  'Pour aider l’entreprise à lire les candidatures, votre CV sera analysé par un modèle d’IA d’OpenAI, un service ' +
+  'externe : il sera envoyé à OpenAI pour cette analyse. Votre email et votre téléphone sont masqués avant ' +
+  'l’envoi, mais le reste du CV, dont votre nom, est transmis. L’entreprise verra un score indicatif et un ' +
+  'résumé. Aucune décision n’est prise automatiquement.';
 
 export interface PostulerDialogData {
   titreOffre: string;
@@ -46,10 +55,12 @@ export interface PostulerDialogData {
           <a routerLink="/etudiant/profil" mat-dialog-close>Déposer mon CV</a>
         </p>
       }
-      <p class="info-ia" role="note">
-        <mat-icon inline>info</mat-icon>
-        <span>{{ informationIa }}</span>
-      </p>
+      @if (informationIa(); as texte) {
+        <p class="info-ia" role="note">
+          <mat-icon inline>info</mat-icon>
+          <span>{{ texte }}</span>
+        </p>
+      }
       <mat-form-field class="pleine-largeur">
         <mat-label>Lettre de motivation (facultative)</mat-label>
         <textarea matInput [formControl]="lettre" rows="8"></textarea>
@@ -59,7 +70,7 @@ export interface PostulerDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>Annuler</button>
-      <button mat-flat-button (click)="envoyer()" [disabled]="lettre.invalid">
+      <button mat-flat-button (click)="envoyer()" [disabled]="lettre.invalid || !informationIa()">
         Envoyer ma candidature
       </button>
     </mat-dialog-actions>
@@ -89,8 +100,20 @@ export interface PostulerDialogData {
 })
 export class PostulerDialog {
   protected readonly data = inject<PostulerDialogData>(MAT_DIALOG_DATA);
-  /** Texte validé par l'auteur (phase 8) : l'étudiant sait que son CV sera analysé, et comment. */
-  protected readonly informationIa = INFORMATION_ANALYSE_IA;
+  private readonly candidatureApi = inject(CandidatureApi);
+  /** Qui analysera le CV (IA_FOURNISSEUR du serveur). */
+  private readonly analyse = rxResource({ stream: () => this.candidatureApi.informationAnalyse() });
+  /**
+   * L'étudiant sait que son CV sera analysé, et par qui, avant d'envoyer (bouton désactivé tant que le texte
+   * manque). Fournisseur inconnu (erreur) : texte d'OpenAI, le plus prudent, puisqu'il annonce un envoi à l'extérieur.
+   */
+  protected readonly informationIa = computed(() => {
+    if (this.analyse.isLoading()) {
+      return null;
+    }
+    const fournisseur = this.analyse.hasValue() ? this.analyse.value().fournisseur : 'OPENAI';
+    return fournisseur === 'OLLAMA' ? INFORMATION_ANALYSE_IA_LOCALE : INFORMATION_ANALYSE_IA_OPENAI;
+  });
   private readonly dialogRef = inject<MatDialogRef<PostulerDialog, string | null>>(MatDialogRef);
 
   protected readonly lettre = new FormControl('', {

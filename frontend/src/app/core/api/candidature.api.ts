@@ -1,10 +1,12 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import { ERREUR_SILENCIEUSE } from '../http/error.interceptor';
 import {
   CandidatureEntrepriseResponse,
   CandidatureEtudiantResponse,
+  InformationAnalyseResponse,
   StatutCandidature,
   TriCandidatures,
 } from '../models/candidature.models';
@@ -35,6 +37,13 @@ export class CandidatureApi {
         params: paramsDePage(page),
       },
     );
+  }
+
+  /** Qui analysera le CV : le dialogue de candidature gère lui-même l'échec (texte le plus prudent). */
+  informationAnalyse(): Observable<InformationAnalyseResponse> {
+    return this.http.get<InformationAnalyseResponse>(`${API_URL}/etudiant/analyse-ia`, {
+      context: new HttpContext().set(ERREUR_SILENCIEUSE, true),
+    });
   }
 
   // --- Espace entreprise ---
