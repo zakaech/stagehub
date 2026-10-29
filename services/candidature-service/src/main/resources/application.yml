@@ -75,6 +75,19 @@ spring:
         max.block.ms: 5000
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
+    # Phase 8 (e) : états de l'analyse des candidatures, publiés par ai-service
+    consumer:
+      group-id: candidature-service
+      # Premier démarrage du groupe : lire depuis le début (aucun résultat d'analyse perdu)
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Texte brut : le JSON est lu par AnalyseCandidatureListener (illisible → topic d'erreurs, sans nouvel essai)
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # Faux dans les tests sans Kafka (le consommateur n'essaie pas de se connecter)
+      auto-startup: ${KAFKA_CONSOMMATEUR_ACTIF:true}
+      # Le traitement d'un message continue la trace reçue (en-tête traceparent), celle de la candidature
+      observation-enabled: true
   servlet:
     multipart:
       # Première barrière : Spring refuse les fichiers trop gros avant le contrôleur (le service revérifie)
@@ -82,6 +95,15 @@ spring:
       max-request-size: 6MB
 
 stagehub:
+  topics:
+    analyse: stagehub.candidature.analyse
+  erreurs:
+    # Échec passager (base momentanément indisponible...) : nouvelles tentatives espacées de 2 s, 4 s, 8 s, puis « .DLT »
+    tentatives: 3
+    premier-delai: 2s
+  analyse:
+    # Même valeur qu'ai-service (IA_ACTIVE) : faux = une analyse en attente s'affiche « désactivée »
+    active: ${IA_ACTIVE:false}
   # Fuseau de l'horloge (Clock) et des tâches planifiées (purge de l'outbox) ; les règles de date des offres sont
   # dans offre-service depuis la phase 7 (c)
   fuseau: Africa/Casablanca

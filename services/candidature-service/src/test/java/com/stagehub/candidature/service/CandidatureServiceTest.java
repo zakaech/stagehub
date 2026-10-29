@@ -7,6 +7,7 @@ import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
 import com.stagehub.candidature.dto.CandidatureRequest;
 import com.stagehub.candidature.dto.OffreResumeResponse;
 import com.stagehub.candidature.entity.Candidature;
+import com.stagehub.candidature.entity.StatutAnalyse;
 import com.stagehub.candidature.entity.StatutCandidature;
 import com.stagehub.candidature.event.CandidatureCreeeEvent;
 import com.stagehub.candidature.event.CandidatureStatutChangeEvent;
@@ -34,9 +35,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -46,6 +49,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -79,7 +83,8 @@ class CandidatureServiceTest {
         // Vraie classe d'enregistrement (sans proxy transactionnel) : seuls les dépôts et offre-service sont simulés
         EnregistrementCandidature enregistrement =
                 new EnregistrementCandidature(candidatureRepository, etudiantRepository, outbox);
-        service = new CandidatureService(candidatureRepository, enregistrement, offreClient, mapper, outbox);
+        // IA arrêtée (comme par défaut) : une analyse en attente s'affiche « désactivée »
+        service = new CandidatureService(candidatureRepository, enregistrement, offreClient, mapper, outbox, false);
 
         etudiant = new Etudiant();
         etudiant.setId(ETUDIANT_ID);
@@ -268,7 +273,7 @@ class CandidatureServiceTest {
         void offreDUneAutreEntreprise_leveAccesNonAutorise() {
             when(offreClient.offre(OFFRE_ID)).thenReturn(offre(true));
 
-            assertThatThrownBy(() -> service.listerCandidaturesOffre(AUTRE_ENTREPRISE_ID, OFFRE_ID, Pageable.unpaged()))
+            assertThatThrownBy(() -> service.listerCandidaturesOffre(AUTRE_ENTREPRISE_ID, OFFRE_ID, Pageable.unpaged(), false))
                     .isInstanceOf(AccesNonAutoriseException.class);
             verifyNoInteractions(candidatureRepository);
         }
@@ -277,7 +282,7 @@ class CandidatureServiceTest {
         void offreInexistante_leve404() {
             when(offreClient.offre(OFFRE_ID)).thenThrow(new OffreNotFoundException(OFFRE_ID));
 
-            assertThatThrownBy(() -> service.listerCandidaturesOffre(ENTREPRISE_ID, OFFRE_ID, Pageable.unpaged()))
+            assertThatThrownBy(() -> service.listerCandidaturesOffre(ENTREPRISE_ID, OFFRE_ID, Pageable.unpaged(), false))
                     .isInstanceOf(OffreNotFoundException.class);
         }
 
@@ -289,12 +294,46 @@ class CandidatureServiceTest {
                     .thenReturn(new PageImpl<>(List.of(candidature(CANDIDATURE_ID, OFFRE_ID)), pageable, 1));
 
             PageResponse<CandidatureEntrepriseResponse> page =
-                    service.listerCandidaturesOffre(ENTREPRISE_ID, OFFRE_ID, pageable);
+                    service.listerCandidaturesOffre(ENTREPRISE_ID, OFFRE_ID, pageable, false);
 
             assertThat(page.content()).singleElement().satisfies(c -> {
                 assertThat(c.offreTitre()).isEqualTo("Stage PFE Java");
                 assertThat(c.etudiantEmail()).isEqualTo("sara@etu.ma");
             });
+        }
+
+        @Test
+        void parScore_scoreDecroissantSansScoreALaFin_puisLaPlusRecente() {
+            when(offreClient.offre(OFFRE_ID)).thenReturn(offre(true));
+            when(candidatureRepository.findByOffreId(eq(OFFRE_ID), any(Pageable.class))).thenReturn(Page.empty());
+
+            service.listerCandidaturesOffre(ENTREPRISE_ID, OFFRE_ID, PageRequest.of(2, 25), true);
+
+            ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+            verify(candidatureRepository).findByOffreId(eq(OFFRE_ID), pageable.capture());
+            assertThat(pageable.getValue().getPageNumber()).isEqualTo(2);
+            assertThat(pageable.getValue().getPageSize()).isEqualTo(25);
+            assertThat(pageable.getValue().getSort()).containsExactly(
+                    Sort.Order.desc("analyse.score").nullsLast(), Sort.Order.desc("dateCandidature"));
+        }
+
+        @Test
+        void analyseEnAttenteAlorsQueLIaEstArretee_affichageDesactivee_sansScore() {
+            Pageable pageable = PageRequest.of(0, 10);
+            Candidature enAttente = candidature(CANDIDATURE_ID, OFFRE_ID);
+            enAttente.getAnalyse().setStatut(StatutAnalyse.EN_ATTENTE);
+            Candidature ancienne = candidature(CANDIDATURE_ID + 1, OFFRE_ID);
+            when(offreClient.offre(OFFRE_ID)).thenReturn(offre(true));
+            when(candidatureRepository.findByOffreId(OFFRE_ID, pageable))
+                    .thenReturn(new PageImpl<>(List.of(enAttente, ancienne), pageable, 2));
+
+            PageResponse<CandidatureEntrepriseResponse> page =
+                    service.listerCandidaturesOffre(ENTREPRISE_ID, OFFRE_ID, pageable, false);
+
+            assertThat(page.content().getFirst().analyse().statut()).isEqualTo("DESACTIVEE");
+            assertThat(page.content().getFirst().analyse().score()).isNull();
+            // Candidature antérieure à la phase 8 : jamais envoyée à l'analyse
+            assertThat(page.content().get(1).analyse()).isNull();
         }
     }
 

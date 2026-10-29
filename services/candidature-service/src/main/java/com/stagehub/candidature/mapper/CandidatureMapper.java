@@ -1,14 +1,16 @@
 package com.stagehub.candidature.mapper;
 
+import com.stagehub.candidature.dto.AnalyseIaResponse;
 import com.stagehub.candidature.dto.CandidatureEntrepriseResponse;
 import com.stagehub.candidature.dto.CandidatureEtudiantResponse;
 import com.stagehub.candidature.dto.OffreResumeResponse;
 import com.stagehub.candidature.entity.Candidature;
 import com.stagehub.common.config.MapStructConfig;
+import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(config = MapStructConfig.class)
+@Mapper(config = MapStructConfig.class, imports = AnalyseIaResponse.class)
 public interface CandidatureMapper {
 
     /** Le résumé de l'offre vient d'offre-service (à jour), ou de l'instantané de la candidature en repli. */
@@ -30,5 +32,6 @@ public interface CandidatureMapper {
     @Mapping(target = "etudiantEcole", source = "etudiant.ecole")
     @Mapping(target = "etudiantFiliere", source = "etudiant.filiere")
     @Mapping(target = "cvDisponible", expression = "java(candidature.getCvFichier() != null)")
-    CandidatureEntrepriseResponse toEntrepriseResponse(Candidature candidature);
+    @Mapping(target = "analyse", expression = "java(AnalyseIaResponse.de(candidature.getAnalyse(), iaActive))")
+    CandidatureEntrepriseResponse toEntrepriseResponse(Candidature candidature, @Context boolean iaActive);
 }

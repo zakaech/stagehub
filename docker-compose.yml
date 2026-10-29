@@ -155,7 +155,7 @@ services:
     command:
       - |
         set -eu
-        for topic in stagehub.candidature.statut-change stagehub.candidature.creee stagehub.candidature.analyse-terminee stagehub.entreprise.validation; do
+        for topic in stagehub.candidature.statut-change stagehub.candidature.creee stagehub.candidature.analyse stagehub.entreprise.validation; do
           for nom in "$$topic" "$$topic.DLT"; do
             /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists \
               --topic "$$nom" --partitions 3 --replication-factor 1
@@ -396,6 +396,8 @@ services:
       # Changements de statut publiés par l'outbox (pas de depends_on : sans Kafka, les événements attendent)
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       CV_STORAGE_DIR: /data/cv
+      # Phase 8 e : même valeur qu'ai-service ; arrêtée, une analyse en attente s'affiche « désactivée »
+      IA_ACTIVE: ${IA_ACTIVE:-false}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOG_FORMAT:-}
     volumes:

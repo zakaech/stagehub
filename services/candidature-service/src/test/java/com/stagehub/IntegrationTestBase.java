@@ -19,8 +19,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
         "stagehub.cv.dossier=target/test-uploads/cv",
         // Pas d'annuaire : le client Feign appelle directement le faux offre-service (FauxOffreService)
         "eureka.client.enabled=false",
-        // Pas de Kafka pour la plupart des tests : les événements restent dans l'outbox (OutboxIT teste le relais)
-        "stagehub.outbox.relais.actif=false"
+        // Pas de Kafka pour la plupart des tests : les événements restent dans l'outbox (OutboxIT teste le relais),
+        // et le consommateur des analyses ne démarre pas (AnalyseResultatIT le teste)
+        "stagehub.outbox.relais.actif=false",
+        "spring.kafka.listener.auto-startup=false"
 })
 @AutoConfigureMockMvc
 // Jetons signés par une clé de test à la place d'auth-service (phase 7)

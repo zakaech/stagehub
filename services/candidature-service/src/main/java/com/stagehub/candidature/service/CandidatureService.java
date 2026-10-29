@@ -19,8 +19,11 @@ import com.stagehub.common.exception.OffreNonDisponibleException;
 import com.stagehub.common.Topics;
 import com.stagehub.outbox.service.OutboxService;
 import com.stagehub.etudiant.entity.Etudiant;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,14 +42,18 @@ public class CandidatureService {
     private final OffreClient offreClient;
     private final CandidatureMapper candidatureMapper;
     private final OutboxService outbox;
+    /** L'analyse par l'IA tourne-t-elle ? Sinon, une analyse en attente s'affiche « désactivée » (phase 8 e). */
+    private final boolean iaActive;
 
     public CandidatureService(CandidatureRepository candidatureRepository, EnregistrementCandidature enregistrement,
-                              OffreClient offreClient, CandidatureMapper candidatureMapper, OutboxService outbox) {
+                              OffreClient offreClient, CandidatureMapper candidatureMapper, OutboxService outbox,
+                              @Value("${stagehub.analyse.active:false}") boolean iaActive) {
         this.candidatureRepository = candidatureRepository;
         this.enregistrement = enregistrement;
         this.offreClient = offreClient;
         this.candidatureMapper = candidatureMapper;
         this.outbox = outbox;
+        this.iaActive = iaActive;
     }
 
     /**
@@ -79,15 +86,23 @@ public class CandidatureService {
                 resumes.getOrDefault(c.getOffreId(), candidatureMapper.toOffreResumeDegrade(c))));
     }
 
-    /** Propriété vérifiée auprès d'offre-service (l'offre peut n'avoir encore aucune candidature). */
+    /**
+     * Propriété vérifiée auprès d'offre-service (l'offre peut n'avoir encore aucune candidature). Ordre par défaut :
+     * la plus récente d'abord. Par score (choix explicite de l'entreprise, phase 8 e) : score indicatif décroissant,
+     * les candidatures sans score à la fin, puis la plus récente.
+     */
     public PageResponse<CandidatureEntrepriseResponse> listerCandidaturesOffre(Long entrepriseId, Long offreId,
-                                                                               Pageable pageable) {
+                                                                               Pageable pageable, boolean parScore) {
         OffreInterne offre = offreClient.offre(offreId);
         if (!entrepriseId.equals(offre.entrepriseId())) {
             throw new AccesNonAutoriseException("Cette offre n'appartient pas à votre entreprise");
         }
-        return PageResponse.of(candidatureRepository.findByOffreId(offreId, pageable),
-                candidatureMapper::toEntrepriseResponse);
+        Pageable page = parScore
+                ? PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                        Sort.by(Sort.Order.desc("analyse.score").nullsLast(), Sort.Order.desc("dateCandidature")))
+                : pageable;
+        return PageResponse.of(candidatureRepository.findByOffreId(offreId, page),
+                c -> candidatureMapper.toEntrepriseResponse(c, iaActive));
     }
 
     /** La machine à états est appliquée par l'entité (→ 409 si transition invalide). Aucun appel réseau. */
@@ -115,6 +130,6 @@ public class CandidatureService {
                 candidature.getEntrepriseNom(),
                 ancienStatut,
                 nouveauStatut));
-        return candidatureMapper.toEntrepriseResponse(candidature);
+        return candidatureMapper.toEntrepriseResponse(candidature, iaActive);
     }
 }

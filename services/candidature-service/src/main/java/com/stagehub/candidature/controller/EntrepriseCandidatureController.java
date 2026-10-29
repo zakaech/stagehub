@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -33,12 +34,14 @@ public class EntrepriseCandidatureController {
     }
 
     @GetMapping("/offres/{offreId}/candidatures")
-    @Operation(summary = "Candidatures reçues pour une de mes offres")
+    @Operation(summary = "Candidatures reçues pour une de mes offres (tri=score : par score indicatif de l'IA)")
     public PageResponse<CandidatureEntrepriseResponse> candidaturesDeLOffre(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long offreId,
             @ParameterObject @PageableDefault(size = 10, sort = "dateCandidature", direction = Sort.Direction.DESC)
-            Pageable pageable) {
-        return candidatureService.listerCandidaturesOffre(JwtClaims.utilisateurId(jwt), offreId, pageable);
+            Pageable pageable,
+            @RequestParam(defaultValue = "date") String tri) {
+        return candidatureService.listerCandidaturesOffre(JwtClaims.utilisateurId(jwt), offreId, pageable,
+                "score".equalsIgnoreCase(tri));
     }
 
     @PatchMapping("/candidatures/{id}/statut")

@@ -3,6 +3,7 @@ package com.stagehub.candidature.entity;
 import com.stagehub.common.exception.TransitionStatutInvalideException;
 import com.stagehub.etudiant.entity.Etudiant;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -73,9 +74,9 @@ public class Candidature {
     @Column(name = "cv_fichier", updatable = false)
     private String cvFichier;
 
-    /** Rempli en phase 8 (Spring AI). */
-    @Column(name = "score_matching")
-    private Integer scoreMatching;
+    /** Analyse par l'IA (phase 8) : état reçu d'ai-service, puis score indicatif, justification, résumé du CV. */
+    @Embedded
+    private AnalyseIa analyse = new AnalyseIa();
 
     public boolean concerneLEntreprise(Long idEntreprise) {
         return entrepriseId.equals(idEntreprise);

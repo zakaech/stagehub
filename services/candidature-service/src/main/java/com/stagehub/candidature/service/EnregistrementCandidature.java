@@ -3,6 +3,7 @@ package com.stagehub.candidature.service;
 import com.stagehub.candidature.client.OffreInterne;
 import com.stagehub.candidature.dto.CandidatureRequest;
 import com.stagehub.candidature.entity.Candidature;
+import com.stagehub.candidature.entity.StatutAnalyse;
 import com.stagehub.candidature.event.CandidatureCreeeEvent;
 import com.stagehub.candidature.repository.CandidatureRepository;
 import com.stagehub.common.Topics;
@@ -54,6 +55,8 @@ public class EnregistrementCandidature {
         candidature.setEntrepriseNom(offre.entrepriseNom());
         candidature.setOffreVille(offre.ville());
         candidature.setLettreMotivation(request == null ? null : request.lettreMotivation());
+        // Phase 8 : envoyée à l'analyse par l'IA (événement CandidatureCreee ci-dessous) ; ai-service publiera la suite
+        candidature.getAnalyse().setStatut(StatutAnalyse.EN_ATTENTE);
         Candidature enregistree;
         try {
             enregistree = candidatureRepository.saveAndFlush(candidature);
