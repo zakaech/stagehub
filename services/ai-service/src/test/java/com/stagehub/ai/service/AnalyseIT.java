@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class AnalyseIT extends IntegrationTestBase {
 
-    private static final String TOPIC = "stagehub.candidature.analyse-terminee";
+    private static final String TOPIC = "stagehub.candidature.analyse";
     private static final AtomicLong IDS = new AtomicLong(5_000);
     private static final String CV = "Amine Idrissi, amine.idrissi@exemple.ma, 06 12 34 56 78. "
             + "Competences : Docker, Kubernetes, Jenkins. Projet {nom} en Python.";
@@ -90,7 +90,12 @@ class AnalyseIT extends IntegrationTestBase {
 
         assertThat(demande.getStatut()).isEqualTo(StatutAnalyse.TERMINEE);
         assertThat(demande.getModele()).isEqualTo("modele-simule");
-        ConsumerRecord<String, String> message = messageDeCle(String.valueOf(id));
+        // Deux états publiés pour cette candidature, dans l'ordre : EN_COURS puis TERMINEE
+        List<ConsumerRecord<String, String>> etats = messagesDeCle(String.valueOf(id), Duration.ofSeconds(20), 2);
+        assertThat(etats).extracting(ConsumerRecord::value)
+                .satisfiesExactly(v -> assertThat(v).contains("\"statut\":\"EN_COURS\""),
+                        v -> assertThat(v).contains("\"statut\":\"TERMINEE\""));
+        ConsumerRecord<String, String> message = etats.getLast();
         assertThat(message.value())
                 .contains("\"statut\":\"TERMINEE\"", "\"score\":88", "\"justification\":\"Bon profil DevOps.\"")
                 .contains("\"technologiesTrouvees\":[\"Jenkins\",\"Docker\",\"Kubernetes\"]", "\"technologiesOffre\":4")
@@ -125,7 +130,10 @@ class AnalyseIT extends IntegrationTestBase {
         assertThat(demande.getStatut()).isEqualTo(StatutAnalyse.EN_ATTENTE);
         assertThat(demande.getTentatives()).isEqualTo(1);
         assertThat(demande.getProchaineTentative()).isAfter(Instant.now().plusSeconds(30));
-        assertThat(messagesDeCle(String.valueOf(id), Duration.ofSeconds(4))).isEmpty();
+        // Pas de résultat : seulement EN_COURS puis EN_ATTENTE, avec l'heure de la nouvelle tentative
+        assertThat(messagesDeCle(String.valueOf(id), Duration.ofSeconds(20), 2)).extracting(ConsumerRecord::value)
+                .satisfiesExactly(v -> assertThat(v).contains("\"statut\":\"EN_COURS\""),
+                        v -> assertThat(v).contains("\"statut\":\"EN_ATTENTE\"", "\"prochaineTentative\":\"20"));
     }
 
     @Test
@@ -136,7 +144,8 @@ class AnalyseIT extends IntegrationTestBase {
 
         assertThat(demande.getStatut()).isEqualTo(StatutAnalyse.ECHEC);
         assertThat(demande.getMotifEchec()).isEqualTo(MotifEchec.CV_ABSENT);
-        assertThat(messageDeCle(String.valueOf(id)).value()).contains("\"statut\":\"ECHEC\"", "\"motifEchec\":\"CV_ABSENT\"");
+        assertThat(messagesDeCle(String.valueOf(id), Duration.ofSeconds(20), 2).getLast().value())
+                .contains("\"statut\":\"ECHEC\"", "\"motifEchec\":\"CV_ABSENT\"");
         assertThat(modele.prompts()).isEmpty();
     }
 
@@ -168,14 +177,8 @@ class AnalyseIT extends IntegrationTestBase {
         return demandes.findById(id).orElseThrow();
     }
 
-    private static ConsumerRecord<String, String> messageDeCle(String cle) {
-        List<ConsumerRecord<String, String>> messages = messagesDeCle(cle, Duration.ofSeconds(20));
-        assertThat(messages).as("message de clé " + cle + " dans " + TOPIC).isNotEmpty();
-        return messages.getFirst();
-    }
-
-    /** Messages de cette clé, lus depuis le début du topic pendant au plus la durée donnée. */
-    private static List<ConsumerRecord<String, String>> messagesDeCle(String cle, Duration duree) {
+    /** Messages de cette clé, lus depuis le début du topic jusqu'à en avoir le nombre attendu (ou la durée écoulée). */
+    private static List<ConsumerRecord<String, String>> messagesDeCle(String cle, Duration duree, int attendus) {
         Map<String, Object> config = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers(),
                 ConsumerConfig.GROUP_ID_CONFIG, "test-" + UUID.randomUUID(),
@@ -185,17 +188,14 @@ class AnalyseIT extends IntegrationTestBase {
         try (KafkaConsumer<String, String> consommateur = new KafkaConsumer<>(config)) {
             consommateur.subscribe(List.of(TOPIC));
             Instant fin = Instant.now().plus(duree);
-            while (Instant.now().isBefore(fin)) {
-                List<ConsumerRecord<String, String>> trouves = StreamSupport
-                        .stream(consommateur.poll(Duration.ofMillis(500)).spliterator(), false)
+            List<ConsumerRecord<String, String>> trouves = new java.util.ArrayList<>();
+            while (Instant.now().isBefore(fin) && trouves.size() < attendus) {
+                StreamSupport.stream(consommateur.poll(Duration.ofMillis(500)).spliterator(), false)
                         .filter(r -> cle.equals(r.key()))
-                        .toList();
-                if (!trouves.isEmpty()) {
-                    return trouves;
-                }
+                        .forEach(trouves::add);
             }
+            return trouves;
         }
-        return List.of();
     }
 
     private static byte[] pdf(String texte) throws IOException {

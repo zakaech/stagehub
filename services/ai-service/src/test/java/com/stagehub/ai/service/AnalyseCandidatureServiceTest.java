@@ -14,7 +14,7 @@ import com.stagehub.ai.cv.TexteCv;
 import com.stagehub.ai.entity.DemandeAnalyse;
 import com.stagehub.ai.entity.MotifEchec;
 import com.stagehub.ai.entity.StatutAnalyse;
-import com.stagehub.ai.event.AnalyseCandidatureTerminee;
+import com.stagehub.ai.event.AnalyseCandidature;
 import com.stagehub.ai.repository.DemandeAnalyseRepository;
 import com.stagehub.outbox.service.OutboxService;
 import feign.FeignException;
@@ -44,8 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -105,7 +105,8 @@ class AnalyseCandidatureServiceTest {
 
         assertThat(service.traiterLaProchaine()).isTrue();
 
-        AnalyseCandidatureTerminee evenement = evenementPublie();
+        assertThat(evenementsPublies()).extracting(AnalyseCandidature::statut).containsExactly("EN_COURS", "TERMINEE");
+        AnalyseCandidature evenement = evenementPublie();
         assertThat(evenement.statut()).isEqualTo("TERMINEE");
         assertThat(evenement.score()).isEqualTo(85);
         assertThat(evenement.technologiesTrouvees()).containsExactly("Jenkins", "Docker", "Kubernetes");
@@ -129,7 +130,7 @@ class AnalyseCandidatureServiceTest {
 
         service.traiterLaProchaine();
 
-        AnalyseCandidatureTerminee evenement = evenementPublie();
+        AnalyseCandidature evenement = evenementPublie();
         assertThat(evenement.technologiesTrouvees()).isEmpty();
         assertThat(evenement.alerteEcart()).isTrue();
         assertThat(evenement.contenuSuspect()).isTrue();
@@ -141,7 +142,7 @@ class AnalyseCandidatureServiceTest {
 
         service.traiterLaProchaine();
 
-        AnalyseCandidatureTerminee evenement = evenementPublie();
+        AnalyseCandidature evenement = evenementPublie();
         assertThat(evenement.statut()).isEqualTo("ECHEC");
         assertThat(evenement.motifEchec()).isEqualTo("CV_ABSENT");
         assertThat(evenement.score()).isNull();
@@ -180,7 +181,10 @@ class AnalyseCandidatureServiceTest {
 
         assertThat(demande.getStatut()).isEqualTo(StatutAnalyse.EN_ATTENTE);
         assertThat(demande.getProchaineTentative()).isEqualTo(MAINTENANT.plus(Duration.ofMinutes(1)));
-        verify(outbox, never()).enregistrer(anyString(), anyString(), any());
+        // L'entreprise voit « en attente, nouvelle tentative à 10 h 01 », pas de résultat
+        assertThat(evenementsPublies()).extracting(AnalyseCandidature::statut).containsExactly("EN_COURS", "EN_ATTENTE");
+        assertThat(evenementPublie().prochaineTentative()).isEqualTo(MAINTENANT.plus(Duration.ofMinutes(1)));
+        assertThat(evenementPublie().score()).isNull();
     }
 
     @Test
@@ -210,11 +214,16 @@ class AnalyseCandidatureServiceTest {
                 .thenReturn(new ModeleAnalyse.Resultat(reponse, "qwen3.5:4b", 754, 195));
     }
 
-    /** L'événement écrit dans l'outbox (et la demande relue dans la transaction finale). */
-    private AnalyseCandidatureTerminee evenementPublie() {
+    /** États publiés dans l'outbox, dans l'ordre (EN_COURS au début de chaque tentative, puis l'état suivant). */
+    private List<AnalyseCandidature> evenementsPublies() {
         ArgumentCaptor<Object> evenement = ArgumentCaptor.forClass(Object.class);
-        verify(outbox).enregistrer(eq("stagehub.candidature.analyse-terminee"), eq("12"), evenement.capture());
-        return (AnalyseCandidatureTerminee) evenement.getValue();
+        verify(outbox, atLeastOnce()).enregistrer(eq("stagehub.candidature.analyse"), eq("12"), evenement.capture());
+        return evenement.getAllValues().stream().map(AnalyseCandidature.class::cast).toList();
+    }
+
+    /** Dernier état publié. */
+    private AnalyseCandidature evenementPublie() {
+        return evenementsPublies().getLast();
     }
 
     private static Request requete() {

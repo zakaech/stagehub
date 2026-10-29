@@ -14,7 +14,7 @@ import com.stagehub.ai.cv.TexteCv;
 import com.stagehub.ai.entity.DemandeAnalyse;
 import com.stagehub.ai.entity.MotifEchec;
 import com.stagehub.ai.entity.StatutAnalyse;
-import com.stagehub.ai.event.AnalyseCandidatureTerminee;
+import com.stagehub.ai.event.AnalyseCandidature;
 import com.stagehub.ai.repository.DemandeAnalyseRepository;
 import com.stagehub.outbox.service.OutboxService;
 import feign.FeignException;
@@ -37,6 +37,8 @@ import java.util.Optional;
  *   <li><b>résultat</b>, transaction courte : la demande passe TERMINEE (ou ECHEC) et l'événement est écrit dans
  *       l'outbox, ensemble ou pas du tout.</li>
  * </ol>
+ * Chaque changement d'état (EN_COURS, EN_ATTENTE après une panne, TERMINEE, ECHEC) est publié dans
+ * {@code stagehub.candidature.analyse} : candidature-service l'affiche à l'entreprise (phase 8 e).
  * Panne passagère (modèle, réseau, réponse invalide) : nouvelle tentative plus tard, jusqu'au maximum, puis ECHEC.
  * CV absent ou illisible, offre disparue : ECHEC tout de suite (réessayer ne changerait rien).
  * Les étapes 1 et 3 passent par un {@link TransactionTemplate} et non par {@code @Transactional} : appelées depuis
@@ -45,7 +47,7 @@ import java.util.Optional;
 @Service
 public class AnalyseCandidatureService {
 
-    static final String TOPIC = "stagehub.candidature.analyse-terminee";
+    static final String TOPIC = "stagehub.candidature.analyse";
     private static final Logger log = LoggerFactory.getLogger(AnalyseCandidatureService.class);
 
     private final DemandeAnalyseRepository demandes;
@@ -104,6 +106,9 @@ public class AnalyseCandidatureService {
         long debut = System.nanoTime();
         log.info("Analyse de la candidature {} (tentative {} sur {})", candidatureId, demande.getTentatives(),
                 proprietes.tentativesMax());
+        // L'entreprise voit « analyse en cours » (publié dans la trace de la candidature)
+        transaction.executeWithoutResult(etat -> publier(AnalyseCandidature.etat(candidatureId,
+                StatutAnalyse.EN_COURS.name(), null, null, clock.instant())));
         try {
             if (demande.getCvFichier() == null) {
                 throw new CvAbsentException(candidatureId);
@@ -124,8 +129,8 @@ public class AnalyseCandidatureService {
                     candidatureId, resultat.modele(), dureeMs / 1000, score, technologies.trouvees().size(),
                     technologies.total(), alerte ? ", écart flagrant avec le score" : "", resultat.jetonsLus(),
                     resultat.jetonsProduits());
-            terminer(demande, StatutAnalyse.TERMINEE, null, resultat.modele(), dureeMs, new AnalyseCandidatureTerminee(
-                    candidatureId, StatutAnalyse.TERMINEE.name(), null, score, resultat.reponse().justification(),
+            terminer(demande, StatutAnalyse.TERMINEE, null, resultat.modele(), dureeMs, new AnalyseCandidature(
+                    candidatureId, StatutAnalyse.TERMINEE.name(), null, null, score, resultat.reponse().justification(),
                     resultat.reponse().resume(), technologies.trouvees(), technologies.total(), alerte,
                     !regles.isEmpty(), resultat.modele(), clock.instant()));
         } catch (CvAbsentException e) {
@@ -161,19 +166,22 @@ public class AnalyseCandidatureService {
             d.setStatut(StatutAnalyse.EN_ATTENTE);
             d.setProchaineTentative(prochaine);
             d.setDebutAnalyse(null);
+            // L'entreprise voit « en attente, nouvelle tentative à ... »
+            publier(AnalyseCandidature.etat(d.getCandidatureId(), StatutAnalyse.EN_ATTENTE.name(), null, prochaine,
+                    clock.instant()));
         }));
     }
 
     private void echouer(DemandeAnalyse demande, MotifEchec motif, String detail, long debut) {
         log.warn("Candidature {} : analyse impossible, définitivement ({} : {})", demande.getCandidatureId(), motif, detail);
         terminer(demande, StatutAnalyse.ECHEC, motif, null, (System.nanoTime() - debut) / 1_000_000,
-                new AnalyseCandidatureTerminee(demande.getCandidatureId(), StatutAnalyse.ECHEC.name(), motif.name(),
-                        null, null, null, null, null, false, false, null, clock.instant()));
+                AnalyseCandidature.etat(demande.getCandidatureId(), StatutAnalyse.ECHEC.name(), motif.name(), null,
+                        clock.instant()));
     }
 
     /** Statut final et événement, dans la même transaction (outbox) : les deux sont enregistrés, ou aucun. */
     private void terminer(DemandeAnalyse demande, StatutAnalyse statut, MotifEchec motif, String nomModele, long dureeMs,
-                          AnalyseCandidatureTerminee evenement) {
+                          AnalyseCandidature evenement) {
         transaction.executeWithoutResult(etat -> {
             DemandeAnalyse d = demandes.findById(demande.getCandidatureId()).orElseThrow();
             d.setStatut(statut);
@@ -183,8 +191,13 @@ public class AnalyseCandidatureService {
             d.setDateFin(clock.instant());
             d.setDebutAnalyse(null);
             d.setProchaineTentative(null);
-            outbox.enregistrer(TOPIC, d.getCandidatureId().toString(), evenement);
+            publier(evenement);
         });
+    }
+
+    /** Dans l'outbox, donc dans la transaction en cours (MANDATORY) : publié si, et seulement si, elle est validée. */
+    private void publier(AnalyseCandidature evenement) {
+        outbox.enregistrer(TOPIC, evenement.candidatureId().toString(), evenement);
     }
 
     /** L'offre a disparu d'offre-service (404) : définitif. */
