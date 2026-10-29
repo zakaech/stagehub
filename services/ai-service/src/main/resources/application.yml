@@ -19,6 +19,9 @@ spring:
     enabled: true
     # Migrations du service + table de la bibliothèque outbox (V1000, V1002)
     locations: classpath:db/migration,classpath:db/outbox
+    # Prochaine migration du service (V4…) plus petite que celles de la bibliothèque déjà appliquées (V1002) :
+    # sans ce réglage, Flyway refuserait de l'appliquer à une base existante (voir candidature-service).
+    out-of-order: true
   http:
     clients:
       # Une analyse dure plusieurs minutes sur processeur : le client HTTP qui appelle Ollama attend jusqu'à 10 min

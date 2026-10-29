@@ -39,6 +39,10 @@ spring:
   flyway:
     # Migrations du service + tables des bibliothèques (outbox : V1000, audit : V1001)
     locations: classpath:db/migration,classpath:db/outbox,classpath:db/audit
+    # Une nouvelle migration du service (V2…) a un numéro plus petit que celles des bibliothèques déjà appliquées
+    # (V1002) : sans ce réglage, Flyway refuse de l'appliquer à une base existante (constaté en phase 8 e).
+    # Les deux séries touchent des tables distinctes : leur ordre relatif n'a pas d'importance.
+    out-of-order: true
   cloud:
     loadbalancer:
       cache:

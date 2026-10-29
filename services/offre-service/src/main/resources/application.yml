@@ -24,6 +24,9 @@ spring:
   flyway:
     # Migrations du service + tables des bibliothèques (outbox : V1000, audit : V1001)
     locations: classpath:db/migration,classpath:db/outbox,classpath:db/audit
+    # Prochaine migration du service (V3…) plus petite que celles des bibliothèques déjà appliquées (V1002) :
+    # sans ce réglage, Flyway refuserait de l'appliquer à une base existante (voir candidature-service).
+    out-of-order: true
   data:
     web:
       pageable:
