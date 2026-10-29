@@ -108,6 +108,9 @@ stagehub:
   analyse:
     # Même valeur qu'ai-service (IA_ACTIVE) : faux = une analyse en attente s'affiche « désactivée »
     active: ${IA_ACTIVE:false}
+    # Même valeur qu'ai-service (IA_FOURNISSEUR) : ollama (le CV reste sur le serveur) ou openai (il est envoyé à
+    # OpenAI) ; décide du texte d'information de l'étudiant
+    fournisseur: ${IA_FOURNISSEUR:ollama}
   # Fuseau de l'horloge (Clock) et des tâches planifiées (purge de l'outbox) ; les règles de date des offres sont
   # dans offre-service depuis la phase 7 (c)
   fuseau: Africa/Casablanca
