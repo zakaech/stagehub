@@ -36,8 +36,8 @@ spring:
       read-timeout: 10m
   ai:
     model:
-      # Fournisseur du modèle (phase 8 d) : Ollama en local ; « none » dans les tests (modèle simulé). Un autre
-      # fournisseur (ex. OpenAI) se branche par la configuration : starter et propriétés, sans toucher au code
+      # Fournisseur du modèle (spec §1) : « ollama » (local, par défaut) ou « openai » ; « none » dans les tests
+      # (modèle simulé). Seul le fournisseur choisi est activé ; le code d'analyse ne dépend d'aucun des deux
       chat: ${IA_FOURNISSEUR:ollama}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
@@ -50,6 +50,20 @@ spring:
         think: false
         # Consignes + offre + CV (12 000 caractères au plus) tiennent dans 8 192 jetons
         num-ctx: 8192
+    # OpenAI (IA_FOURNISSEUR=openai) : le CV, coordonnées masquées, est envoyé à OpenAI (texte de l'étudiant adapté).
+    # Client = SDK Java officiel d'OpenAI : ses propres délai et nouvelles tentatives, réglés ici
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      chat:
+        # gpt-5-mini : modèle par défaut de Spring AI 2.0.1. Pas de température : les modèles GPT-5 n'acceptent
+        # que la valeur par défaut (erreur 400 sinon). Jamais mesuré sur nos CV (limite documentée)
+        model: ${OPENAI_MODEL:gpt-5-mini}
+        # Pas de nouvel essai par le SDK (3 par défaut) : la demande d'analyse est retentée plus tard
+        max-retries: 0
+        timeout: 3m
+        # Ne pas conserver les échanges (donc les CV) dans le stockage d'OpenAI
+        store: false
     retry:
       # Pas de nouvelles tentatives de Spring AI (jusqu'à 10 par défaut, sur des appels de plusieurs minutes) : c'est
       # la demande d'analyse qui est retentée plus tard (stagehub.analyse.attentes)

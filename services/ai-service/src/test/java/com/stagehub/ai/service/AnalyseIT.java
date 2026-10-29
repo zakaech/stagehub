@@ -209,8 +209,11 @@ class AnalyseIT extends IntegrationTestBase {
         return demandes.findById(id).orElseThrow();
     }
 
-    /** Messages de cette clé, lus depuis le début du topic jusqu'à en avoir le nombre attendu (ou la durée écoulée). */
-    private static List<ConsumerRecord<String, String>> messagesDeCle(String cle, Duration duree, int attendus) {
+    /**
+     * Messages de cette clé, lus depuis le début du topic jusqu'à en avoir le nombre attendu (ou la durée écoulée).
+     * Aussi utilisé par AnalyseOpenAiIT.
+     */
+    static List<ConsumerRecord<String, String>> messagesDeCle(String cle, Duration duree, int attendus) {
         Map<String, Object> config = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers(),
                 ConsumerConfig.GROUP_ID_CONFIG, "test-" + UUID.randomUUID(),
@@ -230,7 +233,7 @@ class AnalyseIT extends IntegrationTestBase {
         }
     }
 
-    private static byte[] pdf(String texte) throws IOException {
+    static byte[] pdf(String texte) throws IOException {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream sortie = new ByteArrayOutputStream()) {
             PDPage page = new PDPage();
             document.addPage(page);

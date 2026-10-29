@@ -9,6 +9,7 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -77,11 +78,15 @@ public class ModeleSimule implements ChatModel {
         return OllamaChatOptions.builder().build();
     }
 
-    /** Remplace le modèle d'Ollama dans le contexte des tests (spring.ai.model.chat=none). */
+    /**
+     * Remplace le modèle d'Ollama dans le contexte des tests (spring.ai.model.chat=none). Absent quand un test active
+     * un vrai fournisseur (AnalyseOpenAiIT : client OpenAI de Spring AI face à un faux serveur OpenAI).
+     */
     @TestConfiguration(proxyBeanMethods = false)
     public static class Config {
 
         @Bean
+        @ConditionalOnProperty(name = "spring.ai.model.chat", havingValue = "none")
         ModeleSimule modeleSimule() {
             return new ModeleSimule();
         }
