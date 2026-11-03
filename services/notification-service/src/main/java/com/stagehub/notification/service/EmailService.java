@@ -27,9 +27,8 @@ public class EmailService {
 
     /**
      * Envoie un email texte construit à partir d'un modèle.
-     * Différence avec le monolithe (phase 4) : un échec SMTP est <b>propagé</b>. L'email n'est plus envoyé après
-     * coup dans un thread à part, mais en traitant un message Kafka : l'exception fait rejouer le message (nouvelles
-     * tentatives, puis topic d'erreurs), au lieu d'un email perdu en silence.
+     * Un échec SMTP est <b>propagé</b> : l'email est envoyé en traitant un message Kafka, et l'exception fait rejouer
+     * le message (nouvelles tentatives, puis topic d'erreurs), au lieu d'un email perdu en silence.
      */
     public void envoyer(String destinataire, String modele, Map<String, String> variables) {
         ModeleEmails.EmailRendu email = modeles.rendre(modele, variables);

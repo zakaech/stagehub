@@ -40,7 +40,7 @@ spring:
     # Migrations du service + tables des bibliothèques (outbox : V1000, audit : V1001)
     locations: classpath:db/migration,classpath:db/outbox,classpath:db/audit
     # Une nouvelle migration du service (V2…) a un numéro plus petit que celles des bibliothèques déjà appliquées
-    # (V1002) : sans ce réglage, Flyway refuse de l'appliquer à une base existante (constaté en phase 8 e).
+    # (V1002) : sans ce réglage, Flyway refuse de l'appliquer à une base existante (constaté).
     # Les deux séries touchent des tables distinctes : leur ordre relatif n'a pas d'importance.
     out-of-order: true
   cloud:
@@ -54,7 +54,7 @@ spring:
         disable-thread-pool: true
         disable-time-limiter: true
     openfeign:
-      # Phase 7 (c) : chaque appel Feign passe par un circuit breaker Resilience4j (voir resilience4j ci-dessous)
+      # Chaque appel Feign passe par un circuit breaker Resilience4j (voir resilience4j ci-dessous)
       circuitbreaker:
         enabled: true
       client:
@@ -64,7 +64,7 @@ spring:
             connect-timeout: 2000
             read-timeout: 3000
   kafka:
-    # Phase 7 (e) : événements publiés par le relais de l'outbox ; les emails partent de notification-service
+    # Événements publiés par le relais de l'outbox ; les emails partent de notification-service
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -79,7 +79,7 @@ spring:
         max.block.ms: 5000
         request.timeout.ms: 5000
         delivery.timeout.ms: 10000
-    # Phase 8 (e) : états de l'analyse des candidatures, publiés par ai-service
+    # États de l'analyse des candidatures, publiés par ai-service
     consumer:
       group-id: candidature-service
       # Premier démarrage du groupe : lire depuis le début (aucun résultat d'analyse perdu)
@@ -112,7 +112,7 @@ stagehub:
     # OpenAI) ; décide du texte d'information de l'étudiant
     fournisseur: ${IA_FOURNISSEUR:ollama}
   # Fuseau de l'horloge (Clock) et des tâches planifiées (purge de l'outbox) ; les règles de date des offres sont
-  # dans offre-service depuis la phase 7 (c)
+  # dans offre-service
   fuseau: Africa/Casablanca
   outbox:
     relais:
@@ -123,7 +123,7 @@ stagehub:
     # Au-delà, MesureTempsAspect logue un WARN ; en dessous, un DEBUG
     seuil-lent: 500ms
   jwt:
-    # Phase 7 : les jetons sont signés par auth-service (RS256) ; on vérifie avec sa clé publique (JWKS)
+    # Les jetons sont signés par auth-service (RS256) ; on vérifie avec sa clé publique (JWKS)
     jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8082/.well-known/jwks.json}
   cv:
     # Relatif au dossier de lancement (services/candidature-service/) ; en conteneur : /data/cv (volume cv-data)
@@ -168,7 +168,7 @@ resilience4j:
 management:
   tracing:
     sampling:
-      # Traçage (phase 8 a) : toutes les requêtes sont tracées (0,1 par défaut). Sans exportateur, une trace ne coûte
+      # Traçage : toutes les requêtes sont tracées (0,1 par défaut). Sans exportateur, une trace ne coûte
       # presque rien, et chaque ligne de log porte le traceId de sa requête, le même dans tous les services traversés
       probability: 1.0
   endpoints:

@@ -16,7 +16,7 @@ import java.util.UUID;
 /**
  * Point d'entrée Kafka : lit l'id de l'événement (en-tête posé par l'outbox de candidature-service) et le JSON, puis
  * délègue. Si le traitement lève une exception, le message est rejoué (voir KafkaErreursConfig).
- * <p>Traçage (phase 8 a) : Spring Kafka lit l'en-tête {@code traceparent} et place le traceId de la candidature dans
+ * <p>Traçage : Spring Kafka lit l'en-tête {@code traceparent} et place le traceId de la candidature dans
  * les logs de ce traitement ({@code spring.kafka.listener.observation-enabled}). L'en-tête est aussi conservé avec la
  * demande, pour l'analyse qui viendra plus tard.
  */

@@ -84,7 +84,7 @@ class OutboxIT extends IntegrationTestBase {
     }
 
     /**
-     * Phase 8 (a) : un seul traceId, de la requête de l'étudiant jusqu'au message que lira ai-service, en passant par
+     * Un seul traceId, de la requête de l'étudiant jusqu'au message que lira ai-service, en passant par
      * l'appel Feign vers offre-service. Le relais publie depuis un autre thread : sans le traceparent enregistré dans
      * l'outbox, la trace s'arrêterait là.
      */

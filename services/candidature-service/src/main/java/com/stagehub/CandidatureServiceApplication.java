@@ -6,11 +6,10 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
- * candidature-service : profils étudiants, CV et candidatures (phase 7 d, dernier morceau du monolithe).
+ * candidature-service : profils étudiants, CV et candidatures.
  * Dans le package com.stagehub : il scanne aussi commons et les bibliothèques outbox et audit.
  */
 @SpringBootApplication
-// Client HTTP déclaratif vers offre-service (OffreClient)
 @EnableFeignClients
 @ConfigurationPropertiesScan
 public class CandidatureServiceApplication {

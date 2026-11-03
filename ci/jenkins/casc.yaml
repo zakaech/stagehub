@@ -4,7 +4,7 @@
 # fois dans l'interface et stockés chiffrés dans le volume jenkins-home (voir docs/CI.md).
 
 jenkins:
-  systemMessage: "StageHub : intégration continue (phase 6). Guide : docs/CI.md"
+  systemMessage: "StageHub : intégration continue. Guide : docs/CI.md"
   # Un seul build à la fois sur ce PC : Maven + Testcontainers + npm + buildx consomment beaucoup de mémoire
   numExecutors: 1
   mode: NORMAL

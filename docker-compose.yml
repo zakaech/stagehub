@@ -99,7 +99,7 @@ services:
       retries: 10
     logging: *logs-limites
 
-  # ---- Phase 7 (e) : Kafka --------------------------------------------------------------------------------------
+  # ---- Kafka --------------------------------------------------------------------------------------
 
   # Kafka en mode KRaft : un seul nœud, à la fois broker (stocke les messages) et contrôleur (gère les métadonnées
   # du cluster) ; plus de ZooKeeper. Réplication 1 : suffisant pour une démo, pas pour de la production.
@@ -164,7 +164,7 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
     logging: *logs-limites
 
-  # ---- Phase 7 : annuaire des services et point d'entrée de l'API --------------------------------------------
+  # ---- Annuaire des services et point d'entrée de l'API --------------------------------------------
 
   # Annuaire Eureka : chaque service s'y enregistre. Tableau de bord : http://localhost:8761 (local uniquement)
   discovery-server:
@@ -185,7 +185,7 @@ services:
     deploy:
       resources:
         limits:
-          # 256 Mo prévus au plan, mais ~240 Mo mesurés au repos (serveur Eureka : Jersey, XStream) : trop juste
+          # ~240 Mo mesurés au repos (serveur Eureka : Jersey, XStream) : 256 Mo seraient trop justes
           memory: 320m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8761/actuator/health/readiness || exit 1"]
@@ -265,7 +265,7 @@ services:
       # Services qui détiennent les profils créés à l'inscription (saga)
       PROFILS_ETUDIANT_SERVICE: candidature-service
       PROFILS_ENTREPRISE_SERVICE: offre-service
-      # Phase 8 c : secret d'ai-service pour obtenir un jeton de service (POST /oauth2/token, client credentials)
+      # Secret d'ai-service pour obtenir un jeton de service (POST /oauth2/token, client credentials)
       AI_SERVICE_CLIENT_SECRET: ${AI_SERVICE_CLIENT_SECRET:?AI_SERVICE_CLIENT_SECRET doit être défini dans .env}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       SERVER_FORWARD_HEADERS_STRATEGY: framework
@@ -372,7 +372,7 @@ services:
       start_period: 180s
     logging: *logs-limites
 
-  # Profils étudiants, CV et candidatures (dernier morceau du monolithe, phase 7 d). Lit les offres dans offre-service
+  # Profils étudiants, CV et candidatures. Lit les offres dans offre-service
   # (OpenFeign + circuit breaker) ; publie les changements de statut dans Kafka (outbox).
   candidature-service:
     build:
@@ -396,7 +396,7 @@ services:
       # Changements de statut publiés par l'outbox (pas de depends_on : sans Kafka, les événements attendent)
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       CV_STORAGE_DIR: /data/cv
-      # Phase 8 e : même valeur qu'ai-service ; arrêtée, une analyse en attente s'affiche « désactivée »
+      # Même valeur qu'ai-service ; arrêtée, une analyse en attente s'affiche « désactivée »
       IA_ACTIVE: ${IA_ACTIVE:-false}
       # Même fournisseur qu'ai-service : choisit le texte d'information de l'étudiant (avec OpenAI, le CV est envoyé)
       IA_FOURNISSEUR: ${IA_FOURNISSEUR:-ollama}
@@ -417,7 +417,7 @@ services:
       start_period: 180s
     logging: *logs-limites
 
-  # Analyse des candidatures par IA (phase 8 : Spring AI + Ollama). Phase 7 (f) : squelette sans API, qui reçoit
+  # Analyse des candidatures par IA (Spring AI + Ollama), sans API : reçoit
   # chaque candidature créée par Kafka et l'enregistre comme demande d'analyse (consommateur idempotent, DLT).
   ai-service:
     build:
@@ -440,13 +440,13 @@ services:
       DB_PORT: 5432
       AI_DB_PASSWORD: ${AI_DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      # Phase 8 c : jeton de service demandé à auth-service, puis CV lu dans candidature-service (par l'annuaire)
+      # Jeton de service demandé à auth-service, puis CV lu dans candidature-service (par l'annuaire)
       AI_SERVICE_CLIENT_SECRET: ${AI_SERVICE_CLIENT_SECRET:?AI_SERVICE_CLIENT_SECRET doit être défini dans .env}
       AUTH_TOKEN_URI: http://auth-service:8080/oauth2/token
-      # Phase 8 d : analyse par le modèle d'Ollama (profil compose « ia ») ; sans lui, IA_ACTIVE=false et les
+      # Analyse par le modèle d'Ollama (profil compose « ia ») ; sans lui, IA_ACTIVE=false et les
       # demandes attendent
       IA_ACTIVE: ${IA_ACTIVE:-false}
-      # Fournisseur du modèle (spec §1) : ollama (local, profil « ia ») ou openai (le CV est envoyé à OpenAI ; clé
+      # Fournisseur du modèle : ollama (local, profil « ia ») ou openai (le CV est envoyé à OpenAI ; clé
       # obligatoire si IA_ACTIVE=true, sinon ai-service refuse de démarrer)
       IA_FOURNISSEUR: ${IA_FOURNISSEUR:-ollama}
       OLLAMA_BASE_URL: http://ollama:11434
@@ -458,8 +458,8 @@ services:
     deploy:
       resources:
         limits:
-          # 384 Mo jusqu'en phase 7 ; Spring Security (client OAuth2), Feign et PDFBox portent la mémoire réelle à
-          # ~325 Mo au repos (mesuré en phase 8 c), avant Spring AI et l'analyse d'un CV
+          # Spring Security (client OAuth2), Feign et PDFBox portent la mémoire réelle à
+          # ~325 Mo au repos (mesuré), avant Spring AI et l'analyse d'un CV
           memory: 512m
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health/readiness || exit 1"]
@@ -469,7 +469,7 @@ services:
       start_period: 180s
     logging: *logs-limites
 
-  # Phase 8 : modèle de langage local pour l'analyse des candidatures. Profil « ia » : ne démarre que sur demande
+  # Modèle de langage local pour l'analyse des candidatures. Profil « ia » : ne démarre que sur demande
   # (COMPOSE_PROFILES=demo,ia), car il occupe plusieurs Go de mémoire. Port non publié : ai-service le joint par son
   # nom. Modèles dans le volume ollama-modeles : docker compose exec ollama ollama pull <modèle>
   ollama:

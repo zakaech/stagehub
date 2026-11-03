@@ -31,7 +31,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding()),
     // Ordre important : authInterceptor ajoute le jeton, errorInterceptor traite la réponse en erreur
     provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
-    // Dates, nombres et datepicker au format français
     { provide: LOCALE_ID, useValue: 'fr' },
     { provide: MAT_DATE_LOCALE, useValue: 'fr' },
     { provide: DateAdapter, useClass: FrDateAdapter },

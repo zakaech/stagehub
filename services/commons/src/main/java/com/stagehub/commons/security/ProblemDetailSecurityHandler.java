@@ -31,7 +31,6 @@ public class ProblemDetailSecurityHandler implements AuthenticationEntryPoint, A
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException exception) throws IOException, ServletException {
-        // En-tête standard WWW-Authenticate: Bearer ..., puis corps ProblemDetail
         bearerEntryPoint.commence(request, response, exception);
         resolver.resolveException(request, response, null, exception);
     }

@@ -34,7 +34,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Passage à OpenAI par la configuration (spec §1), sans clé ni appel réel : le vrai client OpenAI de Spring AI
+ * Passage à OpenAI par la configuration, sans clé ni appel réel : le vrai client OpenAI de Spring AI
  * ({@code IA_FOURNISSEUR=openai}) parle à un faux serveur OpenAI (WireMock). On vérifie ce qui part chez OpenAI (clé,
  * modèle, schéma JSON imposé, échanges non conservés, coordonnées masquées) et le traitement de la réponse.
  * Contexte Spring à part (fournisseur différent) ; le modèle simulé des autres tests n'y est pas créé.

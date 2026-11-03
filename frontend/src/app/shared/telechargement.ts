@@ -36,6 +36,5 @@ export function enregistrerFichier(reponse: HttpResponse<Blob>, nomParDefaut: st
     nomParDefaut,
   );
   lien.click();
-  // Libère la mémoire une fois le téléchargement lancé
   setTimeout(() => URL.revokeObjectURL(url));
 }

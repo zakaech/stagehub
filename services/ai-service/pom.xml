@@ -11,7 +11,7 @@
 
     <artifactId>ai-service</artifactId>
     <name>ai-service</name>
-    <description>Analyse des candidatures par IA (phase 8) : reçoit les candidatures créées par Kafka</description>
+    <description>Analyse des candidatures par IA : reçoit les candidatures créées par Kafka</description>
 
     <dependencies>
         <dependency>
@@ -36,7 +36,7 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- Lecture du CV de la candidature dans candidature-service (phase 8 c) : client Feign (annuaire Eureka,
+        <!-- Lecture du CV de la candidature dans candidature-service : client Feign (annuaire Eureka,
              traceparent), authentifié par un jeton de service obtenu auprès d'auth-service (flux OAuth2 client
              credentials, renouvelé automatiquement avant expiration) -->
         <dependency>
@@ -52,7 +52,7 @@
             <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
         </dependency>
         <!-- Analyse par un modèle de langage : Ollama en local (par défaut) ou OpenAI. Seul le fournisseur désigné par
-             spring.ai.model.chat (IA_FOURNISSEUR) est activé ; le code d'analyse ne dépend d'aucun des deux (spec §1) -->
+             spring.ai.model.chat (IA_FOURNISSEUR) est activé ; le code d'analyse ne dépend d'aucun des deux -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-ollama</artifactId>
@@ -82,7 +82,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <!-- Traçage (phase 8 a) : traceId et spanId dans chaque ligne de log, transmis d'un service à l'autre (en-tête
+        <!-- Traçage : traceId et spanId dans chaque ligne de log, transmis d'un service à l'autre (en-tête
              W3C traceparent, en HTTP comme dans Kafka). Micrometer Tracing + pont OpenTelemetry, sans exportateur :
              aucune trace n'est envoyée à un serveur, les identifiants servent à relier les logs. -->
         <dependency>

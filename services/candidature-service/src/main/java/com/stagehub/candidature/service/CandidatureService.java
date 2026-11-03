@@ -42,7 +42,7 @@ public class CandidatureService {
     private final OffreClient offreClient;
     private final CandidatureMapper candidatureMapper;
     private final OutboxService outbox;
-    /** L'analyse par l'IA tourne-t-elle ? Sinon, une analyse en attente s'affiche « désactivée » (phase 8 e). */
+    /** L'analyse par l'IA tourne-t-elle ? Sinon, une analyse en attente s'affiche « désactivée ». */
     private final boolean iaActive;
 
     public CandidatureService(CandidatureRepository candidatureRepository, EnregistrementCandidature enregistrement,
@@ -57,7 +57,7 @@ public class CandidatureService {
     }
 
     /**
-     * Spec §4.3 : offre OUVERTE et date limite non dépassée (règle évaluée par offre-service, données à jour) ; un
+     * Offre OUVERTE et date limite non dépassée (règle évaluée par offre-service, données à jour) ; un
      * doublon renvoie 409. offre-service injoignable : 503, on ne prend jamais une candidature non vérifiée.
      * NOT_SUPPORTED : l'appel réseau se fait hors transaction ; l'écriture a sa propre transaction, courte.
      */
@@ -88,7 +88,7 @@ public class CandidatureService {
 
     /**
      * Propriété vérifiée auprès d'offre-service (l'offre peut n'avoir encore aucune candidature). Ordre par défaut :
-     * la plus récente d'abord. Par score (choix explicite de l'entreprise, phase 8 e) : score indicatif décroissant,
+     * la plus récente d'abord. Par score (choix explicite de l'entreprise) : score indicatif décroissant,
      * les candidatures sans score à la fin, puis la plus récente.
      */
     public PageResponse<CandidatureEntrepriseResponse> listerCandidaturesOffre(Long entrepriseId, Long offreId,

@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
  *   <li>caractères invisibles retirés (espaces de largeur nulle, caractères de contrôle) : ils ne servent à rien au
  *       modèle et peuvent cacher du texte ou découper des mots ;</li>
  *   <li>ce qui est écrit en blanc ou en tout petit reste extrait : PDFBox lit le texte, pas son apparence. Une
- *       consigne cachée de cette façon arrive donc jusqu'au modèle (voir les protections de l'analyse, phase 8 d).</li>
+ *       consigne cachée de cette façon arrive donc jusqu'au modèle (voir les protections de l'analyse).</li>
  * </ul>
  * Ce service est le seul à ouvrir les PDF des étudiants pour l'analyse : un PDF piégé n'atteint que lui, qui ne
  * détient aucune donnée des autres services.

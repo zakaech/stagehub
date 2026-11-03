@@ -27,7 +27,7 @@ FROM nginxinc/nginx-unprivileged:1.29-alpine
 COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /build/dist/stagehub/browser/ /usr/share/nginx/html/
 
-# Phase 7 : l'API passe par la gateway, qui relaie chaque requête vers le microservice concerné
+# L'API passe par la gateway, qui relaie chaque requête vers le microservice concerné
 ENV BACKEND_URL=http://api-gateway:8080 \
     MAILPIT_URL=http://mailpit:8025
 

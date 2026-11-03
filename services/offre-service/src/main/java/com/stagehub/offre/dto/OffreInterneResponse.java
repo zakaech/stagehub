@@ -9,7 +9,7 @@ import java.util.List;
  * API interne (entre services). Le service des candidatures y lit ce qu'il faut pour qu'un étudiant postule : la règle
  * « offre OUVERTE et date limite non dépassée » est évaluée ici, par le service qui détient les offres
  * ({@code accepteCandidatures}), avec son horloge. ai-service y lit le contenu de l'offre à comparer au CV
- * (description, domaine, technologies : phase 8 d). Champs ajoutés sans gêner les anciens lecteurs, qui ignorent
+ * (description, domaine, technologies). Champs ajoutés sans gêner les anciens lecteurs, qui ignorent
  * ce qu'ils ne connaissent pas.
  */
 public record OffreInterneResponse(

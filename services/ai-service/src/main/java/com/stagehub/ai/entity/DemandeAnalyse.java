@@ -11,7 +11,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-/** Candidature à analyser (score de matching et résumé du CV en phase 8) : une par candidature. */
+/** Candidature à analyser (score de matching et résumé du CV) : une par candidature. */
 @Entity
 @Table(name = "demande_analyse")
 @Getter
@@ -42,7 +42,7 @@ public class DemandeAnalyse {
     /** Contexte de trace W3C reçu avec l'événement : l'analyse continuera la trace de la candidature (null : aucun). */
     private String traceparent;
 
-    /** Tentatives déjà commencées (phase 8 d). */
+    /** Tentatives déjà commencées. */
     @Column(nullable = false)
     private int tentatives;
 

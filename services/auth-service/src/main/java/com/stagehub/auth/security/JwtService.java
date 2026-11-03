@@ -59,7 +59,7 @@ public class JwtService {
     }
 
     /**
-     * Même jeton, pour un autre service authentifié par le flux client credentials (phase 8 c) : son identifiant
+     * Même jeton, pour un autre service authentifié par le flux client credentials : son identifiant
      * devient le sujet, ce qui permet à un service appelé de n'accepter qu'un appelant précis (ex. ai-service).
      */
     public JetonDeService jetonDeService(String sujet) {

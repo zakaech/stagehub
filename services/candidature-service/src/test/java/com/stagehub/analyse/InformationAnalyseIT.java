@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** GET /api/v1/etudiant/analyse-ia : fournisseur de l'analyse, pour le texte d'information de l'étudiant (spec §1). */
+/** GET /api/v1/etudiant/analyse-ia : fournisseur de l'analyse, pour le texte d'information de l'étudiant. */
 class InformationAnalyseIT extends IntegrationTestBase {
 
     private ApiDeTest api;

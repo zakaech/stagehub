@@ -105,7 +105,7 @@ volume `stagehub-ci_jenkins-home`.
 
 1. Copier `ci/recette.env.example` en `ci/recette.env` (fichier ignoré par git) et remplacer les valeurs `change-me`
    (`JWT_PRIVATE_KEY` : clé RSA d'auth-service, commande dans le fichier).
-   **À refaire quand de nouvelles variables apparaissent** (phase 7 : `AUTH_DB_PASSWORD`, `JWT_PRIVATE_KEY`, `NOTIFICATION_DB_PASSWORD`, `OFFRE_DB_PASSWORD`, `CANDIDATURE_DB_PASSWORD`, `AI_DB_PASSWORD`) :
+   **À refaire quand de nouvelles variables apparaissent** (par exemple `AUTH_DB_PASSWORD`, `JWT_PRIVATE_KEY`, `NOTIFICATION_DB_PASSWORD`, `OFFRE_DB_PASSWORD`, `CANDIDATURE_DB_PASSWORD`, `AI_DB_PASSWORD`) :
    compléter le fichier puis **Credentials → stagehub-env-recette → Update** pour téléverser la nouvelle version,
    **avant** de pousser le commit qui utilise la variable (sinon l'étape de recette échoue : build n° 8).
 2. **Add Credentials** : *Kind* **Secret file**, *File* `ci/recette.env`, *ID* `stagehub-env-recette`.
@@ -130,7 +130,7 @@ Jenkins le recopie dans un fichier temporaire pendant l'étape de déploiement s
 Microservices et frontend sont testés **en parallèle**. Dès qu'une étape échoue, les suivantes sont marquées *skipped* :
 aucune image n'est construite ni déployée à partir d'un code rouge.
 
-**Analyse par l'IA (phase 8) sans Ollama** : Jenkins ne télécharge ni n'exécute de modèle (3,8 Go d'image, plusieurs
+**Analyse par l'IA sans Ollama** : Jenkins ne télécharge ni n'exécute de modèle (3,8 Go d'image, plusieurs
 minutes par analyse sur processeur). Les tests d'ai-service remplacent le modèle par `ModeleSimule` (réponses prévues
 par le test, prompts conservés pour vérifier ce qui part au modèle), avec `spring.ai.model.chat=none` ; la recette
 tourne avec `IA_ACTIVE=false` (les analyses y restent « désactivées »). La validation avec le vrai modèle est faite à
@@ -143,7 +143,7 @@ la main : voir la section « Analyse des candidatures par l'IA » du README.
 - **Couverture services (JaCoCo)** : couverture globale, par package et ligne par ligne dans le code source
   (plugin *Coverage*). Le seuil, lui, est contrôlé par Maven : même règle en local et dans Jenkins.
 
-### Reconstruction sélective (phase 7 f)
+### Reconstruction sélective
 
 Avec huit services, tout retester et tout reconstruire à chaque commit prenait environ 15 minutes (build n° 10 :
 tests 8 min 51, images 3 min 50, recette 2 min 34). Le pipeline ne refait plus que ce qui a changé :

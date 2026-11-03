@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Refus de démarrer avec OpenAI actif et sans clé (spec §1, choix de l'auteur). */
+/** Refus de démarrer avec OpenAI actif et sans clé. */
 class FournisseurIaConfigTest {
 
     @Configuration(proxyBeanMethods = false)

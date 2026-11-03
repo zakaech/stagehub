@@ -40,7 +40,7 @@ export class AdminApi {
     );
   }
 
-  /** Phase 7 (c) : les statistiques viennent de deux services, chargées (et en erreur) séparément. */
+  /** Les statistiques viennent de deux services, chargées (et en erreur) séparément. */
   statistiquesOffres(): Observable<StatistiquesOffresResponse> {
     return this.http.get<StatistiquesOffresResponse>(`${API_URL}/admin/stats/offres`);
   }

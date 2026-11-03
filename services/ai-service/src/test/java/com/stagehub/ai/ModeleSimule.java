@@ -21,7 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Modèle simulé pour les tests (phase 8 d) : Jenkins n'a pas d'Ollama. Il renvoie les réponses prévues par le test,
+ * Modèle simulé pour les tests : Jenkins n'a pas d'Ollama. Il renvoie les réponses prévues par le test,
  * dans l'ordre, et garde les prompts reçus pour qu'on puisse vérifier ce que l'application envoie vraiment au modèle.
  * Options par défaut d'Ollama : comme le vrai, il accepte un schéma de sortie (sortie structurée native).
  */

@@ -50,7 +50,7 @@ class FermetureOffresIT extends IntegrationTestBase {
     }
 
     private Entreprise entreprise() {
-        // Phase 7 : l'id du profil est celui d'un compte d'auth-service (ici un id libre, sans compte)
+        // L'id du profil est celui d'un compte d'auth-service (ici un id libre, sans compte)
         Entreprise entreprise = new Entreprise();
         entreprise.setId(ApiDeTest.nouvelId());
         entreprise.setEmail("zz-fermeture@test.ma");

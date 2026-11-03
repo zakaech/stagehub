@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import java.util.List;
 
 /**
- * API interne d'offre-service (phase 8 d) : contenu de l'offre à comparer au CV. Même jeton de service que pour
+ * API interne d'offre-service : contenu de l'offre à comparer au CV. Même jeton de service que pour
  * candidature-service (ajouté par Spring Cloud OpenFeign), annuaire Eureka, traceparent.
  */
 @FeignClient(name = "offre-service", contextId = "offres")

@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /**
- * API interne de candidature-service (phase 8 c), trouvé dans l'annuaire Eureka. Chaque appel porte un jeton de
+ * API interne de candidature-service, trouvé dans l'annuaire Eureka. Chaque appel porte un jeton de
  * service au nom d'ai-service (ajouté par Spring Cloud OpenFeign : spring.cloud.openfeign.oauth2), seul jeton accepté
  * par cet endpoint.
  */

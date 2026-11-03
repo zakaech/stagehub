@@ -13,7 +13,7 @@ import org.springframework.util.backoff.ExponentialBackOff;
 import java.time.Duration;
 
 /**
- * Messages reçus en échec (phase 8 e, même règle que notification-service et ai-service) : quelques nouvelles
+ * Messages reçus en échec (même règle que notification-service et ai-service) : quelques nouvelles
  * tentatives espacées (base de données momentanément indisponible...), puis le topic « .DLT », même partition.
  * Un message illisible part tout de suite en « .DLT » : le rejouer ne le rendrait pas lisible.
  */

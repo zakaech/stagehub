@@ -36,7 +36,7 @@ export interface CandidatureEntrepriseResponse {
   lettreMotivation: string | null;
   statut: StatutCandidature;
   dateCandidature: string;
-  /** Analyse par l'IA (phase 8), indicative ; null pour une candidature antérieure à l'analyse. */
+  /** Analyse par l'IA, indicative ; null pour une candidature antérieure à l'analyse. */
   analyse: AnalyseIa | null;
   /** CV figé au moment de la candidature, téléchargeable par l'entreprise. */
   cvDisponible: boolean;
@@ -48,7 +48,7 @@ export interface CandidatureEntrepriseResponse {
  */
 export type StatutAnalyse = 'EN_ATTENTE' | 'EN_COURS' | 'TERMINEE' | 'ECHEC' | 'DESACTIVEE';
 
-/** Fournisseur qui analyse les CV (spec §1) : avec OpenAI, le CV quitte les serveurs de StageHub. */
+/** Fournisseur qui analyse les CV : avec OpenAI, le CV quitte les serveurs de StageHub. */
 export type FournisseurIa = 'OLLAMA' | 'OPENAI';
 
 /** Miroir de InformationAnalyseResponse (GET /etudiant/analyse-ia). */

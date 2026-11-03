@@ -1,4 +1,4 @@
-# Intégration continue de StageHub (phase 6) : Jenkins + un démon Docker séparé (Docker-in-Docker).
+# Intégration continue de StageHub : Jenkins + un démon Docker séparé (Docker-in-Docker).
 # Lancement depuis la racine du dépôt (les variables viennent du .env de la racine) :
 #
 #   docker compose -f ci/docker-compose.yml --env-file .env up -d --build

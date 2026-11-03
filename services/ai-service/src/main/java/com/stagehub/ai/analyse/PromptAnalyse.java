@@ -14,7 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Construit les deux messages envoyés au modèle (phase 8 d), à partir des fichiers {@code prompts/*.txt}.
+ * Construit les deux messages envoyés au modèle, à partir des fichiers {@code prompts/*.txt}.
  * <ul>
  *   <li><b>Délimitation</b> : le CV est placé entre deux balises qui contiennent une valeur aléatoire, différente à
  *       chaque analyse ; si le CV contient déjà ce texte, il est retiré. Un CV ne peut donc pas « fermer » la balise

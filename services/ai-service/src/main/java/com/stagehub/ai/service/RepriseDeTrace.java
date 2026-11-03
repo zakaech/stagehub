@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 
 /**
- * Reprend une trace enregistrée (en-tête W3C {@code traceparent}) pour exécuter un traitement différé (phase 8 d) :
+ * Reprend une trace enregistrée (en-tête W3C {@code traceparent}) pour exécuter un traitement différé :
  * l'analyse d'une candidature démarre dans une tâche planifiée, longtemps après la requête de l'étudiant. Un nouveau
  * span, enfant de celui de la candidature, porte le même traceId : les logs de l'analyse et l'événement publié
  * (l'outbox lit le contexte courant) se retrouvent avec la requête d'origine.

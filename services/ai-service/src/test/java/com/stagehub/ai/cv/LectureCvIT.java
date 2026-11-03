@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Lecture du CV de bout en bout (phase 8 c) : jeton de service demandé à auth-service (flux client credentials),
+ * Lecture du CV de bout en bout : jeton de service demandé à auth-service (flux client credentials),
  * puis CV lu dans candidature-service avec ce jeton, puis texte extrait. Les deux services sont simulés (WireMock) :
  * on vérifie exactement ce qu'ai-service leur envoie.
  */

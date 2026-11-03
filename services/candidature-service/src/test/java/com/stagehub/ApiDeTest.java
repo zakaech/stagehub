@@ -18,9 +18,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Raccourcis HTTP pour mettre en place les scénarios des tests d'intégration (profils, offre, candidature). Chaque
  * compte reçoit un id et un suffixe propres : les tests restent indépendants.
- * Phase 7 : les comptes sont dans auth-service. Ici, les profils étudiants sont créés par l'API interne (comme le fait
+ * Les comptes sont dans auth-service. Ici, les profils étudiants sont créés par l'API interne (comme le fait
  * auth-service à l'inscription) et les jetons sont signés par {@link JetonsDeTest}. Les entreprises et les offres sont
- * dans offre-service (phase 7 c) : une entreprise n'est plus qu'un jeton, ses offres sont déclarées dans
+ * dans offre-service : une entreprise n'est plus qu'un jeton, ses offres sont déclarées dans
  * {@link FauxOffreService}.
  */
 public class ApiDeTest {

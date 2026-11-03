@@ -151,7 +151,7 @@ public class OffreService {
                 .toList();
     }
 
-    /** Règle de propriété (spec §4.4) : 404 si l'offre n'existe pas, 403 si elle appartient à une autre entreprise. */
+    /** Règle de propriété : 404 si l'offre n'existe pas, 403 si elle appartient à une autre entreprise. */
     private Offre chargerOffreDeLEntreprise(Long entrepriseId, Long offreId) {
         Offre offre = offreRepository.findById(offreId).orElseThrow(() -> new OffreNotFoundException(offreId));
         if (!offre.appartientA(entrepriseId)) {
@@ -160,7 +160,7 @@ public class OffreService {
         return offre;
     }
 
-    /** Règle de l'entreprise en attente (spec §4.1) : 403 explicite tant que le compte n'est pas VALIDEE. */
+    /** Règle de l'entreprise en attente : 403 explicite tant que le compte n'est pas VALIDEE. */
     private Entreprise chargerEntrepriseValidee(Long entrepriseId) {
         Entreprise entreprise = entrepriseRepository.findById(entrepriseId)
                 .orElseThrow(() -> new EntrepriseNotFoundException(entrepriseId));

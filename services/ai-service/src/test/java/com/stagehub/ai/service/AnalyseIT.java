@@ -46,7 +46,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Analyse de bout en bout (phase 8 d), avec le modèle simulé : demande en attente → jeton de service → CV
+ * Analyse de bout en bout, avec le modèle simulé : demande en attente → jeton de service → CV
  * (candidature-service simulé) → offre (offre-service simulé) → modèle → outbox → Kafka. On vérifie ce qui part au
  * modèle, ce qui est publié, et que la trace de la candidature d'origine est continuée.
  */

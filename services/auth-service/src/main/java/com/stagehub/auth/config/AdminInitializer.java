@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
- * Pas d'inscription publique pour l'admin (spec §4.5) : le compte est créé au démarrage s'il n'existe pas encore,
+ * Pas d'inscription publique pour l'admin : le compte est créé au démarrage s'il n'existe pas encore,
  * directement ACTIF (il n'a pas de profil dans un autre service). Un compte existant n'est jamais modifié.
  */
 @Component

@@ -26,7 +26,7 @@ public class AuditService {
         this.clock = clock;
     }
 
-    /** Journal paginé d'un type d'entité (filtre obligatoire depuis la phase 7 : chaque service a son journal). */
+    /** Journal paginé d'un type d'entité (filtre obligatoire : chaque service a son journal). */
     @Transactional(readOnly = true)
     public PageResponse<AuditLogResponse> lister(String entite, Pageable pageable) {
         return PageResponse.of(auditLogRepository.findByEntite(entite, pageable), AuditLogResponse::de);

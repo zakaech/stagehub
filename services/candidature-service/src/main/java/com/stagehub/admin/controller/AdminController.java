@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Statistiques des candidatures (rôle ADMIN). Depuis la phase 7 (c), la validation des entreprises et les
+ * Statistiques des candidatures (rôle ADMIN). La validation des entreprises et les
  * statistiques des offres sont dans offre-service.
  */
 @RestController

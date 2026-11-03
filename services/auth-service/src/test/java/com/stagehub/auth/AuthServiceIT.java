@@ -357,7 +357,7 @@ class AuthServiceIT {
                 .content("{\"email\": \"%s\", \"motDePasse\": \"%s\"}".formatted(email, motDePasse)));
     }
 
-    // --- Jetons de service : flux OAuth2 client credentials (phase 8 c) ---
+    // --- Jetons de service : flux OAuth2 client credentials ---
 
     @Test
     void clientCredentials_jetonCourtSigneAuNomDuService() throws Exception {

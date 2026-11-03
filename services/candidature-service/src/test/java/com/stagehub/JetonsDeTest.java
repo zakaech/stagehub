@@ -52,7 +52,7 @@ public final class JetonsDeTest {
         return service("auth-service");
     }
 
-    /** Jeton de service au nom d'un service précis (flux client credentials d'auth-service, phase 8 c). */
+    /** Jeton de service au nom d'un service précis (flux client credentials d'auth-service). */
     public static String service(String sujet) {
         Instant maintenant = Instant.now();
         return signer(JwtClaimsSet.builder()

@@ -54,7 +54,7 @@ class AiServiceIT extends IntegrationTestBase {
     }
 
     /**
-     * Phase 8 (a) : le message porte le contexte de trace de la candidature (posé par l'outbox de candidature-service).
+     * Le message porte le contexte de trace de la candidature (posé par l'outbox de candidature-service).
      * Le traitement le continue (même traceId dans les logs) et la demande le conserve pour l'analyse.
      */
     @Test

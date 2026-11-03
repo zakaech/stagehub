@@ -1,7 +1,7 @@
 package com.stagehub.candidature.entity;
 
 /**
- * Machine à états d'une candidature (spec §4.2) :
+ * Machine à états d'une candidature :
  * EN_ATTENTE → ENTRETIEN | REFUSEE ; ENTRETIEN → ACCEPTEE | REFUSEE ; ACCEPTEE et REFUSEE sont finaux.
  */
 public enum StatutCandidature {

@@ -89,7 +89,7 @@ public class CvService {
     }
 
     /**
-     * CV figé d'une candidature, pour son analyse par ai-service (phase 8 c) : celui que l'entreprise télécharge.
+     * CV figé d'une candidature, pour son analyse par ai-service : celui que l'entreprise télécharge.
      * L'accès (sujet « ai-service ») est vérifié par SecurityConfig.
      */
     public CvTelechargement cvPourAnalyse(Long candidatureId) {

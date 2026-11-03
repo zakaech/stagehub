@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Appel au modèle de langage par Spring AI (phase 8 d) : un seul appel produit le score, la justification et le
+ * Appel au modèle de langage par Spring AI : un seul appel produit le score, la justification et le
  * résumé. Le fournisseur (Ollama en local, ou un autre) est choisi par la configuration, pas par ce code.
  * <ul>
  *   <li>sortie structurée « native » : le schéma JSON de {@link ReponseModele} est transmis au modèle, qui ne peut

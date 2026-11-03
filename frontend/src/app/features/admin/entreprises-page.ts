@@ -37,7 +37,7 @@ export function paramDeFiltreStatut(statut: StatutValidation | null): string | n
   return statut === 'EN_ATTENTE' ? null : statut;
 }
 
-/** Validation des comptes entreprise (spec §2, admin). Par défaut : les comptes en attente. */
+/** Validation des comptes entreprise (admin). Par défaut : les comptes en attente. */
 @Component({
   selector: 'app-entreprises-page',
   imports: [

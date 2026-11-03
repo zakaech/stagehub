@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Mise à jour d'une base existante (phase 8 e) : la base de la démo et celle de la recette contenaient déjà V1 et les
+ * Mise à jour d'une base existante : la base de la démo et celle de la recette contenaient déjà V1 et les
  * migrations des bibliothèques (V1000 à V1002) quand V2 est arrivée. Par défaut, Flyway refuse une version plus petite
  * que la dernière appliquée : candidature-service ne démarrait plus. Ce test rejoue ce cas dans un schéma neuf, avec
  * la configuration réelle du service (emplacements et {@code spring.flyway.out-of-order}).

@@ -7,16 +7,16 @@ services/*/target/
 # Jenkins : tags des images calculés à chaque build (ci/tags.sh)
 images.env
 
-# Angular / Node (phase 2)
+# Angular / Node
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/
 frontend/test-results/
 
-# Configuration de la recette Jenkins (secrets, téléversée dans les credentials Jenkins ; phase 6)
+# Configuration de la recette Jenkins (secrets, téléversée dans les credentials Jenkins)
 ci/recette.env
 
-# Fichiers uploadés (phase 3)
+# Fichiers uploadés
 uploads/
 
 # IDE

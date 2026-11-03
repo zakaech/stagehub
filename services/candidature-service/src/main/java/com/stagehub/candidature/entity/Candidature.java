@@ -37,7 +37,7 @@ public class Candidature {
     @JoinColumn(name = "etudiant_id", nullable = false)
     private Etudiant etudiant;
 
-    /** Id de l'offre, dans offre-service (plus de clé étrangère : autre base, depuis la phase 7 c). */
+    /** Id de l'offre, dans offre-service (pas de clé étrangère : autre base). */
     @Column(name = "offre_id", nullable = false, updatable = false)
     private Long offreId;
 
@@ -74,7 +74,7 @@ public class Candidature {
     @Column(name = "cv_fichier", updatable = false)
     private String cvFichier;
 
-    /** Analyse par l'IA (phase 8) : état reçu d'ai-service, puis score indicatif, justification, résumé du CV. */
+    /** Analyse par l'IA : état reçu d'ai-service, puis score indicatif, justification, résumé du CV. */
     @Embedded
     private AnalyseIa analyse = new AnalyseIa();
 

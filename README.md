@@ -9,8 +9,7 @@ JaCoCo), audit par AOP, emails par événements, tâches planifiées, traçage d
 candidatures par une IA** (Spring AI ; Ollama en local par défaut, OpenAI par configuration), présentée comme une aide
 indicative.
 
-> Le projet a commencé en monolithe Spring Boot (phases 1 à 6), découpé ensuite service par service. Le monolithe
-> complet reste consultable au tag [`v1.0-monolithe`](https://github.com/zakaech/stagehub/tree/v1.0-monolithe).
+> Une version monolithique antérieure reste consultable au tag [`v1.0-monolithe`](https://github.com/zakaech/stagehub/tree/v1.0-monolithe).
 
 ![Liste des offres avec filtres](docs/captures/offres.png)
 
@@ -170,11 +169,9 @@ flowchart LR
 
 Points de conception :
 
-- **Du monolithe aux microservices** (phase 7, pattern *strangler fig*) : une gateway (Spring Cloud Gateway) et un
-  annuaire (Eureka) ont d'abord été placés devant le monolithe, puis les services ont été extraits un par un derrière
-  la gateway, l'application restant utilisable à chaque étape : **auth-service** (comptes, connexion),
-  **notification-service** (emails), **offre-service** (offres, entreprises), **candidature-service** (étudiants, CV,
-  candidatures). Une base PostgreSQL et un rôle par service ; code technique commun dans `commons` et deux
+- **Microservices** : une gateway (Spring Cloud Gateway) et un annuaire (Eureka) servent de point d'entrée à
+  **auth-service** (comptes, connexion), **notification-service** (emails), **offre-service** (offres, entreprises),
+  **candidature-service** (étudiants, CV, candidatures). Une base PostgreSQL et un rôle par service ; code technique commun dans `commons` et deux
   bibliothèques (`outbox`, `audit`).
 - **JWT RS256** : seul auth-service détient la clé privée et signe les jetons ; la gateway et les services les vérifient
   avec sa clé publique (JWKS). La gateway vérifie et traite CORS, chaque service revérifie (défense en profondeur).
@@ -195,8 +192,7 @@ Points de conception :
   chaque erreur le renvoie : `docker compose logs | grep <traceId>` suit une candidature jusqu'à ai-service.
 - **Tâche planifiée sur plusieurs instances** : la fermeture nocturne des offres expirées est protégée par **ShedLock**
   (verrou en base) ; avec `--scale offre-service=2`, une seule instance l'exécute (vérifié).
-- **Packages par fonctionnalité** (`offre`, `candidature`, `cv`…), chacun avec ses couches : adopté dès le monolithe,
-  ce découpage a permis d'extraire chaque service presque sans réécriture.
+- **Packages par fonctionnalité** (`offre`, `candidature`, `cv`…), chacun avec ses couches.
 - **Sécurité** : JWT sans état (Spring Security resource server), rôles ETUDIANT / ENTREPRISE / ADMIN, règles de
   propriété dans les services (une entreprise n'agit que sur ses offres).
 - **Erreurs** : format standard ProblemDetail (RFC 9457) avec un `code` stable, y compris pour les 401/403.
@@ -359,7 +355,7 @@ aussi aux demandes en attente.
 
 ## Développement
 
-Depuis la phase 7, l'API est répartie entre plusieurs services : la pile complète tourne dans Docker, et on travaille
+L'API est répartie entre plusieurs services : la pile complète tourne dans Docker, et on travaille
 sur une partie à la fois.
 
 ```bash

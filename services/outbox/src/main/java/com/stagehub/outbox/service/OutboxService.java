@@ -14,7 +14,7 @@ import java.util.UUID;
  * Enregistre un événement à publier, <b>dans la transaction de l'action métier</b> (MANDATORY : appelé hors
  * transaction, il échoue). C'est ce qui règle le problème du « dual write » : on n'écrit plus dans deux systèmes
  * (PostgreSQL puis Kafka) sans transaction commune, mais dans un seul ; Kafka est alimenté ensuite par OutboxRelais.
- * Le contexte de trace de l'action est enregistré avec l'événement (phase 8 a), pour que son traitement par le
+ * Le contexte de trace de l'action est enregistré avec l'événement, pour que son traitement par le
  * consommateur garde le même traceId.
  */
 @Service

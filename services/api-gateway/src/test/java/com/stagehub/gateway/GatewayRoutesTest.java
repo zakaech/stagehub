@@ -257,7 +257,7 @@ class GatewayRoutesTest {
 
     @Test
     void jetonsDeService_jamaisDemandablesDeLExterieur() throws Exception {
-        // POST /oauth2/token (client credentials, phase 8 c) n'existe qu'entre services : aucune route ne le relaie
+        // POST /oauth2/token (client credentials) n'existe qu'entre services : aucune route ne le relaie
         HttpResponse<String> reponse = envoyer(requete("/oauth2/token")
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString("grant_type=client_credentials")));
@@ -395,7 +395,7 @@ class GatewayRoutesTest {
         assertThat(reponse.body()).contains("\"code\":\"DelaiDepasse\"");
     }
 
-    // --- Traçage (phase 8 a) ---
+    // --- Traçage ---
 
     @Test
     void traceRecue_transmiseAuServiceAvecLeMemeTraceId_etJournalisee(CapturedOutput sortie) throws Exception {

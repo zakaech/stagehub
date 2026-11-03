@@ -16,7 +16,7 @@ export const MOTIFS_ECHEC: Record<string, string> = {
 };
 
 /**
- * Cellule « Analyse IA » de la liste des candidatures (phase 8 e) : un affichage par état. Une fois l'analyse
+ * Cellule « Analyse IA » de la liste des candidatures : un affichage par état. Une fois l'analyse
  * terminée : score indicatif, comptage des technologies (« 3 sur 4 », calculé sans le modèle) et alertes, à côté
  * l'un de l'autre ; « Détails » ouvre la justification et le résumé.
  */

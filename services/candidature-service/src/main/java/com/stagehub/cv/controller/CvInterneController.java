@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * API interne (phase 8 c) : CV figé d'une candidature, lu par ai-service pour l'analyse. Réservée au sujet
+ * API interne : CV figé d'une candidature, lu par ai-service pour l'analyse. Réservée au sujet
  * « ai-service » (SecurityConfig), jamais exposée par la gateway, absente du Swagger public. Le PDF seul, sans nom
  * de fichier : ai-service n'a pas besoin du nom de l'étudiant.
  */

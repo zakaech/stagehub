@@ -13,7 +13,7 @@ Internet ──443/80──▶ Caddy (HTTPS) ──▶ Nginx (Angular + /api + /
 - **Alternative : Hetzner Cloud** (section [Plan B](#plan-b--hetzner-cloud)) — quelques euros par mois.
 
 > Toutes les images utilisées existent en **arm64** (vérifié le 2026-10-17) : postgres:17-alpine, mailpit, eclipse-temurin 21,
-> node:24-alpine, nginx-unprivileged, caddy, ainsi qu'ollama et kafka pour les phases 7 et 8. Sur un serveur ARM, les images
+> node:24-alpine, nginx-unprivileged, caddy, ainsi qu'ollama et kafka. Sur un serveur ARM, les images
 > des microservices et du frontend sont construites **sur le serveur**, donc directement en arm64.
 
 ---
@@ -155,7 +155,7 @@ nano .env
 | `DOMAINE` | `stagehub.duckdns.org` (à ajouter) |
 | `PUBLIC_URL` | `https://stagehub.duckdns.org` |
 | `DB_PASSWORD` | `openssl rand -base64 24` |
-| `AUTH_DB_PASSWORD` | `openssl rand -base64 24` (base d'auth-service, phase 7) |
+| `AUTH_DB_PASSWORD` | `openssl rand -base64 24` (base d'auth-service) |
 | `JWT_PRIVATE_KEY` | Clé privée d'auth-service (PKCS#8 en Base64), à sauvegarder : la perdre déconnecte tout le monde. Commande ci-dessous |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Compte admin (mot de passe fort) |
 | `COMPOSE_PROFILES` | `demo` pour la démo (comptes de démo créés par `demo-seeder`) ; vide pour une vraie production |
@@ -204,7 +204,7 @@ dc up -d --build        # reconstruit les images modifiées, recrée les contene
 docker image prune -f   # supprime les anciennes images inutilisées
 ```
 
-En phase 6, Jenkins automatisera ces étapes (images construites pour **arm64**).
+Le pipeline Jenkins peut automatiser ces étapes (images construites pour **arm64**).
 
 ---
 
@@ -229,8 +229,8 @@ ne protège pas d'une perte de la machine.
 ## 11. Points d'attention propres à Oracle Always Free
 
 - **Instances inactives récupérées** : Oracle peut arrêter une instance Always Free si, sur 7 jours, l'usage reste sous
-  20 % pour le CPU, le réseau **et** la mémoire (critère mémoire propre aux instances ARM). Avant la phase 8, StageHub
-  utilise ~1,5 Go sur 12 (≈ 12 %) : risque réel sur une démo peu visitée. Avec Ollama (phase 8, 3 à 4 Go), le critère
+  20 % pour le CPU, le réseau **et** la mémoire (critère mémoire propre aux instances ARM). Sans Ollama, StageHub
+  utilise ~1,5 Go sur 12 (≈ 12 %) : risque réel sur une démo peu visitée. Avec Ollama (3 à 4 Go), le critère
   mémoire est dépassé. Passer le compte en *Pay As You Go* (toujours gratuit dans les limites) est souvent cité comme
   évitant cette récupération — **à vérifier** dans la documentation Oracle.
 - **Limites** : rester à 2 OCPU / 12 Go au total ; au-delà, un compte gratuit voit ses instances arrêtées, un compte
@@ -244,8 +244,8 @@ ne protège pas d'une perte de la machine.
 Même procédure, avec trois différences :
 
 1. **Machine** : Cloud Console → *Add Server* → Ubuntu 24.04.
-   - **CAX21** (ARM, 4 vCPU, 8 Go) ou **CX33** (x86, 4 vCPU, 8 Go, ~8,5–9 € HT/mois en 2026) pour les phases 5 à 6 ;
-   - **CX43** (16 Go, ~16 € HT/mois) ou un CAX équivalent pour les phases 7–8 (microservices, Kafka, Ollama).
+   - **CAX21** (ARM, 4 vCPU, 8 Go) ou **CX33** (x86, 4 vCPU, 8 Go, ~8,5–9 € HT/mois en 2026) pour une démo sans Ollama ;
+   - **CX43** (16 Go, ~16 € HT/mois) ou un CAX équivalent pour la pile complète (microservices, Kafka, Ollama).
      Le redimensionnement se fait en quelques clics (*Rescale*).
 2. **Pare-feu réseau** : *Firewalls* → règles entrantes TCP 22 (votre IP), TCP 80, TCP 443, UDP 443 → appliquer au serveur.
    C'est l'équivalent des règles de la VCN Oracle ; ufw s'active ensuite comme à l'étape 3.2 (sans l'étape iptables
@@ -258,7 +258,7 @@ Même procédure, avec trois différences :
 
 ## Récapitulatif des coûts
 
-| | Phases 5–6 | Phases 7–8 (microservices, Kafka, Ollama) |
+| | Sans Ollama | Pile complète (microservices, Kafka, Ollama) |
 |---|---|---|
 | Oracle Always Free (2 OCPU, 12 Go ARM) | 0 € | 0 € (12 Go suffisent si les services restent sobres) |
 | Hetzner | ~9 €/mois (8 Go) | ~16 €/mois (16 Go) |

@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  * Format d'erreur commun à tous les services : ProblemDetail (RFC 9457) avec un champ {@code code} stable, et la liste
  * {@code erreurs} des champs invalides pour une validation échouée. Même format que le monolithe : le frontend ne voit
  * pas de différence. Chaque service l'active en déclarant une sous-classe annotée {@code @RestControllerAdvice}
- * (et peut y ajouter ses propres cas). Depuis la phase 8 (a), chaque erreur porte aussi le {@code traceId} de la requête.
+ * (et peut y ajouter ses propres cas). Chaque erreur porte aussi le {@code traceId} de la requête.
  */
 public abstract class ProblemDetailExceptionHandler extends ResponseEntityExceptionHandler {
 
@@ -132,7 +132,7 @@ public abstract class ProblemDetailExceptionHandler extends ResponseEntityExcept
     }
 
     /**
-     * Identifiant de trace de la requête (phase 8 a), placé dans le MDC par Micrometer Tracing : l'utilisateur peut le
+     * Identifiant de trace de la requête, placé dans le MDC par Micrometer Tracing : l'utilisateur peut le
      * communiquer, et on retrouve toutes les lignes de log de sa requête, dans tous les services. Absent si le service
      * n'a pas de traçage.
      */

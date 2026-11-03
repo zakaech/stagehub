@@ -27,7 +27,7 @@ import org.springframework.security.web.access.intercept.RequestAuthorizationCon
 @EnableWebSecurity
 public class SecurityConfig {
 
-    /** Seul service autorisé à lire le CV d'une candidature (analyse, phase 8 c) : sujet de son jeton de service. */
+    /** Seul service autorisé à lire le CV d'une candidature (analyse) : sujet de son jeton de service. */
     static final String SUJET_AI_SERVICE = "ai-service";
 
     @Bean

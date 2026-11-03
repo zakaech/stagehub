@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Parcours complet de candidature-service, sur un vrai PostgreSQL lancé par Testcontainers : inscription de
  * l'étudiant → candidature → traitement par l'entreprise → suivi par l'étudiant → statistiques.
- * Phase 7 : l'inscription et la connexion sont dans auth-service (profils créés ici par l'API interne, jetons signés
+ * L'inscription et la connexion sont dans auth-service (profils créés ici par l'API interne, jetons signés
  * par {@link JetonsDeTest}) ; les entreprises et les offres sont dans offre-service, remplacé ici par
  * {@link FauxOffreService} (leur parcours est testé dans offre-service).
  * Exécuté par Failsafe ({@code mvn verify}) grâce au suffixe IT.

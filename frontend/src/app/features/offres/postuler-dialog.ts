@@ -11,13 +11,13 @@ import { RouterLink } from '@angular/router';
 import { CandidatureApi } from '../../core/api/candidature.api';
 import { messageErreurChamp } from '../../shared/form-errors';
 
-/** Information de l'étudiant, modèle local (Ollama) : texte validé par l'auteur (phase 8). */
+/** Information de l'étudiant, modèle local (Ollama). */
 export const INFORMATION_ANALYSE_IA_LOCALE =
   'Pour aider l’entreprise à lire les candidatures, votre CV sera analysé par un modèle d’IA hébergé par ' +
   'StageHub : il ne quitte pas nos serveurs. L’entreprise verra un score indicatif et un résumé. Aucune décision ' +
   'n’est prise automatiquement.';
 
-/** Information de l'étudiant, OpenAI (spec §1) : le CV quitte nos serveurs. Texte validé par l'auteur. */
+/** Information de l'étudiant, OpenAI : le CV quitte nos serveurs. */
 export const INFORMATION_ANALYSE_IA_OPENAI =
   'Pour aider l’entreprise à lire les candidatures, votre CV sera analysé par un modèle d’IA d’OpenAI, un service ' +
   'externe : il sera envoyé à OpenAI pour cette analyse. Votre email et votre téléphone sont masqués avant ' +

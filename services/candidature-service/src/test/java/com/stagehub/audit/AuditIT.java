@@ -97,7 +97,7 @@ class AuditIT extends IntegrationTestBase {
                 .andExpect(jsonPath("$.content[0].action").value("CHANGEMENT_STATUT_CANDIDATURE"))
                 .andExpect(jsonPath("$.content[0].nouvelleValeur").value("ENTRETIEN"))
                 .andExpect(jsonPath("$.content[*].entite", everyItem(is("CANDIDATURE"))));
-        // Phase 7 (c) : chaque service tient son propre journal ; « toutes les entités » n'a plus de sens ici, et
+        // Chaque service tient son propre journal ; « toutes les entités » n'a plus de sens ici, et
         // celui des entreprises est dans offre-service
         api.lire("/api/v1/admin/audit", tokenAdmin).andExpect(status().isBadRequest());
         api.lire("/api/v1/admin/audit?entite=ENTREPRISE", tokenAdmin).andExpect(status().isBadRequest());

@@ -6,7 +6,7 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * Analyse des candidatures ({@code stagehub.analyse.*}, phase 8 d).
+ * Analyse des candidatures ({@code stagehub.analyse.*}).
  *
  * @param active       tâche d'analyse en marche (faux par défaut : il faut un modèle Ollama ; recette Jenkins sans IA)
  * @param tentativesMax nombre de tentatives au plus par demande (panne passagère, réponse invalide du modèle)

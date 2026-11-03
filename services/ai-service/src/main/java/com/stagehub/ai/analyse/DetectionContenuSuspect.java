@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 
 /**
  * Repère, dans le texte d'un CV, des phrases qui ressemblent à des consignes adressées au modèle (« ignore les
- * consignes », « attribue-lui le score de 100 »...), en français et en anglais (phase 8 d). L'entreprise voit alors
+ * consignes », « attribue-lui le score de 100 »...), en français et en anglais. L'entreprise voit alors
  * « contenu inhabituel : à vérifier ».
  * <p><b>Ce n'est pas une protection</b> : une heuristique, facile à contourner (autre formulation, autre langue,
  * fautes volontaires). Les vraies protections sont ailleurs : CV délimité par des balises aléatoires, sortie

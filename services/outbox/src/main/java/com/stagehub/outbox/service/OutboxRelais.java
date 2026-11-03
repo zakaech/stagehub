@@ -30,9 +30,9 @@ import java.util.concurrent.TimeUnit;
  *       repartent au prochain passage. Le service continue de fonctionner sans Kafka.</li>
  * </ul>
  * Désactivable ({@code stagehub.outbox.relais.actif=false}) : la plupart des tests n'ont pas de Kafka.
- * Bibliothèque partagée (phase 7) : chaque service qui publie des événements a sa table outbox (migration
+ * Bibliothèque partagée : chaque service qui publie des événements a sa table outbox (migration
  * {@code classpath:db/outbox}) et son relais.
- * <p>Traçage (phase 8 a) : le relais tourne dans son propre thread, hors de la requête d'origine. Il remet donc dans
+ * <p>Traçage : le relais tourne dans son propre thread, hors de la requête d'origine. Il remet donc dans
  * l'en-tête {@code traceparent} le contexte enregistré avec l'événement : le consommateur continue la même trace.
  */
 @Component

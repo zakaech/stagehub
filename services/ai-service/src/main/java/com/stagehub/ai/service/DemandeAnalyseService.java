@@ -15,7 +15,7 @@ import java.util.UUID;
 /**
  * Enregistre une demande d'analyse par candidature créée, <b>une seule fois</b> par événement (consommateur
  * idempotent, comme notification-service) : l'id de l'événement est inscrit dans la même transaction que la demande ;
- * s'il l'est déjà, le message est ignoré. En phase 8, l'analyse partira d'ici, en asynchrone : la candidature
+ * s'il l'est déjà, le message est ignoré. L'analyse part d'ici, en asynchrone : la candidature
  * n'attend pas le score.
  */
 @Service

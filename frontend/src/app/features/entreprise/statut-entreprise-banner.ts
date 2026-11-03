@@ -3,7 +3,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { StatutValidation } from '../../core/models/auth.models';
 
-/** Explique à une entreprise non validée pourquoi elle ne peut pas encore publier (spec §4.1). */
+/** Explique à une entreprise non validée pourquoi elle ne peut pas encore publier. */
 @Component({
   selector: 'app-statut-entreprise-banner',
   imports: [MatIconModule],

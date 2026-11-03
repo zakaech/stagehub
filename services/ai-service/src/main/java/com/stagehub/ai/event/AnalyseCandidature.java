@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * État de l'analyse d'une candidature (phase 8), publié par l'outbox dans {@code stagehub.candidature.analyse}
+ * État de l'analyse d'une candidature, publié par l'outbox dans {@code stagehub.candidature.analyse}
  * (clé = id de la candidature) à chaque changement : EN_COURS au début d'une tentative, EN_ATTENTE quand une nouvelle
  * tentative est programmée après une panne, puis TERMINEE ou ECHEC. Une seule clé, un seul topic : Kafka livre ces
  * états dans l'ordre. Lu par candidature-service, qui les affiche à l'entreprise. Autonome : tout ce qu'il faut pour

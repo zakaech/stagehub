@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Analyse des candidatures (phase 8 d), appelée par {@link TacheAnalyse} : une demande à la fois.
+ * Analyse des candidatures, appelée par {@link TacheAnalyse} : une demande à la fois.
  * <ol>
  *   <li><b>réservation</b>, transaction courte : la demande passe EN_COURS (verrou {@code SKIP LOCKED}) ;</li>
  *   <li><b>analyse hors transaction</b> (plusieurs minutes sur processeur) : CV, offre, comptage des technologies,
@@ -38,11 +38,11 @@ import java.util.Optional;
  *       l'outbox, ensemble ou pas du tout.</li>
  * </ol>
  * Chaque changement d'état (EN_COURS, EN_ATTENTE après une panne, TERMINEE, ECHEC) est publié dans
- * {@code stagehub.candidature.analyse} : candidature-service l'affiche à l'entreprise (phase 8 e).
+ * {@code stagehub.candidature.analyse} : candidature-service l'affiche à l'entreprise.
  * Panne passagère (modèle, réseau, réponse invalide) : nouvelle tentative plus tard, jusqu'au maximum, puis ECHEC.
  * CV absent ou illisible, offre disparue : ECHEC tout de suite (réessayer ne changerait rien).
  * Les étapes 1 et 3 passent par un {@link TransactionTemplate} et non par {@code @Transactional} : appelées depuis
- * cette même classe, des méthodes annotées ne passeraient pas par le proxy (piège de l'auto-invocation, phase 4).
+ * cette même classe, des méthodes annotées ne passeraient pas par le proxy (piège de l'auto-invocation).
  */
 @Service
 public class AnalyseCandidatureService {

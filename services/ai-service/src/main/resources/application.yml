@@ -27,7 +27,7 @@ spring:
       pool:
         # Deux threads pour les tâches @Scheduled (un seul par défaut) : l'analyse occupe le sien plusieurs minutes,
         # le relais de l'outbox (chaque seconde) doit continuer à tourner sur l'autre, sinon l'état EN_COURS ne
-        # partait qu'avec le résultat (constaté en phase 8 e).
+        # partait qu'avec le résultat (constaté).
         size: 2
   http:
     clients:
@@ -36,13 +36,13 @@ spring:
       read-timeout: 10m
   ai:
     model:
-      # Fournisseur du modèle (spec §1) : « ollama » (local, par défaut) ou « openai » ; « none » dans les tests
+      # Fournisseur du modèle : « ollama » (local, par défaut) ou « openai » ; « none » dans les tests
       # (modèle simulé). Seul le fournisseur choisi est activé ; le code d'analyse ne dépend d'aucun des deux
       chat: ${IA_FOURNISSEUR:ollama}
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       chat:
-        # Choisi en phase 8 b (mesures) : seul des deux modèles testés à résister à l'injection de consigne
+        # Choisi sur mesures : seul des deux modèles testés à résister à l'injection de consigne
         model: ${OLLAMA_MODEL:qwen3.5:4b}
         # Même entrée, même sortie autant que possible ; mode « réflexion » coupé (bien trop lent sur processeur)
         temperature: 0.0
@@ -71,7 +71,7 @@ spring:
   security:
     oauth2:
       client:
-        # Phase 8 c : jeton de service demandé à auth-service (flux client credentials) pour lire les CV dans
+        # Jeton de service demandé à auth-service (flux client credentials) pour lire les CV dans
         # candidature-service ; secret propre à ai-service (variable d'environnement, jamais dans le dépôt)
         registration:
           auth-service:
@@ -108,10 +108,10 @@ spring:
       # Texte brut : le JSON est lu par CandidatureCreeeListener (illisible → topic d'erreurs, sans nouvel essai)
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
-      # Traçage (phase 8 a) : le traitement d'un message continue la trace reçue dans l'en-tête traceparent
+      # Traçage : le traitement d'un message continue la trace reçue dans l'en-tête traceparent
       observation-enabled: true
     producer:
-      # Messages en échec (topic « .DLT ») et, depuis la phase 8 d, résultats des analyses (relais de l'outbox)
+      # Messages en échec (topic « .DLT ») et résultats des analyses (relais de l'outbox)
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
       acks: all

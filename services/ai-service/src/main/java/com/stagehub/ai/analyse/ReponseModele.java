@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Ce que le modèle doit renvoyer (phase 8 d). Spring AI en tire un schéma JSON, imposé au modèle (Ollama : paramètre
+ * Ce que le modèle doit renvoyer. Spring AI en tire un schéma JSON, imposé au modèle (Ollama : paramètre
  * {@code format}) : la réponse a forcément cette forme. Son contenu, lui, est revérifié par {@link #erreurs()} : un
  * schéma ne garantit ni les bornes du score ni la longueur des textes.
  */

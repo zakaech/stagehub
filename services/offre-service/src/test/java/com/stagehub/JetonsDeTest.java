@@ -22,7 +22,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import java.time.Instant;
 
 /**
- * Remplace auth-service dans les tests d'offre-service (phase 7) : une paire de clés RSA générée pour la durée des
+ * Remplace auth-service dans les tests d'offre-service : une paire de clés RSA générée pour la durée des
  * tests signe des jetons au format d'auth-service, et le décodeur du service est remplacé par un décodeur qui fait
  * confiance à cette clé publique (au lieu d'aller chercher le JWKS d'auth-service sur le réseau).
  */
@@ -52,7 +52,7 @@ public final class JetonsDeTest {
         return service("auth-service");
     }
 
-    /** Jeton de service au nom d'un service précis (flux client credentials d'auth-service, phase 8 c). */
+    /** Jeton de service au nom d'un service précis (flux client credentials d'auth-service). */
     public static String service(String sujet) {
         Instant maintenant = Instant.now();
         return signer(JwtClaimsSet.builder()

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Information de l'étudiant sur l'analyse de son CV (spec §1) : le dialogue de candidature affiche le texte du
+ * Information de l'étudiant sur l'analyse de son CV : le dialogue de candidature affiche le texte du
  * fournisseur configuré. Une valeur inconnue de {@code IA_FOURNISSEUR} empêche le démarrage (comme dans ai-service).
  */
 @RestController

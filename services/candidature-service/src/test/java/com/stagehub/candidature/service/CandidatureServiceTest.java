@@ -332,7 +332,7 @@ class CandidatureServiceTest {
 
             assertThat(page.content().getFirst().analyse().statut()).isEqualTo("DESACTIVEE");
             assertThat(page.content().getFirst().analyse().score()).isNull();
-            // Candidature antérieure à la phase 8 : jamais envoyée à l'analyse
+            // Candidature antérieure à l'analyse automatique : jamais envoyée à l'analyse
             assertThat(page.content().get(1).analyse()).isNull();
         }
     }

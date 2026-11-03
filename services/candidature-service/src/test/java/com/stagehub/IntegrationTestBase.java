@@ -25,7 +25,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
         "spring.kafka.listener.auto-startup=false"
 })
 @AutoConfigureMockMvc
-// Jetons signés par une clé de test à la place d'auth-service (phase 7)
+// Jetons signés par une clé de test à la place d'auth-service
 @Import(JetonsDeTest.Config.class)
 public abstract class IntegrationTestBase {
 

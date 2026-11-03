@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Analyse de la candidature par l'IA (phase 8 e), colonnes de la table candidature : dernier état reçu d'ai-service
+ * Analyse de la candidature par l'IA, colonnes de la table candidature : dernier état reçu d'ai-service
  * et, une fois TERMINEE, son résultat. Le score est indicatif ; rien ici ne change le statut de la candidature.
  */
 @Embeddable
@@ -21,7 +21,7 @@ import java.util.List;
 @Setter
 public class AnalyseIa {
 
-    /** Null : candidature antérieure à la phase 8, jamais envoyée à l'analyse. */
+    /** Null : candidature antérieure à l'analyse automatique, jamais envoyée à l'analyse. */
     @Enumerated(EnumType.STRING)
     @Column(name = "analyse_statut")
     private StatutAnalyse statut;
@@ -32,7 +32,7 @@ public class AnalyseIa {
     @Column(name = "analyse_prochaine_tentative")
     private Instant prochaineTentative;
 
-    /** Colonne prévue dès la phase 1 (spec) : score indicatif de 0 à 100. */
+    /** Score indicatif de 0 à 100. */
     @Column(name = "score_matching")
     private Integer score;
 

@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Lit le CV figé d'une candidature (candidature-service, API interne) et en extrait le texte (phase 8 c).
- * Une panne de candidature-service ou d'auth-service se propage : l'analyse sera retentée plus tard (phase 8 d).
+ * Lit le CV figé d'une candidature (candidature-service, API interne) et en extrait le texte.
+ * Une panne de candidature-service ou d'auth-service se propage : l'analyse sera retentée plus tard.
  * Un CV absent ou illisible, lui, ne changera pas : exceptions distinctes ({@link CvAbsentException},
  * {@link CvIllisibleException}).
  */

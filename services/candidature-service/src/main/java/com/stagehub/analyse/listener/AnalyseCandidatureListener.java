@@ -15,7 +15,7 @@ import java.util.Arrays;
 import java.util.UUID;
 
 /**
- * Point d'entrée Kafka (phase 8 e) : états de l'analyse publiés par ai-service. Lit l'id de l'événement (en-tête posé
+ * Point d'entrée Kafka : états de l'analyse publiés par ai-service. Lit l'id de l'événement (en-tête posé
  * par l'outbox) et le JSON, vérifie l'essentiel, puis délègue. Message illisible ou incomplet : topic « .DLT » sans
  * nouvel essai ; autre erreur : nouvelles tentatives (KafkaErreursConfig). Le traitement continue la trace reçue
  * (en-tête traceparent), celle de la candidature d'origine.

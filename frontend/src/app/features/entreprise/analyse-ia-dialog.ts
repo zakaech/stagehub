@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { AnalyseIa } from '../../core/models/candidature.models';
 
-/** Avertissement validé par l'auteur (phase 8) : affiché au-dessus des scores et dans le détail d'une analyse. */
+/** Avertissement affiché au-dessus des scores et dans le détail d'une analyse. */
 export const AVERTISSEMENT_SCORE =
   'Calculé automatiquement par un modèle d’IA à partir du CV et de l’offre, il peut se tromper et ne remplace pas la ' +
   'lecture du CV. Aucune décision n’est prise automatiquement : c’est vous qui choisissez.';

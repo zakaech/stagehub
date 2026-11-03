@@ -81,7 +81,7 @@ class NotificationIT {
         verify(mailSender, timeout(20_000)).send(argThat(pour(email, "Candidature acceptée")));
     }
 
-    /** Phase 8 (a) : l'email est envoyé dans la trace de l'action d'origine (traceId de l'en-tête traceparent). */
+    /** L'email est envoyé dans la trace de l'action d'origine (traceId de l'en-tête traceparent). */
     @Test
     void changementDeStatut_logDeLEmailAvecLeTraceIdDeLAction(CapturedOutput sortie) throws Exception {
         String email = destinataire();

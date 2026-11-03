@@ -7,7 +7,7 @@ export interface TechnologieStat {
   nombreOffres: number;
 }
 
-/** Partie « offres et entreprises » des statistiques (offre-service, phase 7 c). */
+/** Partie « offres et entreprises » des statistiques (offre-service). */
 export interface StatistiquesOffresResponse {
   nombreOffres: number;
   nombreOffresOuvertes: number;
@@ -21,7 +21,7 @@ export interface StatistiquesCandidaturesResponse {
   candidaturesParStatut: Record<StatutCandidature, number>;
 }
 
-/** Depuis la phase 7 (c), chaque service tient le journal de ses entités : le filtre est obligatoire. */
+/** Chaque service tient le journal de ses entités : le filtre est obligatoire. */
 export type EntiteAuditee = 'CANDIDATURE' | 'ENTREPRISE';
 export type ActionAudit = 'CHANGEMENT_STATUT_CANDIDATURE' | 'VALIDATION_ENTREPRISE';
 

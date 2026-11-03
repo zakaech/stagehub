@@ -3,7 +3,7 @@ package com.stagehub.analyse.dto;
 import java.util.Locale;
 
 /**
- * Fournisseur du modèle qui analyse les CV (spec §1), même valeur qu'ai-service ({@code IA_FOURNISSEUR}). Il décide du
+ * Fournisseur du modèle qui analyse les CV, même valeur qu'ai-service ({@code IA_FOURNISSEUR}). Il décide du
  * texte d'information montré à l'étudiant : avec OpenAI, le CV quitte nos serveurs.
  */
 public enum FournisseurIa {

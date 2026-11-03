@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Analyse de la candidature par l'IA, telle que l'entreprise la voit (phase 8 e). Jamais envoyée à l'étudiant.
+ * Analyse de la candidature par l'IA, telle que l'entreprise la voit. Jamais envoyée à l'étudiant.
  *
  * @param statut EN_ATTENTE, EN_COURS, TERMINEE, ECHEC, ou DESACTIVEE : en attente alors que l'IA est arrêtée
  *               (calculé à la lecture : rien à migrer quand on active ou arrête l'IA)
@@ -30,7 +30,7 @@ public record AnalyseIaResponse(
 
     static final String DESACTIVEE = "DESACTIVEE";
 
-    /** Null pour une candidature antérieure à la phase 8, jamais envoyée à l'analyse. */
+    /** Null pour une candidature antérieure à l'analyse automatique, jamais envoyée à l'analyse. */
     public static AnalyseIaResponse de(AnalyseIa analyse, boolean iaActive) {
         if (analyse == null || analyse.getStatut() == null) {
             return null;

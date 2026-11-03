@@ -5,7 +5,7 @@ import com.stagehub.candidature.entity.StatutCandidature;
 import java.util.Map;
 
 /**
- * Partie « candidatures » des statistiques de l'admin (phase 7 c). La page Angular la combine avec la partie
+ * Partie « candidatures » des statistiques de l'admin. La page Angular la combine avec la partie
  * « offres et entreprises », fournie par offre-service.
  */
 public record StatistiquesCandidaturesResponse(

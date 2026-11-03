@@ -105,7 +105,7 @@ class OffreServiceIT extends IntegrationTestBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.entrepriseId").value(entreprise.id()))
                 .andExpect(jsonPath("$.accepteCandidatures").value(true));
-        // Contenu de l'offre, lu par ai-service avec son jeton de service (phase 8 d)
+        // Contenu de l'offre, lu par ai-service avec son jeton de service
         api.appeler(get("/internal/offres/{id}", ouverte), JetonsDeTest.service("ai-service"), null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.description").isNotEmpty())

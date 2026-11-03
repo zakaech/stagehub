@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Profil étudiant. Sa clé primaire est l'id du compte, attribué par auth-service (phase 7) : l'id présent dans le
+ * Profil étudiant. Sa clé primaire est l'id du compte, attribué par auth-service : l'id présent dans le
  * JWT suffit pour retrouver l'étudiant. Plus de clé étrangère : les comptes sont dans une autre base.
  */
 @Entity

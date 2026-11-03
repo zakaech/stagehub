@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Enregistre l'état de l'analyse reçu d'ai-service dans la candidature (phase 8 e), une seule fois par événement
+ * Enregistre l'état de l'analyse reçu d'ai-service dans la candidature, une seule fois par événement
  * (consommateur idempotent : l'id est inscrit dans la même transaction). Rien ici ne touche au statut de la
  * candidature : le score est une aide, jamais une décision.
  * <ul>

@@ -55,7 +55,7 @@ public class EnregistrementCandidature {
         candidature.setEntrepriseNom(offre.entrepriseNom());
         candidature.setOffreVille(offre.ville());
         candidature.setLettreMotivation(request == null ? null : request.lettreMotivation());
-        // Phase 8 : envoyée à l'analyse par l'IA (événement CandidatureCreee ci-dessous) ; ai-service publiera la suite
+        // Envoyée à l'analyse par l'IA (événement CandidatureCreee ci-dessous) ; ai-service publiera la suite
         candidature.getAnalyse().setStatut(StatutAnalyse.EN_ATTENTE);
         Candidature enregistree;
         try {

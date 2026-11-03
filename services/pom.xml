@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <!--
-      POM parent des microservices (phase 7). Deux rôles :
+      POM parent des microservices. Deux rôles :
         - agrégateur : "./mvnw verify" depuis services/ construit et teste tous les modules ;
         - parent : versions (Spring Boot, Spring Cloud, bibliothèques) et plugins communs, déclarés une seule fois.
       Chaque service reste une application Spring Boot autonome (son jar, son image Docker, son déploiement).
@@ -21,7 +21,7 @@
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>stagehub-services</name>
-    <description>StageHub — microservices (phase 7)</description>
+    <description>StageHub — microservices</description>
 
     <modules>
         <module>commons</module>
@@ -44,7 +44,7 @@
         <jacoco.version>0.8.15</jacoco.version>
         <wiremock.version>3.13.2</wiremock.version>
         <springdoc.version>3.1.1</springdoc.version>
-        <!-- Lecture du texte des CV (ai-service, phase 8 c) -->
+        <!-- Lecture du texte des CV (ai-service) -->
         <pdfbox.version>3.0.8</pdfbox.version>
         <!-- Construit sur Spring Boot 4.1.1, le nôtre (la 2.0.2 suit Boot 4.1.2 : montée groupée plus tard) -->
         <spring-ai.version>2.0.1</spring-ai.version>
@@ -60,7 +60,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- BOM de Spring AI (ai-service, phase 8) : absent du BOM de Spring Boot, sa version est fixée ici -->
+            <!-- BOM de Spring AI (ai-service) : absent du BOM de Spring Boot, sa version est fixée ici -->
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
@@ -99,7 +99,7 @@
 
         <plugins>
             <!--
-              JaCoCo, hérité par tous les services : même règle que le monolithe (phase 4).
+              JaCoCo, hérité par tous les services.
               Tests unitaires + d'intégration fusionnés ; "mvn verify" échoue si un package *.service passe
               sous 80 % des lignes ou 70 % des branches. Rapport : <service>/target/site/jacoco/index.html.
             -->

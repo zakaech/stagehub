@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
 /**
- * Fournisseur du modèle (spec §1) : Ollama en local par défaut, OpenAI par la configuration ({@code IA_FOURNISSEUR=openai}).
+ * Fournisseur du modèle : Ollama en local par défaut, OpenAI par la configuration ({@code IA_FOURNISSEUR=openai}).
  * Vérifié au démarrage : avec OpenAI et l'analyse active, une clé d'API est obligatoire. Sans elle, le service refuse de
  * démarrer, plutôt que d'échouer à chaque analyse (401, nouvelles tentatives, puis « analyse impossible »).
  */

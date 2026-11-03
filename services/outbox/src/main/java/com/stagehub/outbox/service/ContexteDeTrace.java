@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Lit le contexte de trace courant (phase 8 a) au format W3C {@code traceparent} : version, traceId, id du span et
+ * Lit le contexte de trace courant au format W3C {@code traceparent} : version, traceId, id du span et
  * indicateur d'échantillonnage, ex. {@code 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01}. On passe par
  * le {@link Propagator} de Micrometer, celui qui écrit cet en-tête dans les requêtes HTTP : même format partout.
  * Sans traçage dans le service (ou hors de toute trace), renvoie null.

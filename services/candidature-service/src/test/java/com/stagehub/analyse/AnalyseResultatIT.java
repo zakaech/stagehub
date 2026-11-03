@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * États de l'analyse reçus d'ai-service par Kafka (phase 8 e), avec un vrai Kafka (Testcontainers) : enregistrés dans
+ * États de l'analyse reçus d'ai-service par Kafka, avec un vrai Kafka (Testcontainers) : enregistrés dans
  * la candidature, montrés à l'entreprise (jamais à l'étudiant), tri par score au choix, résultat orphelin ignoré,
  * message illisible envoyé dans le topic d'erreurs.
  */
@@ -124,7 +124,7 @@ class AnalyseResultatIT extends IntegrationTestBase {
         api.lire("/api/v1/entreprise/offres/{id}/candidatures?tri=score", entreprise.token(), offreId)
                 .andExpect(jsonPath("$.content[*].id",
                         contains(troisieme.intValue(), premiere.intValue(), deuxieme.intValue())));
-        // Sans paramètre : la plus récente d'abord, comme avant la phase 8
+        // Sans paramètre : la plus récente d'abord
         api.lire("/api/v1/entreprise/offres/{id}/candidatures", entreprise.token(), offreId)
                 .andExpect(jsonPath("$.content[*].id",
                         contains(troisieme.intValue(), deuxieme.intValue(), premiere.intValue())));

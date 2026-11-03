@@ -12,7 +12,7 @@
     <artifactId>audit</artifactId>
     <name>audit</name>
     <description>
-        Bibliothèque technique d'audit par AOP (phase 4) : annotation @Audite, journal écrit dans la transaction de
+        Bibliothèque technique d'audit par AOP : annotation @Audite, journal écrit dans la transaction de
         l'action, consultation par l'admin. Chaque service a son propre journal (table audit_log de sa base).
     </description>
 

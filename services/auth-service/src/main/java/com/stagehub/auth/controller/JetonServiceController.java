@@ -22,7 +22,7 @@ import java.util.Base64;
 import java.util.Map;
 
 /**
- * Point d'accès OAuth2 des jetons de service (RFC 6749, §4.4 « client credentials », phase 8 c). Un service
+ * Point d'accès OAuth2 des jetons de service (RFC 6749, §4.4 « client credentials »). Un service
  * s'authentifie avec {@code Authorization: Basic base64(identifiant:secret)} et {@code grant_type=client_credentials} ;
  * il reçoit un jeton court (5 min) signé par auth-service : sujet = son identifiant, rôle SERVICE.
  * <p>Format de réponse et d'erreur du standard (et non ProblemDetail) : c'est le client OAuth2 de Spring Security, dans

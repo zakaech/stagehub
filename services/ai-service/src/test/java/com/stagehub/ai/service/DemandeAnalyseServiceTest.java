@@ -56,7 +56,7 @@ class DemandeAnalyseServiceTest {
         assertThat(demande.getValue().getCvFichier()).isEqualTo("cv.pdf");
         assertThat(demande.getValue().getStatut()).isEqualTo(StatutAnalyse.EN_ATTENTE);
         assertThat(demande.getValue().getDateReception()).isEqualTo(MAINTENANT);
-        // Contexte de trace reçu avec l'événement, repris par l'analyse (phase 8 d)
+        // Contexte de trace reçu avec l'événement, repris par l'analyse
         assertThat(demande.getValue().getTraceparent()).isEqualTo(TRACEPARENT);
     }
 

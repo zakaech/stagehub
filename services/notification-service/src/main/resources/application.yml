@@ -29,7 +29,7 @@ spring:
       # Texte brut : le JSON est lu par EvenementsListener (erreur de lecture → topic d'erreurs, sans nouvel essai)
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     listener:
-      # Traçage (phase 8 a) : le traitement d'un message continue la trace de l'action qui l'a produit (en-tête
+      # Traçage : le traitement d'un message continue la trace de l'action qui l'a produit (en-tête
       # traceparent posé par l'outbox) ; l'en-tête est recopié tel quel dans les messages envoyés en « .DLT »
       observation-enabled: true
     producer:

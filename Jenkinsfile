@@ -1,4 +1,4 @@
-// Pipeline CI/CD de StageHub (phase 6), exécuté par le job multibranche « StageHub » de Jenkins pour
+// Pipeline CI/CD de StageHub, exécuté par le job multibranche « StageHub » de Jenkins pour
 // chaque branche du dépôt. Guide : docs/CI.md.
 //
 //   Préparation → Tests (services ∥ frontend) → Images → Déploiement recette (main)
@@ -6,7 +6,7 @@
 //
 // Toute étape en échec arrête le pipeline : les étapes suivantes sont sautées (« skipped »).
 //
-// Reconstruction sélective (phase 7 f) : seuls les modules modifiés depuis le dernier build réussi sont testés (avec
+// Reconstruction sélective : seuls les modules modifiés depuis le dernier build réussi sont testés (avec
 // ceux qui en dépendent), et seules les images dont le contenu a changé sont reconstruites (tag = empreinte du
 // contenu). Build complet : paramètre COMPLET, ou chaque jour vers midi sur main ; il reteste tout et reconstruit
 // toutes les images en retéléchargeant les images de base (--pull). Règles : ci/selection.sh, ci/tags.sh,
@@ -39,7 +39,7 @@ pipeline {
 
     environment {
         REGISTRE = 'ghcr.io/zakaech'
-        // Microservices construits depuis services/ (phase 7 ; le monolithe a été supprimé en sous-étape d)
+        // Microservices construits depuis services/
         SERVICES = 'discovery-server api-gateway auth-service notification-service offre-service candidature-service ai-service demo-seeder'
     }
 

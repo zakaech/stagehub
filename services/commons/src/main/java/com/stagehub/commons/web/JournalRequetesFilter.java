@@ -14,7 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 /**
- * Journal des requêtes (phase 8 a) : une ligne par requête reçue, avec la méthode, le chemin, le statut et la durée,
+ * Journal des requêtes : une ligne par requête reçue, avec la méthode, le chemin, le statut et la durée,
  * par exemple {@code POST /api/v1/etudiant/offres/3/candidatures → 201 en 245 ms}. Placé juste après le filtre
  * d'observation de Spring (ordre HIGHEST_PRECEDENCE + 1), il s'exécute dans la trace de la requête : la ligne porte
  * son traceId. Actif dans chaque service HTTP qui utilise commons (gateway, auth, offres, candidatures) : un appel

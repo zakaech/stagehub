@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * État de l'analyse d'une candidature, publié par ai-service dans {@code stagehub.candidature.analyse} (phase 8 e).
+ * État de l'analyse d'une candidature, publié par ai-service dans {@code stagehub.candidature.analyse}.
  * Copie du contrat, propre à ce service (pas de bibliothèque d'événements partagée) ; les champs inconnus du message
  * sont ignorés, ce qui permet à ai-service d'en ajouter sans casser ce lecteur. Booléens en {@code Boolean} : un champ
  * absent vaut faux (Jackson 3 refuse par défaut une valeur absente pour un {@code boolean} : le message partait en

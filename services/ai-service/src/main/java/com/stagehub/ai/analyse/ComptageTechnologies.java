@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Comptage déterministe (phase 8 d, demande de l'auteur) : quelles technologies de l'offre apparaissent dans le texte
+ * Comptage déterministe : quelles technologies de l'offre apparaissent dans le texte
  * du CV ? Sans le modèle, donc sans hasard ni influence d'une consigne cachée : un repère vérifiable, affiché à côté
  * du score (« 3 sur 4 »).
  * <ul>

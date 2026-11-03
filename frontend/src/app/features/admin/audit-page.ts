@@ -18,7 +18,7 @@ import { valeurConservee } from '../../shared/valeur-conservee';
 const ENTITES: EntiteAuditee[] = ['CANDIDATURE', 'ENTREPRISE'];
 
 /**
- * ?entite absent ou inconnu → candidatures (vue par défaut). Depuis la phase 7 (c), chaque service tient le journal
+ * ?entite absent ou inconnu → candidatures (vue par défaut). Chaque service tient le journal
  * de ses entités : il n'y a plus de vue « tout le journal ».
  */
 export function lireFiltreEntite(params: ParamMap): EntiteAuditee {

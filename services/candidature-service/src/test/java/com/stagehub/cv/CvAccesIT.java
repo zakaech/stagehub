@@ -154,7 +154,7 @@ class CvAccesIT extends IntegrationTestBase {
 
     // --- Mise en place ---
 
-    // --- Lecture par ai-service pour l'analyse (phase 8 c) ---
+    // --- Lecture par ai-service pour l'analyse ---
 
     @Test
     void aiService_litLeCvFigeDeLaCandidature_sansNomDeFichier() throws Exception {
