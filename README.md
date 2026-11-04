@@ -26,7 +26,7 @@ indicative.
 - [Stack technique](#stack-technique)
 - [Développement](#développement)
 - [Tests et qualité](#tests-et-qualité)
-- [Intégration continue (Jenkins)](#intégration-continue-jenkins)
+- [Intégration continue](#intégration-continue)
 - [Déploiement](#déploiement)
 - [Structure du dépôt](#structure-du-dépôt)
 
@@ -393,20 +393,24 @@ npm run format:check          # formatage Prettier
 
 ---
 
-## Intégration continue (Jenkins)
+## Intégration continue
 
-Jenkins tourne dans Docker (http://localhost:8085) et surveille le dépôt GitHub toutes les 2 minutes. Pour chaque
-branche, le [Jenkinsfile](Jenkinsfile) enchaîne :
+L'intégration continue repose uniquement sur **Jenkins**, qui tourne dans Docker (http://localhost:8085) et surveille
+le dépôt GitHub toutes les 2 minutes. Pour chaque branche, le [Jenkinsfile](Jenkinsfile) enchaîne ces étapes :
 
-1. **Tests** des microservices (`mvn verify` : unitaires, intégration Testcontainers, seuils JaCoCo) et du frontend (Prettier,
-   Vitest), en parallèle ; rapports JUnit et couverture publiés dans Jenkins ;
-2. **Images Docker** avec buildx : amd64 sur les branches de travail, **amd64 + arm64** sur `main` (serveur ARM) ;
-   **reconstruction sélective** : seuls les modules modifiés depuis le dernier build réussi sont testés (avec ceux qui
-   en dépendent), et seules les images dont le contenu a changé sont reconstruites (tag = empreinte du contenu) ;
-3. sur `main` : **déploiement de recette** avec docker compose (http://localhost:8095) et test de fumée ;
-4. prévu, désactivé : publication sur GHCR et déploiement distant par SSH (identifiants dans les credentials Jenkins).
+| Étape | Branches | Rôle |
+|---|---|---|
+| **Préparation** | toutes | Choisit les plateformes (amd64 ; **amd64 + arm64** sur `main`), sélectionne les modules modifiés depuis le dernier build réussi et calcule le tag de chaque image (empreinte de son contenu) |
+| **Tests : Services** | toutes | `mvn verify` sur les modules sélectionnés et ceux qui en dépendent : tests unitaires, tests d'intégration Testcontainers, seuils JaCoCo ; rapports JUnit et couverture publiés dans Jenkins |
+| **Tests : Frontend** | toutes, si `frontend/` a changé | En parallèle des services : `npm ci`, Prettier, Vitest ; rapport JUnit publié dans Jenkins |
+| **Images** | toutes | Construit avec buildx les images dont le tag n'existe pas encore |
+| **Déploiement recette** | `main` | `docker compose up --wait` (http://localhost:8095), données de démo créées par l'API, test de fumée à travers Nginx et la gateway |
+| **Publication GHCR** | `main`, désactivée par défaut | Publie les images ; seulement avec le paramètre `DEPLOIEMENT_DISTANT` |
+| **Déploiement distant** | `main`, désactivée par défaut | Déploie sur le serveur par SSH ; seulement avec le paramètre `DEPLOIEMENT_DISTANT` |
 
-Un test en échec ou une couverture sous le seuil arrête le pipeline : rien n'est construit ni déployé.
+Toute étape en échec arrête le pipeline : un test rouge ou une couverture sous le seuil, et rien n'est construit ni
+déployé. Un **build complet** (paramètre `COMPLET`, ou chaque jour vers midi sur `main`) reteste tout et reconstruit
+toutes les images en retéléchargeant les images de base.
 
 ```bash
 docker compose -f ci/docker-compose.yml --env-file .env up -d --build    # Jenkins + démon Docker dédié (DinD)
@@ -416,7 +420,7 @@ Mise en place (token GitHub, credentials), choix techniques et dépannage : [doc
 
 | Pipeline en échec | Pipeline vert | Couverture (JaCoCo) |
 |---|---|---|
-| ![Pipeline en échec](docs/captures/jenkins-echec-test.png) | ![Pipeline vert](docs/captures/jenkins-vert.png) | ![Couverture JaCoCo](docs/captures/jenkins-couverture.png) |
+| ![Pipeline en échec](docs/captures/jenkins-echec-test.png) | ![Pipeline Jenkins au vert](docs/screenshots/jenkins.png) | ![Couverture JaCoCo](docs/captures/jenkins-couverture.png) |
 | Un test rouge arrête le pipeline : images et déploiement sautés | `main` : toutes les étapes, jusqu'au déploiement de recette | Rapport de couverture publié à chaque build |
 
 ---
